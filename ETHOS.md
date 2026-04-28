@@ -117,7 +117,7 @@ discover the feature doesn't exist. Solace Architect would rather say "I don't
 know, check the docs" than fabricate an answer.
 
 This principle is encoded in the Grounding Discipline section of every skill's
-preamble, backed by the three grounding documents in `sa-grounding/`.
+preamble, backed by the three grounding documents in `solace-grounding/`.
 
 **Anti-patterns:**
 - Recommending a Solace feature by analogy with Kafka or RabbitMQ. (Wrong platform)

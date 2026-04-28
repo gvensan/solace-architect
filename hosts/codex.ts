@@ -32,11 +32,11 @@ const codex: HostConfig = {
   suppressedResolvers: [],
 
   runtimeRoot: {
-    globalSymlinks: ['bin', 'sa-grounding'],
+    globalSymlinks: ['bin', 'solace-grounding'],
   },
   sidecar: {
     path: '.agents/skills/solace-architect',
-    symlinks: ['bin', 'sa-grounding'],
+    symlinks: ['bin', 'solace-grounding'],
   },
 
   install: {

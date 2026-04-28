@@ -26,7 +26,7 @@ const claude: HostConfig = {
   suppressedResolvers: [],
 
   runtimeRoot: {
-    globalSymlinks: ['bin', 'sa-grounding', 'ETHOS.md'],
+    globalSymlinks: ['bin', 'solace-grounding', 'ETHOS.md'],
   },
 
   install: {

@@ -17,7 +17,7 @@ function buildHostPaths(): Record<string, HostPaths> {
       skillRoot: root,
       localSkillRoot: config.localSkillRoot,
       binDir: `${root}/bin`,
-      groundingDir: `${root}/sa-grounding`,
+      groundingDir: `${root}/solace-grounding`,
     };
   }
   return paths;
