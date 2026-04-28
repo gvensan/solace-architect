@@ -268,11 +268,9 @@ References outside Solace that the platform's architecture depends on. Skills ge
 
 ## External project references
 
-### gStack (the fork basis for Solace Architect)
+### Solace Architect
 
-- Repository: `https://github.com/garrytan/gstack`
-
-(When the fork happens, add the Solace Architect repo here as well.)
+- Repository: `https://github.com/solacecommunity/solace-architect`
 
 ---
 

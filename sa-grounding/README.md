@@ -18,9 +18,9 @@ The toolkit is anchored to event-driven architecture broadly, not to Solace Agen
 
 ## How it's built
 
-Solace Architect is a fork of [gStack](https://github.com/garrytan/gstack) with the skill layer replaced. gStack's skills encode cognitive roles (CEO, eng manager, QA). Solace Architect's encode Solace domain expertise. The fork inherits gStack's infrastructure — Conductor for parallel sessions, the slash-command framework, the skill-loading model — and swaps the content layer.
+Solace Architect uses a template pipeline that generates host-adapted SKILL.md files from `.tmpl` templates. The pipeline resolves placeholders, applies per-host transforms (frontmatter, path rewrites, tool name translations), and enforces consistent Solace terminology and grounding discipline across all generated skills.
 
-Forking lets the project start with proven infrastructure and focus on the part that matters: the expertise.
+The template infrastructure supports 10 AI coding agent hosts (Claude Code, Codex, Factory, Kiro, OpenCode, Slate, Cursor, OpenClaw, Hermes, GBrain).
 
 ## Project layout
 
@@ -29,26 +29,15 @@ Four documents anchor the work, each with a distinct job:
 1. `solace-platform-reference.md` is the in-scope coverage map. It defines what capabilities Solace Architect is accountable to know about, organized into the Solace Platform's three layers (Event Mesh, Application Services, Platform Services) plus cross-cutting concerns.
 2. `solace-canonical-sources.md` is the URL-by-topic retrieval index. When a skill needs depth, this is where it learns where to fetch from.
 3. `solace-reference-architectures.md` holds worked examples of how Solace components compose to solve real architectural problems. Three patterns to start: a multi-system AI assistant, real-time market data distribution, and a hybrid IT/OT manufacturing event mesh.
-4. The project's **Instructions** field carries identity, accuracy discipline, voice, and naming conventions that govern every skill output. It is the operational document; the three reference files are the substantive ones.
+4. `claude-instructions.md` carries identity, accuracy discipline, voice, and naming conventions that govern every skill output.
 
-Read in that order if you're new. The platform reference orients you to the surface. The canonical sources tell you where to read for depth. The reference architectures show how the surface composes for real problems. The Instructions govern how skills behave on top of all of it.
+Read in that order if you're new. The platform reference orients you to the surface. The canonical sources tell you where to read for depth. The reference architectures show how the surface composes for real problems. The instructions govern how skills behave on top of all of it.
 
 ## Current state
 
-Early scoping. The four grounding documents exist. The gStack fork has not yet been executed; no skill files exist yet. The first real test of this groundwork will be the first skill drafted against it.
+Early development. The template pipeline is operational. The discovery skill (`/solace-discovery`) is shipped. The grounding documents are in place. More skills are planned across the remaining four categories.
 
-The bank chat agent is the working example for prototyping and validation. When skills exist, they will be exercised against that example first.
-
-## Open questions
-
-A few things are pending stakeholder review. Captured here so they don't disappear:
-
-1. The Gateway-to-Entrypoint terminology transition. Project notes indicate user-facing prose is moving to "Entrypoint"; the current published SAM documentation still uses "Gateway." Resolution will affect any skill output that names SAM components.
-2. The "GDK" (Gateway Development Kit) terminology. Named explicitly in current SAM architecture documentation; project history flags the term as having a complicated past.
-3. Distribution model. Personal repository versus Solace open-source organization has not been decided.
-4. The name "Solace Architect" itself is a working title until confirmed.
-
-These do not block continued work on skills and grounding. They block external publication of content that depends on them.
+The bank chat agent is the working example for prototyping and validation. When new skills are drafted, they are exercised against that example first.
 
 ## Working principles
 
@@ -57,7 +46,7 @@ Two rules govern any contribution to the project, whether human or skill-generat
 1. **Strict grounding in Solace.** Every claim, capability, and architectural recommendation grounds in `docs.solace.com`, `solacelabs.github.io`, the SolaceLabs GitHub organization, or the Solace Integration Hub. No reasoning by analogy from Kafka, RabbitMQ, MuleSoft, AWS messaging, or any other vendor or open-source system. Cross-platform comparisons are appropriate only when a Solace source explicitly addresses them.
 2. **Accuracy over fluency.** Solace's specific terminology is non-negotiable. Micro-Integration, not "connector." Direct messaging and Guaranteed messaging, not generic "QoS levels." Inferred or unverified claims are flagged as such, never presented as fact.
 
-The full conventions, including voice principles for any external-facing content, live in the project Instructions.
+The full conventions, including voice principles for any external-facing content, live in `claude-instructions.md`.
 
 ---
 
