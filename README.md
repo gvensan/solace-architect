@@ -70,7 +70,7 @@ Each host gets adapted SKILL.md files with appropriate frontmatter, path rewrite
 
 ## Grounding documents
 
-The `sa-grounding/` directory contains the authoritative source material:
+The `solace-grounding/` directory contains the authoritative source material:
 
 | Document | Purpose |
 |----------|---------|

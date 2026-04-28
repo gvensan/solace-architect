@@ -21,7 +21,7 @@ bun run dev:skill    # watch mode: auto-regen + validate on change
 ## Grounding documents
 
 All architectural recommendations must be grounded in Solace documentation.
-The authoritative sources live in `sa-grounding/`:
+The authoritative sources live in `solace-grounding/`:
 
 | Document | Purpose |
 |----------|---------|
@@ -95,7 +95,7 @@ solace-architect/
 │   ├── dev-skill.ts         # Watch mode
 │   ├── models.ts            # Model registry
 │   └── jargon-list.json     # EDA/Solace jargon (68 terms)
-├── sa-grounding/       # Solace platform grounding documents
+├── solace-grounding/   # Solace platform grounding documents
 │   ├── solace-platform-reference.md
 │   ├── solace-canonical-sources.md
 │   ├── solace-reference-architectures.md

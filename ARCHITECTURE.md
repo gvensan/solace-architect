@@ -103,7 +103,7 @@ Each generator in `scripts/resolvers/preamble/` produces one section:
 
 ## Grounding documents
 
-The `sa-grounding/` directory contains the authoritative source material that every skill references:
+The `solace-grounding/` directory contains the authoritative source material that every skill references:
 
 | Document | Role |
 |----------|------|
@@ -236,7 +236,7 @@ The dependency map in `generate-dependency-enforcement.ts` ensures skills check 
 
 ### Antipattern library
 
-`sa-grounding/antipatterns.md` extracts all antipatterns from the reference architectures into a single categorized reference. Every technical domain skill and the validation skill checks output against this library before writing artifacts.
+`solace-grounding/antipatterns.md` extracts all antipatterns from the reference architectures into a single categorized reference. Every technical domain skill and the validation skill checks output against this library before writing artifacts.
 
 ## What's intentionally not here
 

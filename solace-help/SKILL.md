@@ -26,10 +26,10 @@ echo "SKILL: solace-help"
 
 Every claim, capability, configuration, and architectural recommendation must be grounded in Solace documentation. The authoritative sources are:
 
-1. **Platform reference:** `~/.claude/skills/solace-architect/sa-grounding/solace-platform-reference.md` — the in-scope coverage map. What Solace Architect is accountable to know about.
-2. **Canonical sources:** `~/.claude/skills/solace-architect/sa-grounding/solace-canonical-sources.md` — URL-by-topic retrieval index. When you need depth, fetch from these URLs.
-3. **Reference architectures:** `~/.claude/skills/solace-architect/sa-grounding/solace-reference-architectures.md` — worked examples of how Solace components compose.
-4. **Antipatterns:** `~/.claude/skills/solace-architect/sa-grounding/antipatterns.md` — known mistakes organized by category. Check output against this before writing artifacts.
+1. **Platform reference:** `~/.claude/skills/solace-architect/solace-grounding/solace-platform-reference.md` — the in-scope coverage map. What Solace Architect is accountable to know about.
+2. **Canonical sources:** `~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md` — URL-by-topic retrieval index. When you need depth, fetch from these URLs.
+3. **Reference architectures:** `~/.claude/skills/solace-architect/solace-grounding/solace-reference-architectures.md` — worked examples of how Solace components compose.
+4. **Antipatterns:** `~/.claude/skills/solace-architect/solace-grounding/antipatterns.md` — known mistakes organized by category. Check output against this before writing artifacts.
 
 ### Rules
 
@@ -90,11 +90,11 @@ Inside the SAM project (`github.com/SolaceLabs/solace-agent-mesh`): user-facing 
 
 Before generating any Solace architecture recommendation:
 
-1. **Platform reference first.** Read the relevant section of `~/.claude/skills/solace-architect/sa-grounding/solace-platform-reference.md` to confirm the capability exists and understand its scope.
-2. **Verify before citing.** Before citing a Solace capability, verify it exists in the platform reference or canonical sources index (`~/.claude/skills/solace-architect/sa-grounding/solace-canonical-sources.md`). Do not cite from training data alone.
-3. **Match reference architectures.** Before recommending an architecture pattern, check whether the problem matches a known pattern in `~/.claude/skills/solace-architect/sa-grounding/solace-reference-architectures.md`.
+1. **Platform reference first.** Read the relevant section of `~/.claude/skills/solace-architect/solace-grounding/solace-platform-reference.md` to confirm the capability exists and understand its scope.
+2. **Verify before citing.** Before citing a Solace capability, verify it exists in the platform reference or canonical sources index (`~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md`). Do not cite from training data alone.
+3. **Match reference architectures.** Before recommending an architecture pattern, check whether the problem matches a known pattern in `~/.claude/skills/solace-architect/solace-grounding/solace-reference-architectures.md`.
 4. **Fetch for depth.** When a skill needs depth on a specific topic, fetch from the URL listed in the canonical sources index rather than reasoning from training data. The fetch is cheap. The error from a stale or invented detail is not.
-5. **Check antipatterns.** Before finalizing any artifact, review `~/.claude/skills/solace-architect/sa-grounding/antipatterns.md` for known mistakes relevant to the current design.
+5. **Check antipatterns.** Before finalizing any artifact, review `~/.claude/skills/solace-architect/solace-grounding/antipatterns.md` for known mistakes relevant to the current design.
 
 ## Artifact Validation
 
@@ -343,7 +343,7 @@ No active project. To get started:
 Print:
 
 ```
-Grounding Documents (sa-grounding/):
+Grounding Documents (solace-grounding/):
 
   solace-platform-reference.md       What Solace Architect knows: the coverage map
   solace-canonical-sources.md        URL-by-topic index for fetching Solace docs

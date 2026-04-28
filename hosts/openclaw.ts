@@ -48,7 +48,7 @@ const openclaw: HostConfig = {
   suppressedResolvers: [],
 
   runtimeRoot: {
-    globalSymlinks: ['bin', 'sa-grounding'],
+    globalSymlinks: ['bin', 'solace-grounding'],
   },
 
   install: {

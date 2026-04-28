@@ -30,10 +30,10 @@ echo "SKILL: solace-architect"
 
 Every claim, capability, configuration, and architectural recommendation must be grounded in Solace documentation. The authoritative sources are:
 
-1. **Platform reference:** `~/.claude/skills/solace-architect/sa-grounding/solace-platform-reference.md` — the in-scope coverage map. What Solace Architect is accountable to know about.
-2. **Canonical sources:** `~/.claude/skills/solace-architect/sa-grounding/solace-canonical-sources.md` — URL-by-topic retrieval index. When you need depth, fetch from these URLs.
-3. **Reference architectures:** `~/.claude/skills/solace-architect/sa-grounding/solace-reference-architectures.md` — worked examples of how Solace components compose.
-4. **Antipatterns:** `~/.claude/skills/solace-architect/sa-grounding/antipatterns.md` — known mistakes organized by category. Check output against this before writing artifacts.
+1. **Platform reference:** `~/.claude/skills/solace-architect/solace-grounding/solace-platform-reference.md` — the in-scope coverage map. What Solace Architect is accountable to know about.
+2. **Canonical sources:** `~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md` — URL-by-topic retrieval index. When you need depth, fetch from these URLs.
+3. **Reference architectures:** `~/.claude/skills/solace-architect/solace-grounding/solace-reference-architectures.md` — worked examples of how Solace components compose.
+4. **Antipatterns:** `~/.claude/skills/solace-architect/solace-grounding/antipatterns.md` — known mistakes organized by category. Check output against this before writing artifacts.
 
 ### Rules
 
@@ -94,11 +94,11 @@ Inside the SAM project (`github.com/SolaceLabs/solace-agent-mesh`): user-facing 
 
 Before generating any Solace architecture recommendation:
 
-1. **Platform reference first.** Read the relevant section of `~/.claude/skills/solace-architect/sa-grounding/solace-platform-reference.md` to confirm the capability exists and understand its scope.
-2. **Verify before citing.** Before citing a Solace capability, verify it exists in the platform reference or canonical sources index (`~/.claude/skills/solace-architect/sa-grounding/solace-canonical-sources.md`). Do not cite from training data alone.
-3. **Match reference architectures.** Before recommending an architecture pattern, check whether the problem matches a known pattern in `~/.claude/skills/solace-architect/sa-grounding/solace-reference-architectures.md`.
+1. **Platform reference first.** Read the relevant section of `~/.claude/skills/solace-architect/solace-grounding/solace-platform-reference.md` to confirm the capability exists and understand its scope.
+2. **Verify before citing.** Before citing a Solace capability, verify it exists in the platform reference or canonical sources index (`~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md`). Do not cite from training data alone.
+3. **Match reference architectures.** Before recommending an architecture pattern, check whether the problem matches a known pattern in `~/.claude/skills/solace-architect/solace-grounding/solace-reference-architectures.md`.
 4. **Fetch for depth.** When a skill needs depth on a specific topic, fetch from the URL listed in the canonical sources index rather than reasoning from training data. The fetch is cheap. The error from a stale or invented detail is not.
-5. **Check antipatterns.** Before finalizing any artifact, review `~/.claude/skills/solace-architect/sa-grounding/antipatterns.md` for known mistakes relevant to the current design.
+5. **Check antipatterns.** Before finalizing any artifact, review `~/.claude/skills/solace-architect/solace-grounding/antipatterns.md` for known mistakes relevant to the current design.
 
 ## Artifact Validation
 
@@ -467,7 +467,7 @@ and the three-layer platform model: Event Mesh, Application Services, and Platfo
 
 1. **Understand the problem first.** Ask what the user is building, what systems need to communicate, what the reliability and latency requirements are, and what their deployment topology looks like.
 
-2. **Ground every claim.** Before asserting a capability, check the grounding documents at `~/.claude/skills/solace-architect/sa-grounding`. When you need depth beyond the reference, fetch the canonical URL from `~/.claude/skills/solace-architect/sa-grounding/solace-canonical-sources.md`.
+2. **Ground every claim.** Before asserting a capability, check the grounding documents at `~/.claude/skills/solace-architect/solace-grounding`. When you need depth beyond the reference, fetch the canonical URL from `~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md`.
 
 3. **Be concrete.** Name the broker type, the topic structure, the delivery mode, the protocol, the Micro-Integration, the deployment topology. Abstract advice is not architecture.
 
@@ -482,7 +482,7 @@ platform reference alone, fetch the canonical URL. The fetch is cheap. The error
 a stale or invented detail is not.
 
 ```bash
-cat ~/.claude/skills/solace-architect/sa-grounding/solace-canonical-sources.md
+cat ~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md
 ```
 
 Find the URL for the topic, then fetch it for current details.
