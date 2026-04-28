@@ -1,0 +1,121 @@
+---
+name: solace-help
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Solace Architect help and status. Lists available skills, shows the recommended
+  workflow, displays active project status, and explains how to get started.
+  Use when asked about available skills, workflow order, or project status.
+allowed-tools:
+  - Read
+  - Bash
+interactive: false
+---
+
+{{PREAMBLE}}
+
+# /solace-help — Solace Architect Help
+
+Display help information for Solace Architect. Read project state and show status.
+
+---
+
+## Step 1: Show available skills
+
+Print this skill catalog:
+
+```
+Solace Architect — Skills Catalog
+
+Discovery:
+  /solace-discovery     Structured elicitation for EDA projects. Produces a discovery brief.
+
+Technical Domain (planned):
+  /solace-topic-design  Design topic taxonomies following Domain/Noun/Verb/Version/Properties
+  /solace-broker-select Select broker type: Event broker service, Software, or Appliance
+  /solace-sam-design    Design SAM agent topologies: OrchestratorAgent, agents, Gateways
+  /solace-protocol-select  Choose protocols: SMF, MQTT, AMQP, JMS, REST, WebSocket
+  /solace-mesh-design   Design DMR topologies for multi-site, multi-cloud, hybrid
+  /solace-ha-dr         HA and DR topology design: replication, failover, DMR resilience
+  /solace-migration     Migration planning from other messaging systems to Solace
+  /solace-integration   Micro-Integration design for enterprise system connectivity
+
+Review (planned):
+  /solace-architect-review   Architecture review from architect perspective
+  /solace-ops-review         Operations readiness review
+  /solace-security-review    Security posture review
+  /solace-dev-review         Developer experience review
+
+Orchestration (planned):
+  /solace-plan          Orchestrate multiple skills in sequence for a complete engagement
+  /solace-validate      Consistency checks, antipattern detection, completeness
+  /solace-blueprint     Final blueprint assembly from all completed skills
+
+Utility:
+  /solace-help          This help screen
+```
+
+---
+
+## Step 2: Show recommended workflow
+
+Print:
+
+```
+Recommended Workflow:
+
+  1. /solace-discovery        Understand the problem, systems, requirements, goals
+  2. /solace-plan             (planned) Orchestrate the right skills for this project
+  3. Technical domain skills  Based on discovery: topic design, broker select, SAM, etc.
+  4. Review skills            Architect, ops, security, developer perspectives
+  5. /solace-validate         Consistency and completeness checks
+  6. /solace-blueprint        Assemble final deliverable
+
+Start with: /solace-discovery
+```
+
+---
+
+## Step 3: Show active project status
+
+Check if a project is active:
+
+```bash
+cat projects/.active 2>/dev/null || echo "NO_ACTIVE_PROJECT"
+```
+
+If a project is active, read its progress:
+
+```bash
+cat projects/$(cat projects/.active 2>/dev/null)/progress.yaml 2>/dev/null || echo "NO_PROGRESS"
+```
+
+If there is an active project with progress data, display the project status summary
+(completed skills, interrupted skills, not started, total artifacts, recommended next step).
+
+If no active project exists, print:
+
+```
+No active project. To get started:
+  1. Run /solace-discovery to start a new project
+  2. Or create a project: "new project <name>"
+```
+
+---
+
+## Step 4: Reference grounding documents
+
+Print:
+
+```
+Grounding Documents (sa-grounding/):
+
+  solace-platform-reference.md       What Solace Architect knows: the coverage map
+  solace-canonical-sources.md        URL-by-topic index for fetching Solace docs
+  solace-reference-architectures.md  3 worked patterns: AI assistant, market data, IT/OT
+  antipatterns.md                    Known mistakes organized by category
+  claude-instructions.md             Claude-specific operating instructions
+
+All recommendations are grounded in docs.solace.com and the SAM project docs.
+When a capability is not documented, Solace Architect says so explicitly.
+```

@@ -1,14 +1,14 @@
+.DS_Store
 .env
+.env.local
+.env.*
+!.env.example
 node_modules/
 dist/
-browse/dist/
-design/dist/
-make-pdf/dist/
-bin/gstack-global-discover
-.gstack/
-.claude/skills/
-.claude/scheduled_tasks.lock
-.claude/*.lock
+*.log
+*.bun-build
+
+# Generated host skill directories (one per external host)
 .agents/
 .factory/
 .kiro/
@@ -18,21 +18,15 @@ bin/gstack-global-discover
 .openclaw/
 .hermes/
 .gbrain/
-.context/
-extension/.auth.json
-# xterm assets are vendored from npm at build time; not source-of-truth.
-extension/lib/xterm.js
-extension/lib/xterm.css
-extension/lib/xterm-addon-fit.js
-.gstack-worktrees/
-/tmp/
-*.log
-*.bun-build
-.env
-.env.local
-.env.*
-!.env.example
-supabase/.temp/
 
-# Throughput analysis — local-only, regenerate via scripts/garry-output-comparison.ts
-docs/throughput-*.json
+# Claude Code local state
+.claude/skills/
+.claude/scheduled_tasks.lock
+.claude/*.lock
+.context/
+
+# Project data — local to each user, not committed
+projects/
+
+/tmp/
+sa-grounding/tracker/

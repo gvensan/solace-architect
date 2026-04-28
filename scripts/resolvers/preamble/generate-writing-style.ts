@@ -9,8 +9,7 @@ function loadJargonList(): string[] {
     const data = JSON.parse(raw);
     if (Array.isArray(data?.terms)) return data.terms.filter((t: unknown): t is string => typeof t === 'string');
   } catch {
-    // Missing or malformed: fall back to empty list. Writing Style block still fires,
-    // but with no terms to gloss — graceful degradation.
+    // Missing or malformed: fall back to empty list
   }
   return [];
 }
@@ -21,16 +20,15 @@ export function generateWritingStyle(_ctx: TemplateContext): string {
     ? `Jargon list, gloss on first use if the term appears:\n${terms.map(t => `- ${t}`).join('\n')}`
     : `Jargon list unavailable. Skip jargon glossing until \`scripts/jargon-list.json\` is restored.`;
 
-  return `## Writing Style (skip entirely if \`EXPLAIN_LEVEL: terse\` appears in the preamble echo OR the user's current message explicitly requests terse / no-explanations output)
+  return `## Writing Style
 
-Applies to AskUserQuestion, user replies, and findings. AskUserQuestion Format is structure; this is prose quality.
+Applies to AskUserQuestion, user replies, and findings.
 
 - Gloss curated jargon on first use per skill invocation, even if the user pasted the term.
 - Frame questions in outcome terms: what pain is avoided, what capability unlocks, what user experience changes.
 - Use short sentences, concrete nouns, active voice.
 - Close decisions with user impact: what the user sees, waits for, loses, or gains.
-- User-turn override wins: if the current message asks for terse / no explanations / just the answer, skip this section.
-- Terse mode (EXPLAIN_LEVEL: terse): no glosses, no outcome-framing layer, shorter responses.
+- Use Solace terminology precisely per the Naming Conventions section.
 
 ${jargonBlock}
 `;

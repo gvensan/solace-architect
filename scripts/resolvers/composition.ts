@@ -5,15 +5,14 @@ import type { TemplateContext } from './types';
  * another skill's SKILL.md and follow it, skipping preamble sections.
  *
  * Supports optional skip= parameter for additional sections to skip:
- *   {{INVOKE_SKILL:plan-ceo-review:skip=Outside Voice,Design Outside Voices}}
+ *   {{INVOKE_SKILL:solace-discovery:skip=Grounding Discipline}}
  */
 export function generateInvokeSkill(ctx: TemplateContext, args?: string[]): string {
   const skillName = args?.[0];
   if (!skillName || skillName === '') {
-    throw new Error('{{INVOKE_SKILL}} requires a skill name, e.g. {{INVOKE_SKILL:plan-ceo-review}}');
+    throw new Error('{{INVOKE_SKILL}} requires a skill name, e.g. {{INVOKE_SKILL:solace-discovery}}');
   }
 
-  // Parse optional skip= parameter from args[1+]
   const extraSkips = (args?.slice(1) || [])
     .filter(a => a.startsWith('skip='))
     .flatMap(a => a.slice(5).split(','))
@@ -22,17 +21,17 @@ export function generateInvokeSkill(ctx: TemplateContext, args?: string[]): stri
 
   const DEFAULT_SKIPS = [
     'Preamble (run first)',
+    'Grounding Discipline',
+    'Naming Conventions',
+    'Grounding Document Loading',
+    'Artifact Validation',
+    'Cross-Skill Dependencies',
+    'Project Management',
     'AskUserQuestion Format',
     'Completeness Principle — Boil the Lake',
     'Search Before Building',
-    'Contributor Mode',
     'Completion Status Protocol',
-    'Telemetry (run last)',
     'Step 0: Detect platform and base branch',
-    'Review Readiness Dashboard',
-    'Plan File Review Report',
-    'Prerequisite Skill Offer',
-    'Plan Status Footer',
   ];
 
   const allSkips = [...DEFAULT_SKIPS, ...extraSkips];
