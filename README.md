@@ -33,21 +33,25 @@ The setup script installs dependencies, generates SKILL.md files for all support
 
 ## Skill categories
 
-### Shipped
-
-| Skill | Command | Description |
-|-------|---------|-------------|
-| Discovery | `/solace-discovery` | Structured elicitation for event-driven architecture projects. Asks about systems, boundaries, events, protocols, requirements, and goals. Matches against reference architectures. Produces a discovery brief. |
-| Help | `/solace-help` | Lists available skills, shows recommended workflow, displays active project status. |
-
-### Planned
-
-| Category | Description | Planned skills |
-|----------|-------------|---------------|
-| Role-based | Architect, developer, ops, security perspectives | Planned |
-| Technical domain | Solace platform knowledge, artifact generation | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design` |
-| Orchestration | Skill sequencing, context threading | Planned |
-| Validation | Consistency checks, antipattern detection | `/solace-validate` |
+| Category | Skill | Command | Description |
+|----------|-------|---------|-------------|
+| Discovery | Discovery | `/solace-discovery` | Structured elicitation. Asks about systems, boundaries, events, protocols, requirements, and goals. Matches against reference architectures. Produces a discovery brief. |
+| Technical | Topic Design | `/solace-topic-design` | Maps data flows to `Domain/Noun/Verb/Version/Properties` taxonomy, assigns delivery modes, designs wildcard subscriptions, validates against antipatterns. |
+| Technical | Broker Selection | `/solace-broker-select` | Selects broker deployment model (Cloud, Software, Appliance) based on constraints. |
+| Technical | SAM Design | `/solace-sam-design` | Designs SAM agent topologies: agents, Gateways, Micro-Integrations, OrchestratorAgent, A2A topics, authorization model. |
+| Technical | Protocol Selection | `/solace-protocol-select` | Selects messaging protocol per integration point: SMF, MQTT, AMQP, JMS, REST, WebSocket. |
+| Technical | Mesh Design | `/solace-mesh-design` | Designs DMR topologies for multi-site, multi-cloud, and hybrid deployments. |
+| Technical | HA/DR | `/solace-ha-dr` | Designs HA within sites and DR across sites. Replication groups, failover, RPO/RTO mapping. |
+| Technical | Migration | `/solace-migration` | Plans phased migration from Kafka, RabbitMQ, TIBCO, or IBM MQ to Solace. |
+| Technical | Integration | `/solace-integration` | Designs Micro-Integration strategy: Integration Hub, custom MIs, Kafka bridge. |
+| Review | Architecture | `/solace-architect-review` | Reviews trade-offs, component choices, topology decisions. |
+| Review | Operations | `/solace-ops-review` | Reviews monitoring, failure modes, capacity, runbook completeness. |
+| Review | Security | `/solace-security-review` | Reviews ACL model, TLS, auth propagation, regulatory compliance. |
+| Review | Developer | `/solace-dev-review` | Reviews topic usability, SDK selection, onboarding path. |
+| Orchestration | Plan | `/solace-plan` | Orchestrates skills in sequence for a complete engagement. |
+| Validation | Validate | `/solace-validate` | Consistency checks, antipattern detection, completeness verification. |
+| Assembly | Blueprint | `/solace-blueprint` | Final assembly into an engineering handoff package. |
+| Utility | Help | `/solace-help` | Lists available skills, shows recommended workflow, displays active project status. |
 
 ## Supported hosts
 
@@ -78,7 +82,10 @@ The `solace-grounding/` directory contains the authoritative source material:
 | `solace-canonical-sources.md` | URL-by-topic retrieval index. When depth is needed, fetch from these URLs. |
 | `solace-reference-architectures.md` | Three worked patterns: multi-system AI assistant, real-time market data distribution, hybrid IT/OT manufacturing. |
 | `antipatterns.md` | Known mistakes organized by category: topic design, SAM, mesh topology, delivery mode, integration. |
+| `integration-hub-catalog.md` | Snapshot of available Micro-Integrations from solace.com/integration-hub. Refreshed monthly. |
 | `claude-instructions.md` | Claude-specific operating instructions for Solace Architect. |
+| `gaps.md` | Gap tracker for missing grounding document coverage. |
+| `MAINTENANCE.md` | Refresh manifest for all external resources with cadence and version tracking. |
 
 ## How it works
 
@@ -108,7 +115,11 @@ bun test             # skill validation (<2s, free)
 bun run build        # regenerate all SKILL.md files
 bun run skill:check  # health dashboard
 bun run dev:skill    # watch mode: auto-regen on change
+bun run url:check    # check grounding document URLs for health
+./uninstall          # remove all skill symlinks
 ```
+
+The test suite checks terminology compliance (zero forbidden terms), structural validation (frontmatter, placeholders, preamble tiers), token budget enforcement (per-skill and total ceilings), and generation freshness (committed files match templates).
 
 See [CLAUDE.md](CLAUDE.md) for full development instructions and [ARCHITECTURE.md](ARCHITECTURE.md) for how the template pipeline works.
 

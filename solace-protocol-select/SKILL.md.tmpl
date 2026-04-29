@@ -1,0 +1,123 @@
+---
+name: solace-protocol-select
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Select messaging protocols per integration point: SMF, MQTT, AMQP, JMS, REST,
+  WebSocket. Matches protocol capabilities to client requirements, latency budgets,
+  and delivery modes. Produces a protocol map with rationale. Use after discovery.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-protocol-select — Protocol Selection
+
+You are running the protocol selection skill. Your job is to select the right messaging
+protocol for each integration point in the architecture, based on client capabilities,
+latency requirements, and delivery mode needs.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
+```
+
+Requires discovery complete. Read the inputs:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+```
+
+Write initial progress entry.
+
+---
+
+## Step 1: Inventory integration points
+
+From the discovery brief, list every system that connects to the event mesh:
+
+| System | Role (Producer/Consumer/Both) | Current Protocol | Latency Req | Delivery Mode |
+|--------|------------------------------|-----------------|-------------|---------------|
+
+For each system, note what protocol it currently speaks and what the Solace broker needs
+to mediate. The broker handles protocol mediation — clients use what fits their stack.
+
+---
+
+## Step 2: Protocol selection matrix
+
+Load the platform reference for protocol support:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-platform-reference.md | grep -A5 "protocol\|SMF\|MQTT\|AMQP\|JMS\|REST\|WebSocket"
+```
+
+Present the protocol options with selection guidance:
+
+| Protocol | Best For | Latency | Delivery Modes | Notes |
+|----------|---------|---------|---------------|-------|
+| **SMF** | Lowest latency, native Solace clients | Sub-ms | Direct + Guaranteed | Solace-native. Best performance. Requires Solace client library. |
+| **MQTT** | IoT, lightweight clients, constrained devices | Low | QoS 0/1/2 mapped to Direct/Guaranteed | Widely supported. MQTT 3.1.1 and 5.0. |
+| **AMQP** | Enterprise systems already speaking AMQP | Low | Guaranteed | AMQP 1.0. JMS over AMQP supported. |
+| **JMS** | Java enterprise applications | Medium | Guaranteed | Via Solace JMS API or JNDI. |
+| **REST** | Simple integrations, request/reply, no SDK | Higher | Direct + Guaranteed (Guaranteed via REST delivery points) | HTTP-based. Lowest barrier to entry. |
+| **WebSocket** | Browser clients, real-time web apps | Low | Direct + Guaranteed | Via Solace JavaScript API or MQTT over WebSocket. |
+
+For each integration point, select the protocol and state the rationale:
+
+| System | Selected Protocol | Rationale |
+|--------|------------------|-----------|
+
+Use AskUserQuestion when there is genuine ambiguity (e.g., a system could use either
+REST or MQTT and the trade-offs are meaningful).
+
+---
+
+## Step 3: Protocol mediation and cross-protocol considerations
+
+Document any cross-protocol considerations:
+
+- **Protocol mediation:** The broker transparently mediates between protocols. A producer
+  publishing via MQTT can reach a consumer subscribed via SMF. Document which paths
+  involve mediation and any implications.
+- **Feature asymmetry:** Some features are protocol-specific. For example, negative
+  subscriptions are available in SMF but not all protocols. Shared subscriptions have
+  different semantics across protocols.
+- **REST delivery points:** If REST consumers need Guaranteed messaging, a REST delivery
+  point (webhook) configuration is needed. Document these.
+
+---
+
+## Step 4: Write artifacts and complete
+
+Save the protocol map:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/protocol-select/protocol-map.md" << 'EOF'
+<paste the protocol selection table with rationale and cross-protocol notes>
+EOF
+```
+
+Update decisions.yaml with protocol decisions.
+Update progress to complete.
+
+Recommend next steps — `/solace-integration` for Micro-Integration design, or review
+skills if technical domain skills are complete.

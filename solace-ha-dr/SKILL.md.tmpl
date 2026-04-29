@@ -1,0 +1,166 @@
+---
+name: solace-ha-dr
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Design HA and DR topologies for Solace deployments. Maps data classes to RPO/RTO
+  requirements, configures replication groups, designs failover behavior, and documents
+  interaction with DMR topology. Use after discovery and broker selection.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-ha-dr — High Availability and Disaster Recovery Design
+
+You are running the HA/DR design skill. Your job is to design the high availability
+configuration within each site and the disaster recovery strategy across sites,
+mapping each data class to appropriate RPO/RTO targets.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-broker-select" || echo "NO_BROKER_SELECT"
+fi
+```
+
+Requires discovery complete and broker-select complete. Mesh design is recommended
+but not required (mesh topology affects DR replication design).
+
+Read the inputs:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/artifacts/broker-select/broker-recommendation.md" 2>/dev/null || echo "NO_BROKER"
+cat "projects/$ACTIVE/artifacts/mesh-design/dmr-topology.md" 2>/dev/null || echo "NO_MESH"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+```
+
+Write initial progress entry.
+
+**Important grounding note:** The platform reference notes that detailed HA topologies,
+failover behavior, replication semantics, and Config-Sync mechanisms have not been
+deep-fetched. Before making specific HA/DR configuration claims, fetch the canonical
+source:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-canonical-sources.md | grep -i -A2 "HA\|replication\|disaster\|failover"
+```
+
+Fetch the relevant URL for current HA/DR documentation.
+
+---
+
+## Step 1: Assess HA/DR requirements
+
+Extract from discovery:
+
+- **Data classes** — what types of data flow through the system?
+- **RPO per data class** — how much data can be lost? (Zero, seconds, minutes, hours)
+- **RTO per data class** — how quickly must the system recover? (Seconds, minutes, hours)
+- **Regulatory requirements** — any compliance mandates for availability or recovery?
+- **Broker type** — Cloud (HA built-in) vs self-managed (must configure)
+- **Current DMR topology** — replication groups interact with DMR
+
+Present the requirements matrix and ask the user to confirm:
+
+| Data Class | RPO Target | RTO Target | Regulatory Driver |
+|-----------|-----------|-----------|------------------|
+
+---
+
+## Step 2: Design HA within site
+
+**For Cloud event broker services:**
+HA is enabled by default for non-Developer service classes. Note this — do not
+over-design. The user does not need to configure HA pairs. State what's built-in
+and what the user gets automatically (redundancy, automatic failover).
+
+**For Software Event Broker (self-managed):**
+Design the HA pair configuration:
+- Active/standby pair per message VPN
+- Shared storage or replication-based HA
+- Failover behavior and detection timing
+- Config-Sync for configuration consistency
+
+**For Appliance Event Broker:**
+Similar to Software but with hardware-specific considerations (redundant power,
+network interface failover).
+
+Use AskUserQuestion if there is a genuine choice between HA approaches.
+
+---
+
+## Step 3: Design DR across sites
+
+If the project requires cross-site DR:
+
+- **Replication groups** — which brokers replicate to which DR site?
+- **Active/standby vs active/active** — typically active/standby for DR. Active/active
+  is complex and requires careful conflict resolution design.
+- **Interaction with DMR** — replication groups appear to DMR as a single node. The
+  active VPN handles DMR data channels. On failover, the standby VPN takes over DMR
+  participation.
+- **Replication mode** — synchronous (zero RPO, higher latency) vs asynchronous
+  (near-zero RPO, lower latency impact)
+
+Generate a Mermaid diagram showing replication groups within the DMR topology:
+
+```mermaid
+graph TB
+    subgraph "Primary Site"
+        P_Active[Active Broker] ---|replication| P_Standby[Standby Broker]
+    end
+    subgraph "DR Site"
+        DR_Active[Active Broker] ---|replication| DR_Standby[Standby Broker]
+    end
+    P_Active -.->|"DR replication"| DR_Active
+```
+
+---
+
+## Step 4: Map data classes to RPO/RTO
+
+For each data class, document the specific HA/DR mechanism that meets its RPO/RTO:
+
+| Data Class | RPO | RTO | HA Mechanism | DR Mechanism | Notes |
+|-----------|-----|-----|-------------|-------------|-------|
+
+Flag any gaps where the selected broker type or topology cannot meet the stated
+RPO/RTO requirements.
+
+---
+
+## Step 5: Write artifacts and complete
+
+Save artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/ha-dr/ha-dr-topology.md" << 'EOF'
+<paste the HA/DR design with rationale>
+EOF
+cat > "projects/$ACTIVE/artifacts/ha-dr/ha-dr-topology.mermaid" << 'EOF'
+<paste the Mermaid diagram>
+EOF
+```
+
+Update decisions.yaml with HA/DR decisions.
+Update progress to complete.
+
+Recommend next steps.

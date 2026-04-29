@@ -1,0 +1,180 @@
+---
+name: solace-mesh-design
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Design DMR topologies for multi-site, multi-cloud, and hybrid Solace deployments.
+  Selects single broker, DMR cluster, or external-link federation based on scale,
+  geography, and latency constraints. Produces topology descriptions and Mermaid
+  diagrams. Use after discovery and broker selection.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-mesh-design — Event Mesh Topology Design
+
+You are running the mesh design skill. Your job is to design the DMR topology that
+connects Solace event brokers across sites, regions, and clouds. The right topology
+depends on scale, geography, data sovereignty, and traffic patterns.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-broker-select" || echo "NO_BROKER_SELECT"
+fi
+```
+
+This skill requires discovery complete and broker-select complete. If broker-select
+is not complete, warn: "Mesh topology depends on the broker type. Run `/solace-broker-select`
+first, or tell me what broker type you're using."
+
+If dependencies are met, read the inputs:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/artifacts/broker-select/broker-recommendation.md" 2>/dev/null || echo "NO_BROKER"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+```
+
+Write initial progress entry.
+
+---
+
+## Step 1: Assess topology requirements
+
+From the discovery brief and broker selection, extract:
+
+- **Number of sites** — single site, dual site (DR), multi-site
+- **Geography** — which regions/data centers
+- **Traffic patterns** — which direction does data flow? Symmetric or asymmetric?
+- **Data sovereignty** — any data that must not cross regional boundaries
+- **Scale** — can a single broker handle the throughput, or is horizontal scaling needed?
+- **Latency constraints** — do any paths have sub-millisecond requirements?
+
+Present the assessment and ask the user to confirm or add details.
+
+Load the platform reference for DMR details:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-platform-reference.md | grep -A30 "Dynamic Message Routing"
+```
+
+---
+
+## Step 2: Select topology pattern
+
+Present the topology options via AskUserQuestion:
+
+**A) Single broker (recommended for simple deployments):**
+One broker handles all traffic. Simplest to operate. Right when all producers and
+consumers are in the same site and throughput fits within one broker's capacity.
+
+**B) DMR cluster (horizontal scaling within a site):**
+Multiple brokers connected via internal links forming a full mesh. Each node connects
+to every other node. Use when a single broker can't handle the connection count or
+throughput, but all traffic is within one site.
+
+**C) Multi-site federation via external links:**
+Brokers across sites connected via external links. Full mesh is not required — selective
+links allow controlled subscription propagation. Use for multi-region, multi-cloud, or
+hybrid deployments.
+
+**D) Hybrid (cluster + federation):**
+DMR clusters within sites, external links between sites. The most complex topology
+but necessary for large-scale global deployments.
+
+Reference Pattern 2 (market data) for multi-site examples, Pattern 3 (manufacturing)
+for edge-to-cloud patterns:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-reference-architectures.md
+```
+
+---
+
+## Step 3: Design the topology
+
+Based on the selected pattern, design the specific topology:
+
+**For DMR cluster:**
+- How many nodes? (Determined by throughput and connection requirements)
+- All nodes form a full internal-link mesh automatically
+
+**For external links:**
+- Which sites connect to which? Draw the link map.
+- For each link: what is the direction of data flow? (Unidirectional vs bidirectional)
+- Subscription propagation strategy: which subscriptions propagate across which links?
+- Flag asymmetric vs symmetric traffic patterns.
+
+**For hybrid:**
+- Cluster sizing per site
+- External link topology between sites
+- Per-direction traffic class design
+
+Check antipatterns:
+- **Single global broker for the whole enterprise** — federate instead
+- **Overly broad wildcard subscriptions across DMR** — each wildcard has real WAN cost
+- **Symmetric high-volume bidirectional flows** — make each direction's traffic class explicit
+
+Generate a Mermaid diagram of the topology:
+
+```mermaid
+graph TB
+    subgraph "Site A - US East"
+        A1[Broker A1] --- A2[Broker A2]
+    end
+    subgraph "Site B - EU West"
+        B1[Broker B1] --- B2[Broker B2]
+    end
+    A1 -.->|"external link: market data (Direct)"| B1
+    B1 -.->|"external link: order flow (Guaranteed)"| A1
+```
+
+Adapt the diagram to the actual topology being designed.
+
+---
+
+## Step 4: Document subscription propagation
+
+For each external link, document:
+- Which topic subscriptions propagate across the link
+- The delivery mode per topic across the link (Direct or Guaranteed)
+- Bandwidth implications of each propagated subscription
+- Any negative subscriptions needed to exclude topics from propagation
+
+---
+
+## Step 5: Write artifacts and complete
+
+Save artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/mesh-design/dmr-topology.md" << 'EOF'
+<paste the topology description with rationale>
+EOF
+cat > "projects/$ACTIVE/artifacts/mesh-design/dmr-topology.mermaid" << 'EOF'
+<paste the Mermaid diagram>
+EOF
+```
+
+Update decisions.yaml with mesh topology decisions.
+Update progress to complete.
+
+Recommend next steps — `/solace-ha-dr` for HA and DR design, or `/solace-protocol-select`.

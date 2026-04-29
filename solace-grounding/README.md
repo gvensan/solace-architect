@@ -6,13 +6,14 @@ Solace Architect is an open-source toolkit for Claude Code that closes that gap.
 
 ## What it does
 
-Solace Architect is a set of skills that compose into an interview-style architectural session. The skills cover five categories:
+Solace Architect is a set of 17 skills that compose into an interview-style architectural session. The skills cover six categories:
 
 1. **Discovery.** Eliciting the business problem clearly. Surfacing latency, throughput, regulatory, organizational, and budget constraints. Inventorying the existing landscape.
-2. **Role-based.** Applying architect, developer, ops, and security perspectives to the current problem.
-3. **Technical domain.** Solace platform knowledge across event mesh, application services, and platform services, plus cross-cutting concerns like deployment topology, security, performance and sizing, migration, observability, and governance.
+2. **Technical domain.** Solace platform knowledge: topic taxonomy design, broker selection, SAM agent topology, protocol selection, DMR mesh design, HA/DR, migration planning, and Micro-Integration strategy.
+3. **Review.** Applying architect, developer, ops, and security perspectives to the current design.
 4. **Orchestration.** Sequencing skills based on dependencies, threading context and decisions across skill invocations.
 5. **Validation.** Consistency checks, antipattern detection, completeness checks before the blueprint goes to engineering.
+6. **Assembly.** Final blueprint assembly into an engineering handoff package.
 
 The toolkit is anchored to event-driven architecture broadly, not to Solace Agent Mesh specifically. Event mesh-only architectures are a first-class output. SAM enters when the problem genuinely calls for it.
 
@@ -22,22 +23,22 @@ Solace Architect uses a template pipeline that generates host-adapted SKILL.md f
 
 The template infrastructure supports 10 AI coding agent hosts (Claude Code, Codex, Factory, Kiro, OpenCode, Slate, Cursor, OpenClaw, Hermes, GBrain).
 
-## Project layout
+## Grounding documents
 
-Four documents anchor the work, each with a distinct job:
+Eight documents anchor the work:
 
-1. `solace-platform-reference.md` is the in-scope coverage map. It defines what capabilities Solace Architect is accountable to know about, organized into the Solace Platform's three layers (Event Mesh, Application Services, Platform Services) plus cross-cutting concerns.
-2. `solace-canonical-sources.md` is the URL-by-topic retrieval index. When a skill needs depth, this is where it learns where to fetch from.
-3. `solace-reference-architectures.md` holds worked examples of how Solace components compose to solve real architectural problems. Three patterns to start: a multi-system AI assistant, real-time market data distribution, and a hybrid IT/OT manufacturing event mesh.
-4. `claude-instructions.md` carries identity, accuracy discipline, voice, and naming conventions that govern every skill output.
+| Document | Purpose |
+|----------|---------|
+| `solace-platform-reference.md` | In-scope coverage map. Defines what Solace Architect is accountable to know, organized into Event Mesh, Application Services, and Platform Services. |
+| `solace-canonical-sources.md` | URL-by-topic retrieval index. When a skill needs depth, this is where it learns where to fetch from. |
+| `solace-reference-architectures.md` | Three worked patterns: multi-system AI assistant, real-time market data distribution, hybrid IT/OT manufacturing event mesh. |
+| `antipatterns.md` | Known mistakes organized by category. Every technical domain and validation skill checks output against this library. |
+| `integration-hub-catalog.md` | Point-in-time snapshot of Solace Integration Hub. Skills match backend systems against available Micro-Integrations. |
+| `claude-instructions.md` | Identity, accuracy discipline, voice, and naming conventions that govern every skill output. |
+| `gaps.md` | Gap tracker. Records when a skill can't find what it needs in the grounding documents. |
+| `MAINTENANCE.md` | Refresh manifest. Tracks all external resources, their refresh cadence, and version numbers. |
 
-Read in that order if you're new. The platform reference orients you to the surface. The canonical sources tell you where to read for depth. The reference architectures show how the surface composes for real problems. The instructions govern how skills behave on top of all of it.
-
-## Current state
-
-Early development. The template pipeline is operational. The discovery skill (`/solace-discovery`) is shipped. The grounding documents are in place. More skills are planned across the remaining four categories.
-
-The bank chat agent is the working example for prototyping and validation. When new skills are drafted, they are exercised against that example first.
+Read in this order if you're new: platform reference (orients you to the surface), canonical sources (where to read for depth), reference architectures (how the surface composes for real problems), claude-instructions (how skills behave on top of all of it).
 
 ## Working principles
 

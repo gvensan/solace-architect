@@ -1,0 +1,140 @@
+---
+name: solace-architect-review
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Architecture review from an architect perspective. Evaluates trade-offs, component
+  choices, topology decisions, and identifies simpler alternatives. Reads all project
+  artifacts and produces specific, actionable findings grounded in Solace documentation.
+  Use after technical domain skills are complete.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-architect-review — Architecture Review
+
+You are running the architect review skill. Your job is to review the current
+architecture through an architect's lens: are the trade-offs sound? Are component
+choices defensible? Does the topology match the constraints? Are there simpler
+alternatives that achieve the same goals?
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+fi
+```
+
+Requires at least one technical skill complete (topic-design, sam-design, broker-select,
+mesh-design, ha-dr, protocol-select, integration, or migration). If none are complete,
+warn: "No technical artifacts to review. Run at least one technical domain skill first."
+
+Read all available artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+for dir in topic-design sam-design broker-select protocol-select mesh-design ha-dr integration migration; do
+  for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
+    [ -f "$f" ] && echo "=== $f ===" && cat "$f"
+  done 2>/dev/null
+done
+```
+
+---
+
+## Step 1: Structural review
+
+Evaluate the architecture's structural soundness:
+
+**Component selection:**
+- Is the broker type appropriate for the constraints? Would a different type better
+  serve the latency, regulatory, or operational requirements?
+- Are the selected protocols the simplest that meet requirements? Over-engineered
+  protocol choices add operational complexity.
+- Is the DMR topology the simplest that serves the deployment? A single broker is
+  simpler than a cluster. A cluster is simpler than federation.
+
+**Topic taxonomy:**
+- Does the taxonomy follow `Domain/Noun/Verb/Version/Properties` consistently?
+- Are delivery modes assigned correctly? Direct for lossy/fast, Guaranteed for lossless.
+- Are there topics that could be consolidated without losing routing precision?
+
+**SAM topology (if applicable):**
+- Is the agent granularity appropriate? Too many agents increase operational complexity.
+  Too few reduce authorization granularity.
+- Do Gateway selections match channel requirements?
+- Is the authorization model complete — scopes propagate from Gateway through
+  OrchestratorAgent to each agent's tools?
+
+---
+
+## Step 2: Trade-off analysis
+
+For each major design decision in `decisions.yaml`, evaluate:
+
+1. **What was chosen and why** — restate the decision and its rationale.
+2. **What was traded off** — what capability or simplicity was sacrificed?
+3. **Is the trade-off sound given the constraints?** — does the rationale hold up
+   against the project's stated requirements?
+4. **Is there a simpler alternative?** — could the same goal be achieved with fewer
+   moving parts? Simpler architectures are more operable.
+
+---
+
+## Step 3: Gap analysis
+
+Check for architectural gaps:
+
+- **Failure paths:** Is every failure mode documented? What happens when a broker
+  goes down? When a Micro-Integration fails? When a SAM agent times out?
+- **Scaling boundaries:** Where will this architecture hit scaling limits first?
+  What is the plan when it does?
+- **Operational visibility:** Can the ops team see what's happening at every layer?
+  Are metrics, traces, and logs flowing?
+- **Security model completeness:** Does the security design cover every integration
+  point? Are there unprotected paths?
+
+---
+
+## Step 4: Write findings and complete
+
+Structure findings by severity:
+
+- **Critical** — architectural decisions that will cause production failures or
+  security vulnerabilities.
+- **Important** — gaps that should be addressed before production but won't cause
+  immediate failures.
+- **Advisory** — improvements that would make the architecture more robust or simpler.
+
+Each finding must:
+- Be specific (name the component, topic, agent, or link)
+- Reference the relevant Solace documentation or antipattern
+- Propose a concrete alternative
+
+Save the review:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/reviews/architect-review.md" << 'EOF'
+<paste the structured review findings>
+EOF
+```
+
+Update decisions.yaml with any new decisions from the review.
+Update progress to complete.

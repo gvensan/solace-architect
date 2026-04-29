@@ -1,13 +1,11 @@
 ---
-name: solace-discovery
+name: solace-migration
 preamble-tier: 2
 version: 0.1.0
 description: |
-  Structured discovery and elicitation for event-driven architecture projects on Solace.
-  Asks the right questions to understand the system landscape, communication patterns,
-  reliability requirements, deployment topology, and integration constraints. Produces
-  a discovery brief that feeds downstream architecture skills. Use when starting a new
-  Solace project, onboarding to an existing event mesh, or scoping a migration.
+  Plan migrations from Kafka, RabbitMQ, TIBCO, or IBM MQ to Solace. Designs phased
+  coexistence strategy, Micro-Integration bridging, topic mapping from source to Solace
+  taxonomy, and cutover milestones. Use after discovery for brownfield migrations.
 allowed-tools:
   - Bash
   - Read
@@ -24,7 +22,7 @@ interactive: true
 ```bash
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
-echo "SKILL: solace-discovery"
+echo "SKILL: solace-migration"
 ```
 
 ## Grounding Discipline
@@ -432,376 +430,186 @@ When completing a skill workflow, report status using one of:
 
 Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
 
-# /solace-discovery — Solace Architecture Discovery
+# /solace-migration — Migration Planning
 
-You are running the discovery skill. Your job is to elicit the information needed to
-make sound architectural recommendations for an event-driven system on the Solace platform.
-
-Do not design yet. Discover first.
+You are running the migration skill. Your job is to plan a phased migration from an
+existing messaging system to Solace. Never propose a big-bang migration — always phased,
+always with a coexistence period.
 
 ---
 
-## Step 0: Project initialization
-
-Before asking any discovery questions, ensure a project exists.
-
-Check if there is an active project:
+## Step 0: Project and dependency check
 
 ```bash
-cat projects/.active 2>/dev/null || echo "NO_ACTIVE_PROJECT"
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
 ```
 
-**If an active project exists:** Check if it already has a completed discovery brief:
-
-```bash
-ACTIVE=$(cat projects/.active 2>/dev/null)
-[ -n "$ACTIVE" ] && cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A2 "solace-discovery" | grep "status:" || echo "NO_DISCOVERY"
-```
-
-If the active project already has `status: complete` for solace-discovery, warn the user:
-"This project already has a completed discovery brief. Running discovery again will
-overwrite it." Use AskUserQuestion to ask: A) Overwrite and start fresh, B) Create a
-new project instead, C) Cancel.
-
-**If an active project has `status: in-progress` for solace-discovery:** This is a
-resume scenario. Follow the resume behavior from the Progress Tracking section in the
-preamble.
-
-**If an active project exists but has no solace-discovery entry in progress.yaml:**
-This is a fresh discovery start on an existing project. Write the initial progress
-entry and proceed with discovery from Step 1.
-
-**If no active project exists:** Ask the user for a project name as plain prose
-(not AskUserQuestion — they need to type it):
-
-> What should we call this project? Give it a short name (e.g., "acme-bank-chat",
-> "global-market-data", "factory-telemetry"). I'll use this as the project identifier.
-
-Once the user provides a name, slugify it (lowercase, hyphens, no spaces — e.g.,
-"Retail Banking Platform" becomes `retail-banking-platform`) and create the project.
-Replace `<slugified-name>` with the actual slug and `<original-name>` with the user's
-input:
-
-```bash
-PROJECT_SLUG="<slugified-name>"
-DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{discovery,topic-design,sam-design,broker-select,protocol-select,mesh-design,ha-dr,integration,migration,reviews,validation,blueprint}
-cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
-name: $PROJECT_SLUG
-display_name: $DISPLAY_NAME
-created: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-status: active
-CTXEOF
-cat > "projects/$PROJECT_SLUG/decisions.yaml" << DECEOF
-decisions: []
-DECEOF
-cat > "projects/$PROJECT_SLUG/progress.yaml" << PROGEOF
-progress:
-- skill: solace-discovery
-  status: in-progress
-  started: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-  completed: null
-  summary: "Discovery started"
-  step_reached: "0/5 — project initialized"
-  artifacts: []
-PROGEOF
-cat > "projects/$PROJECT_SLUG/feedback.yaml" << FBEOF
-feedback: []
-FBEOF
-echo "$PROJECT_SLUG" > projects/.active
-```
-
-Confirm the project was created and proceed with discovery.
-
----
-
-## Question strategy
-
-**AskUserQuestion is for multiple-choice selections only.** It presents clickable options
-with no text field. Use it when the user picks from a predefined list (project type,
-delivery mode, latency tier, broker preference).
-
-**For questions that need free-text answers** (system names, protocols, regions, team
-details, timeline, volumes, infrastructure inventory), print the question as plain prose
-with clear prompts for what to include, then **stop and wait** for the user to type their
-response as a regular message. Do not wrap free-text questions in AskUserQuestion — the
-user cannot type answers into it.
-
-**Batching:** When consecutive questions all need free-text, combine them into a single
-numbered list so the user can answer in one message. When a free-text question and a
-multiple-choice question are both needed, ask the free-text question first (as prose),
-collect the answer, then present the multiple-choice question via AskUserQuestion.
-
----
-
-## Step 1: Understand the landscape
-
-Ask the user about their current system landscape.
-
-First, use AskUserQuestion to determine the project type (new build, migration, extension,
-SAM integration) — this is a clean multiple-choice selection.
-
-Then ask the following as a **plain prose question** (not AskUserQuestion). Print the
-numbered list and stop. Wait for the user to respond in a regular message.
-
-> Tell me about your system landscape. Include as much as you know:
->
-> 1. **Systems:** What systems need to communicate? (Names, owners, approximate data volumes)
->    Which are producers, which are consumers, which are both?
-> 2. **Existing messaging:** Are there messaging systems in place today? (Kafka, RabbitMQ, TIBCO, IBM MQ, cloud-native, none)
-> 3. **Protocols:** What protocols do these systems speak? (REST, MQTT, AMQP, JMS, SMF, WebSocket, gRPC, FIX, etc.)
-> 4. **Events:** What events flow between systems? (Order placed, sensor reading, price update, etc.)
->    What is the shape of payloads? (JSON, Avro, Protobuf, XML, binary)
-> 5. **Volume:** What are the approximate event rates? (Events/sec at peak, daily volume — even rough estimates help)
-> 6. **Schemas:** Are there existing schemas or an AsyncAPI spec?
-> 7. **Vertical:** What industry is this for? (Banking, capital markets, manufacturing, healthcare, retail, etc.)
-
-If the user provides a codebase or repo, read it first:
-
-```bash
-find . -maxdepth 3 \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" -o -name "*.proto" -o -name "*.avsc" \) | head -20
-```
-
-Look for AsyncAPI specs, schema files, config files that reveal integration points.
-
----
-
-## Step 1b: Match against reference architectures
-
-Once the user has described their systems, read the reference architectures:
-
-```bash
-cat ~/.claude/skills/solace-architect/solace-grounding/solace-reference-architectures.md
-```
-
-Compare the user's described landscape against the pattern catalog. Look for structural matches:
-
-- **Pattern 1 (Multi-system AI assistant):** Multiple channels (web, Slack, mobile) fronting multiple backend systems, with an orchestration layer routing queries. Indicators: "conversational," "chatbot," "assistant," "multiple backends," "AI agent."
-- **Pattern 2 (Real-time market data distribution):** High-volume event fan-out across global sites, mixed Direct/Guaranteed delivery, protocol heterogeneity. Indicators: "market data," "trading," "low latency," "global distribution," "financial."
-- **Pattern 3 (Hybrid IT/OT manufacturing event mesh):** Plant floor to cloud integration, OT protocol bridging, edge brokers, telemetry aggregation. Indicators: "manufacturing," "IoT," "sensors," "OPC UA," "plant floor," "edge."
-
-**If a pattern matches:**
-
-1. Name it explicitly: "This matches **Pattern N: <name>** from the reference architectures."
-2. Load that pattern's **Key design decisions** and **Antipatterns to flag** sections.
-3. Use the pattern's design decisions to generate targeted discovery questions for the remaining steps. For Pattern 1, specifically ask about:
-   - **Authorization model and scope propagation:** How do customer permission scopes flow from the channel (web chat, Slack, mobile) through to backend systems? Is there an existing IAM (OIDC, SAML)?
-   - **Delivery mode per data class:** Which flows need Guaranteed messaging (transaction history, order submissions, support tickets) versus Direct messaging (balance checks, FAQ lookups)?
-   - **Channel multiplexing strategy:** Do all channels need the same agent capabilities, or do some channels serve a subset?
-   - **Pattern-specific concerns** from the antipatterns list (e.g., environment names in agent topics, agents skipping the orchestrator, hardcoded credentials).
-4. Carry the matched pattern forward into the Discovery Brief as a "Matched reference architecture" field.
-
-**If no pattern matches:**
-
-Note: "No reference architecture match. This is a custom architecture that will need first-principles design." Proceed with generic discovery questions.
-
----
-
-## Step 1c: Domain-specific question paths
-
-After identifying the user's vertical (from the system descriptions or by asking), trigger
-domain-specific questions as **plain prose** (not AskUserQuestion). These need free-text
-answers with specifics the user must type out.
-
-Print the relevant domain question list and stop. Wait for the user to respond.
-
-**Banking / Financial Services:**
-
-When the user describes a banking, retail banking, wealth management, or financial services
-use case, print this list and wait:
-
-> Now some banking-specific questions. Answer what you can:
->
-> 1. **Regulatory constraints:** PCI-DSS requirements? Data residency rules (which jurisdiction)? Audit trail requirements (which events, how long)? Encryption requirements at rest and in transit?
-> 2. **Existing messaging infrastructure:** Does the bank run IBM MQ, TIBCO, or Kafka today? This drives Micro-Integration strategy.
-> 3. **Authorization model:** How do customer permission scopes flow from channel (web, Slack, mobile) through to backends? Existing IAM (OIDC, SAML)?
-> 4. **Data classification:** Which data classes need Guaranteed messaging for audit compliance (transactions, fund transfers) versus Direct messaging for latency-sensitive lookups (balance checks, FAQ)?
-> 5. **Internal vs customer-facing:** Is this for customers, internal staff, or both?
-
-**Capital Markets:**
-
-When the user describes trading, market data, order management, or exchange connectivity,
-print this list and wait:
-
-> Capital markets-specific questions. Answer what you can:
->
-> 1. **Latency budget:** What is the latency budget for the hot path (market data to trader screen)? What about the audit path?
-> 2. **Global topology:** Which trading hubs? (NY, London, Singapore, Tokyo, Hong Kong, Chicago) Which asset classes at which hubs?
-> 3. **Feed infrastructure:** What feed handlers and market data providers are in use? (Bloomberg, Refinitiv, direct exchange feeds, etc.) What protocols do they publish on? (FIX, proprietary binary, TCP multicast)
-> 4. **Existing messaging:** Any existing middleware? (Kafka, TIBCO, IBM MQ, 29West/Informatica, Solace already)
-> 5. **Compliance and replay:** Which event streams must be replayable for regulatory audit? What retention period?
-
-**Manufacturing / IoT:**
-
-When the user describes plant floor, factory, sensors, OPC UA, SCADA, or industrial IoT,
-print this list and wait:
-
-> Manufacturing/IoT-specific questions. Answer what you can:
->
-> 1. **OT protocol inventory:** What protocols do machines and sensors speak? (OPC UA, Modbus, MQTT, DDS, proprietary)
-> 2. **Edge constraints:** What compute is available at the plant floor? Can a Solace Software Event Broker run there? WAN connectivity to regional/cloud — how reliable?
-> 3. **Telemetry vs command:** Does data flow only plant-to-cloud (telemetry), or do commands flow back (config changes, predictive maintenance)?
-> 4. **Existing historians and MES:** What systems of record exist at the plant? (OSIsoft PI, Siemens MindSphere, Rockwell FactoryTalk)
-
-**Healthcare:**
-
-When the user describes clinical, patient, EHR, HL7, FHIR, or healthcare integration,
-print this list and wait:
-
-> Healthcare-specific questions. Answer what you can:
->
-> 1. **HIPAA / PHI:** Which events contain protected health information? Encryption, access control, audit requirements?
-> 2. **Interoperability standards:** HL7v2, FHIR, or both? What EHR system? (Epic, Cerner, Meditech)
-> 3. **Real-time vs batch:** Which clinical events need real-time distribution (alerts, orders, results) versus batch (billing, reporting)?
-
-**Other verticals:** If the user names a vertical not listed above, proceed with generic
-discovery questions from Step 2. Note the vertical as an open question for future
-domain-specific question paths.
-
-**Update progress** after completing Steps 1/1b/1c — update `step_reached` and `summary`
-in the active project's `progress.yaml`. Use the Bash tool with `sed` or rewrite the
-file. Set `step_reached: "1/5 — landscape and pattern match complete"` and update
-`summary` with what was discovered (systems, vertical, pattern match).
-
----
-
-## Step 2: Understand the requirements
-
-Ask about non-functional requirements. Use AskUserQuestion for questions with clean
-predefined choices (delivery mode, latency tier, topology shape). Use plain prose
-for questions that need the user to describe their situation in their own words.
-
-**Reliability — use AskUserQuestion for these (multiple-choice):**
-- Delivery mode: Direct messaging / Guaranteed messaging / Mixed (AskUserQuestion)
-- Ordering: none / per-partition / global (AskUserQuestion)
-- Processing guarantee: exactly-once / at-least-once with idempotent consumers (AskUserQuestion)
-- Latency tier: sub-millisecond / sub-second / seconds / minutes (AskUserQuestion)
-
-**Scale and topology — use AskUserQuestion for the topology shape:**
-- Topology: single site / multi-region / hybrid cloud / edge (AskUserQuestion)
-
-**Then ask the rest as plain prose** (these need free-text). Print the list and wait:
-
-> A few more details about scale and operations. Answer what you can:
->
-> 1. **Sites and regions:** How many sites, regions, or clouds? Name them if known.
-> 2. **IT/OT boundary:** Is there an IT/OT boundary? (Manufacturing, utilities, transportation)
-> 3. **Growth:** Expected growth over the next 1-3 years?
-> 4. **Data residency:** Any regulatory constraints on where data can live or move?
-> 5. **Operations team:** Who operates the messaging infrastructure? (Platform team, app team, managed service)
-> 6. **Solace/EDA experience:** What is the team's experience with event-driven systems and Solace specifically?
-> 7. **Observability:** What observability is in place? (Metrics, tracing, log aggregation)
-> 8. **CI/CD:** Is there an existing CI/CD pipeline for infrastructure?
-
----
-
-## Step 3: Understand the goals
-
-The project type (new build, migration, extension, SAM) was already captured in Step 1
-via AskUserQuestion. Now ask the user to elaborate as **plain prose** — these need
-free-text answers. Print the list and wait:
-
-> Now tell me about the goals and constraints. Answer what you can:
->
-> 1. **Driver:** What triggered this project? What problem is being solved?
-> 2. **Timeline:** When does this need to be in production?
-> 3. **Budget:** Any constraints that affect broker selection? (Cloud-managed vs self-hosted preference)
-> 4. **Team size:** How many people will build and operate this?
-> 5. **Organizational constraints:** Approval processes, vendor relationships, procurement timelines?
-
-If the user already provided some of this information in earlier answers, do not re-ask.
-Only ask about what is still missing.
-
-**Update progress** after completing Steps 2 and 3. Set `step_reached: "3/5 — requirements and goals captured"` and update `summary`.
-
----
-
-## Step 4: Synthesize the discovery brief
-
-Once you have sufficient information (you will rarely get everything — that is fine),
-produce a **Discovery Brief** in this structure:
-
-```markdown
-# Discovery Brief: <Project Name>
-
-## System landscape
-- Systems: <list with roles (producer/consumer/both)>
-- Existing messaging: <current systems, if any>
-- Protocols in play: <list>
-- Event types: <list with approximate rates>
-- Matched reference architecture: <Pattern N: name, or "None — custom architecture">
-- Micro-Integration availability: <for each backend, note if a cataloged MI exists — check ~/.claude/skills/solace-architect/solace-grounding/integration-hub-catalog.md>
-
-## Requirements
-- Delivery guarantee: <Direct / Guaranteed / Mixed>
-- Ordering: <none / partition / global>
-- Latency target: <value>
-- Scale: <sites, regions, growth trajectory>
-- Topology: <single-site / multi-region / hybrid / edge>
-
-## Goals
-- Project type: <new build / migration / extension / SAM>
-- Driver: <what triggered this>
-- Timeline: <when>
-- Constraints: <budget, team, regulatory>
-
-## Open questions
-- <things that still need answers before architecture can proceed>
-
-## Recommended next steps
-- <what to do next — typically a specific architecture skill>
-```
-
-**Save the discovery brief as a project artifact:**
+Requires discovery complete. Read the inputs:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" << 'BRIEFEOF'
-<paste the full discovery brief content here>
-BRIEFEOF
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 ```
 
-Present the brief to the user. Ask if anything is missing or incorrect.
+Write initial progress entry.
 
 ---
 
-## Step 5: Recommend next steps and complete
+## Step 1: Inventory the source system
 
-Based on the discovery brief, recommend which Solace Architect skills to run next:
+Identify the source messaging system and its current topology. Ask as plain prose
+if not captured in discovery:
 
-- **Topic taxonomy design** — if the user needs help structuring their topic hierarchy
-- **Broker selection** — if the deployment model is unclear
-- **Migration planning** — if moving from another messaging system
-- **SAM design** — if building an agent system on Solace Agent Mesh
+> Tell me about the messaging system you're migrating from:
+>
+> 1. **Platform:** Kafka, RabbitMQ, TIBCO EMS/RV, IBM MQ, or other?
+> 2. **Topology:** How many brokers/clusters? Which data centers?
+> 3. **Scale:** Messages/sec, topics/queues count, consumer group count
+> 4. **Clients:** How many producer and consumer applications? What languages/SDKs?
+> 5. **Patterns in use:** Pub/sub, queuing, request/reply, fan-out, consumer groups?
+> 6. **Schema management:** Schema Registry, Avro, Protobuf, or unmanaged?
 
-If a reference architecture was matched in Step 1b, summarize how it applies and which
-of its key design decisions are most relevant to this user's situation. If no pattern
-was matched, note that this is a custom architecture that will need first-principles design.
+---
 
-**Update progress to complete:**
+## Step 2: Map source concepts to Solace
+
+Each source platform has concepts that map differently to Solace:
+
+**Kafka → Solace:**
+| Kafka Concept | Solace Equivalent | Notes |
+|--------------|-------------------|-------|
+| Topic + partitions | Topic + queue subscriptions | Solace topics are hierarchical, not partitioned |
+| Consumer group | Non-exclusive queue with multiple consumers | Different semantics — flag |
+| Offset management | Message acknowledgment + replay | Solace replay is time-based or message-ID-based |
+| Schema Registry | Solace Schema Registry | Compatible but separate |
+| Kafka Streams | Custom app on Solace APIs | No direct equivalent — architectural decision |
+| Kafka Connect | Micro-Integrations | Different model — event-mesh-native |
+
+**RabbitMQ → Solace:**
+| RabbitMQ Concept | Solace Equivalent | Notes |
+|-----------------|-------------------|-------|
+| Exchange + binding | Topic hierarchy + subscription | Solace uses topic-based routing, not exchange types |
+| Queue | Queue endpoint | Similar but different durability model |
+| Shovel/Federation | DMR external links | Different architecture — mesh vs point-to-point |
+
+**TIBCO → Solace:**
+| TIBCO Concept | Solace Equivalent | Notes |
+|--------------|-------------------|-------|
+| Subject-based routing | Topic hierarchy | Similar concept, different syntax |
+| Certified messaging | Guaranteed messaging | Comparable |
+| TIBCO EMS queues | Queue endpoints | Similar |
+
+**IBM MQ → Solace:**
+| MQ Concept | Solace Equivalent | Notes |
+|-----------|-------------------|-------|
+| Queue manager | Event broker | Different architecture |
+| MQ channels | DMR links | Different model |
+| MQ clusters | DMR cluster | Different topology |
+| Dead letter queue | Dead message queue | Similar concept |
+
+Present the mapping table for the relevant source platform.
+
+**Only make migration claims that Solace documentation supports.** Cross-platform
+comparisons are appropriate only where Solace sources explicitly address them.
+
+---
+
+## Step 3: Design the coexistence topology
+
+During migration, the old and new systems run side by side. Design the bridge:
+
+- **Kafka:** Use the Broker Integrated Kafka bridge. One direction of authority per
+  topic — never bidirectional on the same topic (antipattern: infinite message loops).
+- **RabbitMQ/TIBCO/IBM MQ:** Use a Micro-Integration bridge or REST-based relay.
+  Document the bridge architecture.
+
+Generate a Mermaid diagram:
+
+```mermaid
+graph LR
+    subgraph "Source System"
+        S[Kafka Cluster]
+    end
+    subgraph "Solace Event Mesh"
+        B[Event Broker]
+    end
+    S -->|"Kafka Bridge (Broker Integrated)"| B
+    B -->|"New consumers subscribe here"| C[New Apps]
+    S -->|"Legacy consumers stay here during migration"| L[Legacy Apps]
+```
+
+---
+
+## Step 4: Design the phased migration plan
+
+Structure the migration in phases:
+
+**Phase 1: Bridge and observe.**
+Deploy the Solace broker alongside the existing system. Set up the bridge. Mirror
+traffic. Validate that events arrive correctly. No consumer migration yet.
+
+**Phase 2: New consumers on Solace.**
+New applications subscribe on Solace. Existing applications stay on the source system.
+Both systems see the same events via the bridge.
+
+**Phase 3: Migrate existing consumers.**
+Move existing consumers from the source system to Solace, one application at a time.
+Validate each migration. Roll back if issues arise.
+
+**Phase 4: Migrate producers.**
+Once all consumers are on Solace, migrate producers. The bridge can be reversed
+temporarily if needed.
+
+**Phase 5: Decommission source.**
+Remove the bridge. Decommission the source system. This is the final phase and
+should not be rushed.
+
+For each phase, identify:
+- Duration estimate (flag as "depends on application count and team capacity")
+- Validation criteria (how do you know this phase succeeded?)
+- Rollback plan (what happens if this phase fails?)
+- Applications affected
+
+---
+
+## Step 5: Topic mapping
+
+Map source system topics/queues to the Solace topic taxonomy:
+
+| Source Topic/Queue | Solace Topic | Delivery Mode | Migration Phase |
+|-------------------|-------------|---------------|----------------|
+
+If `/solace-topic-design` has already run, reference those decisions. If not, apply
+the `Domain/Noun/Verb/Version/Properties` structure to the migrated topics.
+
+---
+
+## Step 6: Write artifacts and complete
+
+Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-# Rewrite progress for this skill to complete status
-python3 -c "
-import yaml, sys, datetime
-with open('projects/$ACTIVE/progress.yaml', 'r') as f:
-    data = yaml.safe_load(f) or {}
-progress = data.get('progress', [])
-for entry in progress:
-    if entry.get('skill') == 'solace-discovery':
-        entry['status'] = 'complete'
-        entry['completed'] = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-        entry['step_reached'] = '5/5 — synthesis complete'
-        entry['summary'] = '<one-line summary of what was discovered>'
-        entry['artifacts'] = [{'path': 'artifacts/discovery/discovery-brief.md', 'type': 'document', 'description': 'Discovery brief'}]
-        break
-with open('projects/$ACTIVE/progress.yaml', 'w') as f:
-    yaml.dump(data, f, default_flow_style=False)
-" 2>/dev/null || echo "Progress update requires PyYAML — update manually if needed"
+cat > "projects/$ACTIVE/artifacts/migration/migration-plan.md" << 'EOF'
+<paste the phased migration plan>
+EOF
+cat > "projects/$ACTIVE/artifacts/migration/coexistence-topology.md" << 'EOF'
+<paste the coexistence design>
+EOF
+cat > "projects/$ACTIVE/artifacts/migration/coexistence-topology.mermaid" << 'EOF'
+<paste the Mermaid diagram>
+EOF
+cat > "projects/$ACTIVE/artifacts/migration/topic-mapping.md" << 'EOF'
+<paste the topic mapping table>
+EOF
 ```
 
-If the python/yaml approach fails, update `progress.yaml` by reading and rewriting it
-with the Bash tool or by using the Edit tool directly. The key fields to set:
-`status: complete`, `completed: <now>`, `step_reached: "5/5 — synthesis complete"`,
-`summary`, and `artifacts`.
+Update decisions.yaml with migration decisions.
+Update progress to complete.

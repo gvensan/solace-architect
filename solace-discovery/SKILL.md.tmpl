@@ -72,7 +72,7 @@ input:
 ```bash
 PROJECT_SLUG="<slugified-name>"
 DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{discovery,topic-design,sam-design,broker-select,protocol-select,mesh-design,ha-dr,integration,migration,validation,blueprint}
+mkdir -p "projects/$PROJECT_SLUG/artifacts/"{discovery,topic-design,sam-design,broker-select,protocol-select,mesh-design,ha-dr,integration,migration,reviews,validation,blueprint}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
 display_name: $DISPLAY_NAME
@@ -92,6 +92,9 @@ progress:
   step_reached: "0/5 — project initialized"
   artifacts: []
 PROGEOF
+cat > "projects/$PROJECT_SLUG/feedback.yaml" << FBEOF
+feedback: []
+FBEOF
 echo "$PROJECT_SLUG" > projects/.active
 ```
 
@@ -314,6 +317,7 @@ produce a **Discovery Brief** in this structure:
 - Protocols in play: <list>
 - Event types: <list with approximate rates>
 - Matched reference architecture: <Pattern N: name, or "None — custom architecture">
+- Micro-Integration availability: <for each backend, note if a cataloged MI exists — check {{GROUNDING_DIR}}/integration-hub-catalog.md>
 
 ## Requirements
 - Delivery guarantee: <Direct / Guaranteed / Mixed>

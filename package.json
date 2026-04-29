@@ -9,7 +9,9 @@
     "build": "bun run gen:skill-docs --host all",
     "test": "bun test test/ --ignore 'test/skill-e2e-*.test.ts' --ignore test/skill-llm-eval.test.ts",
     "skill:check": "bun run scripts/skill-check.ts",
-    "dev:skill": "bun run scripts/dev-skill.ts"
+    "dev:skill": "bun run scripts/dev-skill.ts",
+    "url:check": "bun run scripts/url-health-check.ts",
+    "url:check:verbose": "bun run scripts/url-health-check.ts --verbose"
   },
   "engines": {
     "bun": ">=1.0.0"

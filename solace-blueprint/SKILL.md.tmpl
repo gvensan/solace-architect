@@ -1,0 +1,249 @@
+---
+name: solace-blueprint
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Final blueprint assembly. Pulls all project artifacts into a single engineering
+  handoff package: architecture document, Mermaid diagrams, SAM YAML configs,
+  Micro-Integration configs, broker provisioning parameters, validation report,
+  operational runbook, and topic taxonomy. Use after validation passes.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-blueprint — Blueprint Assembly
+
+You are running the blueprint skill. Your job is to assemble all project artifacts
+into a single, coherent engineering handoff package. The blueprint is the final
+deliverable — it should be a document package you would hand to an engineering team.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-validate" || echo "NO_VALIDATION"
+fi
+```
+
+Requires validation complete. If validation has not run, warn: "Validation should
+pass before assembling the blueprint. Run `/solace-validate` first."
+
+Use AskUserQuestion: A) Run validation first, B) Proceed without validation
+(I accept the risk).
+
+Read all project state:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+echo ""
+echo "=== ALL ARTIFACTS ==="
+find "projects/$ACTIVE/artifacts" -name "*.md" -o -name "*.yaml" -o -name "*.mermaid" 2>/dev/null | sort
+```
+
+Read every artifact file to load content for assembly.
+
+---
+
+## Step 1: Create blueprint directory structure
+
+```bash
+ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/blueprint/diagrams"
+mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/agents"
+mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/gateways"
+mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/micro-integrations"
+mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/broker"
+```
+
+---
+
+## Step 2: Synthesize the architecture document
+
+Write a coherent architecture document that synthesizes all decisions into a narrative.
+This is NOT a concatenation of skill outputs. It should read as a unified design
+document that an engineering team can follow.
+
+Structure:
+
+```markdown
+# Architecture Blueprint: <Project Name>
+
+## Executive Summary
+<2-3 paragraphs: what this system does, the key architectural decisions, and the
+Solace components involved>
+
+## System Context
+<systems, boundaries, data flows — from discovery>
+
+## Event Mesh Design
+### Broker Type and Topology
+<broker selection rationale, DMR topology if multi-site>
+
+### Topic Taxonomy
+<complete topic hierarchy with delivery modes>
+
+### Subscription Strategy
+<wildcard subscriptions per consumer, bandwidth considerations>
+
+## Agent Mesh Design (if applicable)
+### Agent Topology
+<agent inventory, OrchestratorAgent, Gateway selection>
+
+### Authorization Model
+<scope propagation from Gateway to agent tools>
+
+### A2A Protocol Layout
+<A2A topic namespace, relationship to application topics>
+
+## Integration Design
+### Micro-Integration Map
+<which backends connect through which Micro-Integrations>
+
+### Protocol Assignments
+<protocol per integration point with rationale>
+
+## Reliability Design
+### High Availability
+<HA configuration per site>
+
+### Disaster Recovery
+<DR topology, RPO/RTO per data class>
+
+## Security Model
+<authentication, authorization, encryption, compliance>
+
+## Operational Model
+<monitoring, alerting, capacity planning, upgrade path>
+
+## Migration Plan (if applicable)
+<phased migration sequence, coexistence topology>
+
+## Open Questions and Risks
+<from validation and review findings>
+
+## Appendices
+- Full topic taxonomy table
+- Full subscription map
+- Decision log (from decisions.yaml)
+```
+
+Write the architecture document:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/blueprint/architecture.md" << 'EOF'
+<paste the full architecture document>
+EOF
+```
+
+---
+
+## Step 3: Assemble diagrams
+
+Collect all Mermaid diagrams from previous skills and copy to the blueprint:
+
+```bash
+ACTIVE=$(cat projects/.active)
+find "projects/$ACTIVE/artifacts" -name "*.mermaid" -not -path "*/blueprint/*" 2>/dev/null
+```
+
+Copy each diagram to `artifacts/blueprint/diagrams/`. If key diagrams are missing
+(broker topology, data flow), generate them:
+
+- **broker-topology.mermaid** — shows all brokers, DMR links, replication groups
+- **data-flow.mermaid** — shows producers, consumers, topics, delivery modes
+- **sam-agent-topology.mermaid** (if SAM) — shows Gateways, OrchestratorAgent, agents, backends
+
+---
+
+## Step 4: Assemble configs
+
+Collect all YAML configs from SAM design and integration design:
+
+```bash
+ACTIVE=$(cat projects/.active)
+find "projects/$ACTIVE/artifacts" -name "*.yaml" -not -path "*/blueprint/*" 2>/dev/null
+```
+
+Copy agent configs, gateway configs, and Micro-Integration configs to the blueprint
+config directory. Add a broker provisioning parameters file summarizing the broker
+type, service class, and key configuration parameters.
+
+---
+
+## Step 5: Write operational runbook
+
+Generate a runbook covering:
+
+- **Monitoring setup** — what to monitor, alert thresholds, dashboards
+- **Failure modes** — what can fail, how to detect it, how to recover
+- **Escalation paths** — when to page, who to contact, severity classification
+- **Capacity thresholds** — when to scale, what to watch
+- **Upgrade procedures** — how to upgrade brokers, agents, Micro-Integrations
+- **Certificate rotation** — TLS certificate renewal process
+- **Disaster recovery procedures** — failover steps, validation after failover
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/blueprint/runbook.md" << 'EOF'
+<paste the operational runbook>
+EOF
+```
+
+---
+
+## Step 6: Copy supporting artifacts
+
+Copy the validation report and topic taxonomy to the blueprint:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cp "projects/$ACTIVE/artifacts/validation/validation-report.md" "projects/$ACTIVE/artifacts/blueprint/" 2>/dev/null
+cp "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" "projects/$ACTIVE/artifacts/blueprint/" 2>/dev/null
+```
+
+---
+
+## Step 7: Final review and complete
+
+Present the blueprint to the user:
+
+```
+Blueprint assembled for: <project name>
+
+Contents:
+  architecture.md          — complete architecture document
+  runbook.md               — operational runbook
+  topic-taxonomy.md        — topic hierarchy with delivery modes
+  validation-report.md     — validation results
+  diagrams/
+    broker-topology.mermaid
+    data-flow.mermaid
+    sam-agent-topology.mermaid (if SAM)
+  config/
+    agents/                — SAM agent YAML configs
+    gateways/              — Gateway YAML configs
+    micro-integrations/    — Micro-Integration configs
+    broker/                — broker provisioning parameters
+
+Total artifacts: <N> files
+```
+
+Ask the user to review. If they identify gaps, address them before marking complete.
+
+Update progress to complete. The blueprint is the final deliverable of the engagement.

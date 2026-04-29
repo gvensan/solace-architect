@@ -1,0 +1,208 @@
+---
+name: solace-validate
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Comprehensive consistency and completeness check across all project artifacts.
+  Runs antipattern detection, cross-component consistency checks, decision conflict
+  analysis, and completeness verification. Use after technical domain and review
+  skills are complete, before blueprint assembly.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-validate — Architecture Validation
+
+You are running the validation skill. Your job is to perform a comprehensive consistency
+and completeness check across all project artifacts before the final blueprint is
+assembled.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+fi
+```
+
+Requires discovery complete AND at least one technical skill complete. If only discovery
+exists, warn: "Validation needs technical artifacts to check. Run at least one technical
+domain skill first."
+
+Read ALL project artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+echo "=== DECISIONS ==="
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+echo ""
+echo "=== PROGRESS ==="
+cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+echo ""
+echo "=== ALL ARTIFACTS ==="
+find "projects/$ACTIVE/artifacts" -name "*.md" -o -name "*.yaml" -o -name "*.mermaid" 2>/dev/null | sort
+```
+
+Read each artifact file to load the full content for validation.
+
+---
+
+## Step 1: Antipattern detection
+
+Load the antipattern library:
+
+```bash
+cat {{GROUNDING_DIR}}/antipatterns.md
+```
+
+Check every artifact against every relevant antipattern:
+
+**Topic design antipatterns (if topic-design artifacts exist):**
+- [ ] No environment names in topics
+- [ ] No tracing/audit IDs in topics
+- [ ] No overly broad wildcard subscriptions across DMR
+- [ ] Properties ordered correctly (after version, least-specific to most-specific)
+- [ ] No message properties used for filtering
+- [ ] No special characters in published topics
+
+**SAM antipatterns (if sam-design artifacts exist):**
+- [ ] No agents skipping the orchestrator
+- [ ] No hardcoded backend credentials in agent YAML
+- [ ] No environment names in SAM namespace
+- [ ] No synchronous request/response thinking for agent calls
+- [ ] No custom gateway when a standard one fits
+
+**Mesh topology antipatterns (if mesh-design artifacts exist):**
+- [ ] No single global broker for enterprise
+- [ ] No plant-floor systems calling cloud APIs synchronously
+- [ ] No cloud treated as system of record for plant data
+- [ ] No symmetric high-volume bidirectional flows without explicit traffic class design
+
+**Delivery mode antipatterns:**
+- [ ] No mixing Direct and Guaranteed on the same critical path without explicit design
+- [ ] No per-subscriber heartbeats for fan-out data
+
+**General integration antipatterns:**
+- [ ] No bidirectional Kafka bridge on the same topic
+- [ ] No custom client library when a Solace API exists
+- [ ] No skipping Schema Registry for OT data
+- [ ] No SAM deployed without event mesh foundation
+
+---
+
+## Step 2: Cross-component consistency
+
+Check that decisions across skills are consistent:
+
+**Topic taxonomy ↔ SAM A2A topics:**
+- Do application topics and A2A protocol topics use different namespaces?
+- No collisions between the two sets?
+
+**Topic taxonomy ↔ Protocol selection:**
+- Are delivery modes consistent between topic design and protocol capabilities?
+  (e.g., if a topic uses Guaranteed messaging, is the selected protocol capable
+  of Guaranteed?)
+
+**Broker type ↔ Features used:**
+- Does the selected broker type support all features the architecture requires?
+  (e.g., Distributed Tracing requires product key, certain service classes may not
+  include all features)
+
+**ACL model ↔ Authorization propagation:**
+- Does the ACL profile design match the SAM authorization propagation model?
+- Are all integration points covered by the security design?
+
+**Mesh topology ↔ HA/DR:**
+- Do replication groups align with the DMR topology?
+- Do replication mates appear as single nodes to DMR?
+
+---
+
+## Step 3: Completeness check
+
+Verify that the architecture is complete for the stated requirements:
+
+- [ ] **Delivery mode defined for every flow** — no topic without an explicit
+  Direct or Guaranteed decision
+- [ ] **Security model covers every integration point** — no unprotected paths
+- [ ] **Observability plan exists** — monitoring, alerting, tracing addressed
+- [ ] **Schema governance addressed** — Schema Registry, versioning, evolution policy
+- [ ] **Failure paths documented** — every component has a failure mode and recovery plan
+- [ ] **Operational handoff covered** — runbook, monitoring setup, capacity thresholds
+
+---
+
+## Step 4: Decision conflict analysis
+
+Read `decisions.yaml` and check for contradictions:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/decisions.yaml"
+```
+
+Look for:
+- Contradictory delivery mode decisions across skills
+- Broker type decisions that conflict with feature requirements
+- Topology decisions that conflict with latency or sovereignty constraints
+
+---
+
+## Step 5: Write validation report and complete
+
+Structure the report:
+
+```markdown
+# Validation Report: <Project Name>
+
+## Summary
+- Checks run: <N>
+- Passed: <N>
+- Failed: <N>
+- Warnings: <N>
+
+## Antipattern Detection
+<pass/fail for each check with details on failures>
+
+## Cross-Component Consistency
+<pass/fail for each check with details on inconsistencies>
+
+## Completeness
+<pass/fail for each check with details on gaps>
+
+## Decision Conflicts
+<any contradictions found>
+
+## Risk Summary
+<overall assessment: is this architecture ready for blueprint assembly?>
+
+## Recommendations
+<specific actions to take before proceeding to /solace-blueprint>
+```
+
+Save the report:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/validation/validation-report.md" << 'EOF'
+<paste the full validation report>
+EOF
+```
+
+Update progress to complete.
+
+If critical issues were found, recommend fixing them before running `/solace-blueprint`.
+If the validation passed, recommend proceeding to `/solace-blueprint`.
