@@ -46,7 +46,7 @@ Read the discovery brief and decisions:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 ```
 
@@ -136,7 +136,7 @@ Save the broker recommendation artifact:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/broker-select/broker-recommendation.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/03-broker-select/broker-recommendation.md" << 'EOF'
 <paste the full recommendation with rationale, comparison table, sizing notes>
 EOF
 ```

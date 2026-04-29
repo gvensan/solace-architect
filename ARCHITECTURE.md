@@ -243,18 +243,18 @@ projects/<project-slug>/
   progress.yaml         # skill execution log with resume support
   feedback.yaml         # per-project feedback on skill output quality
   artifacts/            # all generated outputs, organized by skill
-    discovery/
-    topic-design/
-    sam-design/
-    broker-select/
-    protocol-select/
-    mesh-design/
-    ha-dr/
-    integration/
-    migration/
-    reviews/
-    validation/
-    blueprint/
+    01-discovery/
+    02-topic-design/
+    03-broker-select/
+    04-sam-design/
+    05-protocol-select/
+    06-mesh-design/
+    07-ha-dr/
+    08-integration/
+    09-migration/
+    10-reviews/
+    11-validation/
+    12-blueprint/
 ```
 
 ### Active project tracking

@@ -161,17 +161,18 @@ projects/<project-slug>/
   decisions.yaml        # accumulated design decisions across skills
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
-    discovery/
-    topic-design/
-    sam-design/
-    broker-select/
-    protocol-select/
-    mesh-design/
-    ha-dr/
-    integration/
-    migration/
-    validation/
-    blueprint/
+    01-discovery/
+    02-topic-design/
+    03-broker-select/
+    04-sam-design/
+    05-protocol-select/
+    06-mesh-design/
+    07-ha-dr/
+    08-integration/
+    09-migration/
+    10-reviews/
+    11-validation/
+    12-blueprint/
 ```
 
 ### Active project
@@ -196,7 +197,7 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
   summary: "Retail bank AI assistant. Pattern 1 match. 4 backends identified."
   step_reached: "5/5 — synthesis complete"
   artifacts:
-    - path: artifacts/discovery/discovery-brief.md
+    - path: artifacts/01-discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
   timing:
@@ -664,9 +665,9 @@ Read the discovery brief, decisions, and topic taxonomy (if available):
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
-cat "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" 2>/dev/null || echo "NO_TOPIC_TAXONOMY"
+cat "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" 2>/dev/null || echo "NO_TOPIC_TAXONOMY"
 ```
 
 Write initial progress entry and proceed.
@@ -760,7 +761,7 @@ If topic design has already run, verify alignment:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" 2>/dev/null
+cat "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" 2>/dev/null
 ```
 
 Design the authorization propagation model:
@@ -796,13 +797,13 @@ Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-mkdir -p "projects/$ACTIVE/artifacts/sam-design/agent-configs"
-mkdir -p "projects/$ACTIVE/artifacts/sam-design/gateway-configs"
+mkdir -p "projects/$ACTIVE/artifacts/04-sam-design/agent-configs"
+mkdir -p "projects/$ACTIVE/artifacts/04-sam-design/gateway-configs"
 ```
 
 Write agent topology overview, individual agent configs, gateway configs,
 Micro-Integration map, A2A topic map, and auth model document to the
-`artifacts/sam-design/` directory.
+`artifacts/04-sam-design/` directory.
 
 Update decisions.yaml with SAM topology decisions.
 

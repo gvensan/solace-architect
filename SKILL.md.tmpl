@@ -72,7 +72,7 @@ The root skill handles project lifecycle. Respond to these requests:
 ```bash
 PROJECT_SLUG="<slugified-name>"
 DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{discovery,topic-design,sam-design,broker-select,protocol-select,mesh-design,ha-dr,integration,migration,reviews,validation,blueprint}
+mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
 display_name: $DISPLAY_NAME

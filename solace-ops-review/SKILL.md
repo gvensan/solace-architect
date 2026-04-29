@@ -161,17 +161,18 @@ projects/<project-slug>/
   decisions.yaml        # accumulated design decisions across skills
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
-    discovery/
-    topic-design/
-    sam-design/
-    broker-select/
-    protocol-select/
-    mesh-design/
-    ha-dr/
-    integration/
-    migration/
-    validation/
-    blueprint/
+    01-discovery/
+    02-topic-design/
+    03-broker-select/
+    04-sam-design/
+    05-protocol-select/
+    06-mesh-design/
+    07-ha-dr/
+    08-integration/
+    09-migration/
+    10-reviews/
+    11-validation/
+    12-blueprint/
 ```
 
 ### Active project
@@ -196,7 +197,7 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
   summary: "Retail bank AI assistant. Pattern 1 match. 4 backends identified."
   step_reached: "5/5 — synthesis complete"
   artifacts:
-    - path: artifacts/discovery/discovery-brief.md
+    - path: artifacts/01-discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
   timing:
@@ -659,7 +660,7 @@ Requires at least one technical skill complete. Read all available artifacts:
 ```bash
 ACTIVE=$(cat projects/.active)
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
-for dir in topic-design sam-design broker-select protocol-select mesh-design ha-dr integration migration; do
+for dir in 02-topic-design 04-sam-design 03-broker-select 05-protocol-select 06-mesh-design 07-ha-dr 08-integration 09-migration; do
   for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
     [ -f "$f" ] && echo "=== $f ===" && cat "$f"
   done 2>/dev/null
@@ -854,8 +855,8 @@ Save the review document with resolution status on each finding:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-mkdir -p "projects/$ACTIVE/artifacts/reviews"
-cat > "projects/$ACTIVE/artifacts/reviews/ops-review.md" << 'EOF'
+mkdir -p "projects/$ACTIVE/artifacts/10-reviews"
+cat > "projects/$ACTIVE/artifacts/10-reviews/ops-review.md" << 'EOF'
 <paste the structured review findings with APPLIED/DEFERRED status>
 EOF
 ```

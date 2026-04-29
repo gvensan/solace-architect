@@ -64,11 +64,11 @@ Read every artifact file to load content for assembly.
 
 ```bash
 ACTIVE=$(cat projects/.active)
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/diagrams"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/agents"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/gateways"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/micro-integrations"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/broker"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/diagrams"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/agents"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/gateways"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/micro-integrations"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/broker"
 ```
 
 ---
@@ -147,7 +147,7 @@ Write the architecture document:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/blueprint/architecture.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/12-blueprint/architecture.md" << 'EOF'
 <paste the full architecture document>
 EOF
 ```
@@ -163,7 +163,7 @@ ACTIVE=$(cat projects/.active)
 find "projects/$ACTIVE/artifacts" -name "*.mermaid" -not -path "*/blueprint/*" 2>/dev/null
 ```
 
-Copy each diagram to `artifacts/blueprint/diagrams/`. If key diagrams are missing
+Copy each diagram to `artifacts/12-blueprint/diagrams/`. If key diagrams are missing
 (broker topology, data flow), generate them:
 
 - **broker-topology.mermaid** — shows all brokers, DMR links, replication groups
@@ -201,7 +201,7 @@ Generate a runbook covering:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/blueprint/runbook.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/12-blueprint/runbook.md" << 'EOF'
 <paste the operational runbook>
 EOF
 ```
@@ -214,8 +214,8 @@ Copy the validation report and topic taxonomy to the blueprint:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cp "projects/$ACTIVE/artifacts/validation/validation-report.md" "projects/$ACTIVE/artifacts/blueprint/" 2>/dev/null
-cp "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" "projects/$ACTIVE/artifacts/blueprint/" 2>/dev/null
+cp "projects/$ACTIVE/artifacts/11-validation/validation-report.md" "projects/$ACTIVE/artifacts/12-blueprint/" 2>/dev/null
+cp "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" "projects/$ACTIVE/artifacts/12-blueprint/" 2>/dev/null
 ```
 
 ---

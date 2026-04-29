@@ -113,18 +113,18 @@ projects/retail-banking-chat-agent/
   progress.yaml         # skill execution log
   feedback.yaml         # feedback on skill output quality
   artifacts/
-    discovery/          # where this skill's output goes
-    topic-design/       # future skills populate these
-    sam-design/
-    broker-select/
-    protocol-select/
-    mesh-design/
-    ha-dr/
-    integration/
-    migration/
-    reviews/
-    validation/
-    blueprint/
+    01-discovery/       # where this skill's output goes
+    02-topic-design/    # future skills populate these
+    03-broker-select/
+    04-sam-design/
+    05-protocol-select/
+    06-mesh-design/
+    07-ha-dr/
+    08-integration/
+    09-migration/
+    10-reviews/
+    11-validation/
+    12-blueprint/
 ```
 
 ### What happens next: Project type selection
@@ -285,7 +285,7 @@ The choice is stored in `decisions.yaml` as `execution_mode` and governs how all
 
 ### The discovery brief
 
-Discovery synthesizes everything into a structured document and saves it to `projects/retail-banking-chat-agent/artifacts/discovery/discovery-brief.md`:
+Discovery synthesizes everything into a structured document and saves it to `projects/retail-banking-chat-agent/artifacts/01-discovery/discovery-brief.md`:
 
 ```markdown
 # Discovery Brief: Retail Banking Chat Agent
@@ -332,7 +332,7 @@ Discovery also updates `progress.yaml` to mark itself complete and recommends wh
 
 | Artifact | Location |
 |----------|----------|
-| Discovery brief | `artifacts/discovery/discovery-brief.md` |
+| Discovery brief | `artifacts/01-discovery/discovery-brief.md` |
 | Project metadata | `context.yaml` |
 | Progress log | `progress.yaml` (discovery: complete) |
 
@@ -469,7 +469,7 @@ The skill produces a complete topic taxonomy document with:
 
 | Artifact | Location |
 |----------|----------|
-| Topic taxonomy | `artifacts/topic-design/topic-taxonomy.md` |
+| Topic taxonomy | `artifacts/02-topic-design/topic-taxonomy.md` |
 | Updated decisions | `decisions.yaml` |
 
 ---
@@ -509,7 +509,7 @@ The skill presents this via AskUserQuestion with all three options, pros/cons fo
 
 | Artifact | Location |
 |----------|----------|
-| Broker recommendation | `artifacts/broker-select/broker-recommendation.md` |
+| Broker recommendation | `artifacts/03-broker-select/broker-recommendation.md` |
 | Updated decisions | `decisions.yaml` (broker type: Event broker service) |
 
 ---
@@ -588,9 +588,9 @@ SAM design produces:
 
 | Artifact | Location |
 |----------|----------|
-| Agent topology | `artifacts/sam-design/agent-topology.md` |
-| Agent configs | `artifacts/sam-design/agent-configs/*.yaml` |
-| Gateway configs | `artifacts/sam-design/gateway-configs/*.yaml` |
+| Agent topology | `artifacts/04-sam-design/agent-topology.md` |
+| Agent configs | `artifacts/04-sam-design/agent-configs/*.yaml` |
+| Gateway configs | `artifacts/04-sam-design/gateway-configs/*.yaml` |
 | Updated decisions | `decisions.yaml` (agent inventory, gateway types, auth model) |
 
 ---
@@ -626,7 +626,7 @@ The skill also documents cross-protocol mediation. A message published via MQTT 
 
 | Artifact | Location |
 |----------|----------|
-| Protocol map | `artifacts/protocol-select/protocol-map.md` |
+| Protocol map | `artifacts/05-protocol-select/protocol-map.md` |
 | Updated decisions | `decisions.yaml` (protocol assignments) |
 
 ---
@@ -684,8 +684,8 @@ DMR external links connect brokers across sites. Each link carries specific topi
 
 | Artifact | Location |
 |----------|----------|
-| DMR topology description | `artifacts/mesh-design/dmr-topology.md` |
-| Topology diagram | `artifacts/mesh-design/dmr-topology.mermaid` |
+| DMR topology description | `artifacts/06-mesh-design/dmr-topology.md` |
+| Topology diagram | `artifacts/06-mesh-design/dmr-topology.mermaid` |
 | Updated decisions | `decisions.yaml` (topology: phased single-to-federation) |
 
 ---
@@ -727,8 +727,8 @@ The skill produces a diagram showing replication groups within the DMR topology.
 
 | Artifact | Location |
 |----------|----------|
-| HA/DR topology | `artifacts/ha-dr/ha-dr-topology.md` |
-| HA/DR diagram | `artifacts/ha-dr/ha-dr-topology.mermaid` |
+| HA/DR topology | `artifacts/07-ha-dr/ha-dr-topology.md` |
+| HA/DR diagram | `artifacts/07-ha-dr/ha-dr-topology.mermaid` |
 | Updated decisions | `decisions.yaml` (RPO/RTO per data class, replication mode) |
 
 ---
@@ -778,8 +778,8 @@ Solace Architect enforces terminology. The correct term is **Micro-Integration**
 
 | Artifact | Location |
 |----------|----------|
-| Micro-Integration map | `artifacts/integration/micro-integration-map.md` |
-| Custom MI specs | `artifacts/integration/custom-integration-specs/*.md` |
+| Micro-Integration map | `artifacts/08-integration/micro-integration-map.md` |
+| Custom MI specs | `artifacts/08-integration/custom-integration-specs/*.md` |
 | Updated decisions | `decisions.yaml` (MI strategy per backend) |
 
 ---
@@ -824,10 +824,10 @@ The skill produces a coexistence topology diagram and a topic mapping table (IBM
 
 | Artifact | Location |
 |----------|----------|
-| Migration plan | `artifacts/migration/migration-plan.md` |
-| Coexistence topology | `artifacts/migration/coexistence-topology.md` |
-| Coexistence diagram | `artifacts/migration/coexistence-topology.mermaid` |
-| Topic mapping | `artifacts/migration/topic-mapping.md` |
+| Migration plan | `artifacts/09-migration/migration-plan.md` |
+| Coexistence topology | `artifacts/09-migration/coexistence-topology.md` |
+| Coexistence diagram | `artifacts/09-migration/coexistence-topology.mermaid` |
+| Topic mapping | `artifacts/09-migration/topic-mapping.md` |
 | Updated decisions | `decisions.yaml` (migration phases, bridge type) |
 
 ---
@@ -873,7 +873,7 @@ Finding 1/3 — Critical
   Issue:    TransferAgent handles fund transfers as a single operation
   Impact:   PCI-DSS requires two-step confirmation (initiate + authorize)
   Fix:      Separate initiation from authorization; OrchestratorAgent manages confirmation step
-  Artifact: artifacts/sam-design/agent-topology.md
+  Artifact: artifacts/04-sam-design/agent-topology.md
 
   A) Apply — update agent-topology.md with the proposed fix
   B) Defer — log this finding for later; proceed to next
@@ -888,7 +888,7 @@ In auto execution mode, Advisory and Important findings are auto-applied; only C
 
 | Artifact | Location |
 |----------|----------|
-| Architect review | `artifacts/reviews/architect-review.md` (with APPLIED/DEFERRED status per finding) |
+| Architect review | `artifacts/10-reviews/architect-review.md` (with APPLIED/DEFERRED status per finding) |
 | Updated artifacts | Any artifacts modified by applied findings |
 | Updated decisions | `decisions.yaml` (applied and deferred entries) |
 
@@ -918,7 +918,7 @@ Like the architect review, findings are presented interactively with Apply/Defer
 
 | Artifact | Location |
 |----------|----------|
-| Ops review | `artifacts/reviews/ops-review.md` (with APPLIED/DEFERRED status) |
+| Ops review | `artifacts/10-reviews/ops-review.md` (with APPLIED/DEFERRED status) |
 
 ---
 
@@ -947,7 +947,7 @@ Findings are resolved interactively (Apply/Defer/Discuss). Critical security fin
 
 | Artifact | Location |
 |----------|----------|
-| Security review | `artifacts/reviews/security-review.md` (with APPLIED/DEFERRED status) |
+| Security review | `artifacts/10-reviews/security-review.md` (with APPLIED/DEFERRED status) |
 
 ---
 
@@ -976,7 +976,7 @@ The dev review classifies findings differently: Friction (blocks developers), Mi
 
 | Artifact | Location |
 |----------|----------|
-| Developer review | `artifacts/reviews/dev-review.md` (with APPLIED/DEFERRED status) |
+| Developer review | `artifacts/10-reviews/dev-review.md` (with APPLIED/DEFERRED status) |
 
 ---
 
@@ -1060,7 +1060,7 @@ No conflicts found.
 
 | Artifact | Location |
 |----------|----------|
-| Validation report | `artifacts/validation/validation-report.md` |
+| Validation report | `artifacts/11-validation/validation-report.md` |
 
 ---
 
@@ -1102,7 +1102,7 @@ Blueprint also assembles:
 ### The final file tree
 
 ```
-projects/retail-banking-chat-agent/artifacts/blueprint/
+projects/retail-banking-chat-agent/artifacts/12-blueprint/
   architecture.md              # complete architecture document
   runbook.md                   # operational runbook
   topic-taxonomy.md            # copied from topic-design
@@ -1124,11 +1124,11 @@ This is the package you hand to the engineering team. Blueprint marks itself com
 
 | Artifact | Location |
 |----------|----------|
-| Architecture document | `artifacts/blueprint/architecture.md` |
-| Operational runbook | `artifacts/blueprint/runbook.md` |
-| Diagrams | `artifacts/blueprint/diagrams/` |
-| Configs | `artifacts/blueprint/config/` |
-| Supporting artifacts | `artifacts/blueprint/` (taxonomy, validation) |
+| Architecture document | `artifacts/12-blueprint/architecture.md` |
+| Operational runbook | `artifacts/12-blueprint/runbook.md` |
+| Diagrams | `artifacts/12-blueprint/diagrams/` |
+| Configs | `artifacts/12-blueprint/config/` |
+| Supporting artifacts | `artifacts/12-blueprint/` (taxonomy, validation) |
 
 ---
 
