@@ -45,9 +45,9 @@ Read the inputs:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
-cat "projects/$ACTIVE/artifacts/broker-select/broker-recommendation.md" 2>/dev/null || echo "NO_BROKER"
-cat "projects/$ACTIVE/artifacts/mesh-design/dmr-topology.md" 2>/dev/null || echo "NO_MESH"
+cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/artifacts/03-broker-select/broker-recommendation.md" 2>/dev/null || echo "NO_BROKER"
+cat "projects/$ACTIVE/artifacts/06-mesh-design/dmr-topology.md" 2>/dev/null || echo "NO_MESH"
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 ```
 
@@ -152,10 +152,10 @@ Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/ha-dr/ha-dr-topology.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/07-ha-dr/ha-dr-topology.md" << 'EOF'
 <paste the HA/DR design with rationale>
 EOF
-cat > "projects/$ACTIVE/artifacts/ha-dr/ha-dr-topology.mermaid" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/07-ha-dr/ha-dr-topology.mermaid" << 'EOF'
 <paste the Mermaid diagram>
 EOF
 ```

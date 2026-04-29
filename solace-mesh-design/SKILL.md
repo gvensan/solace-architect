@@ -161,17 +161,18 @@ projects/<project-slug>/
   decisions.yaml        # accumulated design decisions across skills
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
-    discovery/
-    topic-design/
-    sam-design/
-    broker-select/
-    protocol-select/
-    mesh-design/
-    ha-dr/
-    integration/
-    migration/
-    validation/
-    blueprint/
+    01-discovery/
+    02-topic-design/
+    03-broker-select/
+    04-sam-design/
+    05-protocol-select/
+    06-mesh-design/
+    07-ha-dr/
+    08-integration/
+    09-migration/
+    10-reviews/
+    11-validation/
+    12-blueprint/
 ```
 
 ### Active project
@@ -196,7 +197,7 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
   summary: "Retail bank AI assistant. Pattern 1 match. 4 backends identified."
   step_reached: "5/5 — synthesis complete"
   artifacts:
-    - path: artifacts/discovery/discovery-brief.md
+    - path: artifacts/01-discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
   timing:
@@ -663,8 +664,8 @@ If dependencies are met, read the inputs:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
-cat "projects/$ACTIVE/artifacts/broker-select/broker-recommendation.md" 2>/dev/null || echo "NO_BROKER"
+cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/artifacts/03-broker-select/broker-recommendation.md" 2>/dev/null || echo "NO_BROKER"
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 ```
 
@@ -779,10 +780,10 @@ Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/mesh-design/dmr-topology.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/06-mesh-design/dmr-topology.md" << 'EOF'
 <paste the topology description with rationale>
 EOF
-cat > "projects/$ACTIVE/artifacts/mesh-design/dmr-topology.mermaid" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/06-mesh-design/dmr-topology.mermaid" << 'EOF'
 <paste the Mermaid diagram>
 EOF
 ```

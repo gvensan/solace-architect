@@ -162,17 +162,18 @@ projects/<project-slug>/
   decisions.yaml        # accumulated design decisions across skills
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
-    discovery/
-    topic-design/
-    sam-design/
-    broker-select/
-    protocol-select/
-    mesh-design/
-    ha-dr/
-    integration/
-    migration/
-    validation/
-    blueprint/
+    01-discovery/
+    02-topic-design/
+    03-broker-select/
+    04-sam-design/
+    05-protocol-select/
+    06-mesh-design/
+    07-ha-dr/
+    08-integration/
+    09-migration/
+    10-reviews/
+    11-validation/
+    12-blueprint/
 ```
 
 ### Active project
@@ -197,7 +198,7 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
   summary: "Retail bank AI assistant. Pattern 1 match. 4 backends identified."
   step_reached: "5/5 — synthesis complete"
   artifacts:
-    - path: artifacts/discovery/discovery-brief.md
+    - path: artifacts/01-discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
   timing:
@@ -689,7 +690,7 @@ input:
 ```bash
 PROJECT_SLUG="<slugified-name>"
 DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{discovery,topic-design,sam-design,broker-select,protocol-select,mesh-design,ha-dr,integration,migration,reviews,validation,blueprint}
+mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
 display_name: $DISPLAY_NAME
@@ -992,7 +993,7 @@ produce a **Discovery Brief** in this structure:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" << 'BRIEFEOF'
+cat > "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" << 'BRIEFEOF'
 <paste the full discovery brief content here>
 BRIEFEOF
 ```
@@ -1075,7 +1076,7 @@ for entry in progress:
         entry['completed'] = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
         entry['step_reached'] = '5/5 — synthesis complete'
         entry['summary'] = '<one-line summary of what was discovered>'
-        entry['artifacts'] = [{'path': 'artifacts/discovery/discovery-brief.md', 'type': 'document', 'description': 'Discovery brief'}]
+        entry['artifacts'] = [{'path': 'artifacts/01-discovery/discovery-brief.md', 'type': 'document', 'description': 'Discovery brief'}]
         break
 with open('projects/$ACTIVE/progress.yaml', 'w') as f:
     yaml.dump(data, f, default_flow_style=False)

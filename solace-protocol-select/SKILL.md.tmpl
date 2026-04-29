@@ -41,7 +41,7 @@ Requires discovery complete. Read the inputs:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 ```
 
@@ -111,7 +111,7 @@ Save the protocol map:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/protocol-select/protocol-map.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/05-protocol-select/protocol-map.md" << 'EOF'
 <paste the protocol selection table with rationale and cross-protocol notes>
 EOF
 ```

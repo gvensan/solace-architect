@@ -42,9 +42,9 @@ Requires at least one technical skill complete. Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null
+cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
-for dir in sam-design broker-select mesh-design ha-dr integration; do
+for dir in 04-sam-design 03-broker-select 06-mesh-design 07-ha-dr 08-integration; do
   for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
     [ -f "$f" ] && echo "=== $f ===" && cat "$f"
   done 2>/dev/null
@@ -152,8 +152,8 @@ Save the review document with resolution status on each finding:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-mkdir -p "projects/$ACTIVE/artifacts/reviews"
-cat > "projects/$ACTIVE/artifacts/reviews/security-review.md" << 'EOF'
+mkdir -p "projects/$ACTIVE/artifacts/10-reviews"
+cat > "projects/$ACTIVE/artifacts/10-reviews/security-review.md" << 'EOF'
 <paste the structured review findings with APPLIED/DEFERRED status>
 EOF
 ```

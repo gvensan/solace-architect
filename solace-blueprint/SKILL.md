@@ -161,17 +161,18 @@ projects/<project-slug>/
   decisions.yaml        # accumulated design decisions across skills
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
-    discovery/
-    topic-design/
-    sam-design/
-    broker-select/
-    protocol-select/
-    mesh-design/
-    ha-dr/
-    integration/
-    migration/
-    validation/
-    blueprint/
+    01-discovery/
+    02-topic-design/
+    03-broker-select/
+    04-sam-design/
+    05-protocol-select/
+    06-mesh-design/
+    07-ha-dr/
+    08-integration/
+    09-migration/
+    10-reviews/
+    11-validation/
+    12-blueprint/
 ```
 
 ### Active project
@@ -196,7 +197,7 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
   summary: "Retail bank AI assistant. Pattern 1 match. 4 backends identified."
   step_reached: "5/5 — synthesis complete"
   artifacts:
-    - path: artifacts/discovery/discovery-brief.md
+    - path: artifacts/01-discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
   timing:
@@ -680,11 +681,11 @@ Read every artifact file to load content for assembly.
 
 ```bash
 ACTIVE=$(cat projects/.active)
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/diagrams"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/agents"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/gateways"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/micro-integrations"
-mkdir -p "projects/$ACTIVE/artifacts/blueprint/config/broker"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/diagrams"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/agents"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/gateways"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/micro-integrations"
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/config/broker"
 ```
 
 ---
@@ -763,7 +764,7 @@ Write the architecture document:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/blueprint/architecture.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/12-blueprint/architecture.md" << 'EOF'
 <paste the full architecture document>
 EOF
 ```
@@ -779,7 +780,7 @@ ACTIVE=$(cat projects/.active)
 find "projects/$ACTIVE/artifacts" -name "*.mermaid" -not -path "*/blueprint/*" 2>/dev/null
 ```
 
-Copy each diagram to `artifacts/blueprint/diagrams/`. If key diagrams are missing
+Copy each diagram to `artifacts/12-blueprint/diagrams/`. If key diagrams are missing
 (broker topology, data flow), generate them:
 
 - **broker-topology.mermaid** — shows all brokers, DMR links, replication groups
@@ -817,7 +818,7 @@ Generate a runbook covering:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat > "projects/$ACTIVE/artifacts/blueprint/runbook.md" << 'EOF'
+cat > "projects/$ACTIVE/artifacts/12-blueprint/runbook.md" << 'EOF'
 <paste the operational runbook>
 EOF
 ```
@@ -830,8 +831,8 @@ Copy the validation report and topic taxonomy to the blueprint:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cp "projects/$ACTIVE/artifacts/validation/validation-report.md" "projects/$ACTIVE/artifacts/blueprint/" 2>/dev/null
-cp "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" "projects/$ACTIVE/artifacts/blueprint/" 2>/dev/null
+cp "projects/$ACTIVE/artifacts/11-validation/validation-report.md" "projects/$ACTIVE/artifacts/12-blueprint/" 2>/dev/null
+cp "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" "projects/$ACTIVE/artifacts/12-blueprint/" 2>/dev/null
 ```
 
 ---
