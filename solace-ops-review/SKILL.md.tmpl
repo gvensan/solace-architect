@@ -130,25 +130,39 @@ Evaluate readiness for ongoing operations:
 
 ---
 
-## Step 5: Write findings and complete
+## Step 5: Classify findings
 
-Structure findings by operational risk:
+After completing steps 1–4, classify every finding by operational risk:
 
-- **P1 — Production risk:** Missing monitoring, unhandled failure modes, no runbook
-  for critical paths.
-- **P2 — Scaling risk:** Capacity limits that will be hit within the stated growth
-  trajectory.
-- **P3 — Operational debt:** Missing automation, manual processes that should be
-  automated, incomplete documentation.
+- **Critical (P1)** — Missing monitoring, unhandled failure modes, no runbook
+  for critical paths. Production risk.
+- **Important (P2)** — Capacity limits that will be hit within the stated growth
+  trajectory. Scaling risk.
+- **Advisory (P3)** — Missing automation, manual processes that should be
+  automated, incomplete documentation. Operational debt.
 
-Save the review:
+---
+
+## Step 6: Resolve findings interactively
+
+{{FINDING_RESOLUTION}}
+
+---
+
+## Step 7: Write findings and complete
+
+Save the review document with resolution status on each finding:
 
 ```bash
 ACTIVE=$(cat projects/.active)
 mkdir -p "projects/$ACTIVE/artifacts/reviews"
 cat > "projects/$ACTIVE/artifacts/reviews/ops-review.md" << 'EOF'
-<paste the structured review findings>
+<paste the structured review findings with APPLIED/DEFERRED status>
 EOF
 ```
 
+Update decisions.yaml with all applied and deferred entries from the resolution.
 Update progress to complete.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-security-review` — Security Review

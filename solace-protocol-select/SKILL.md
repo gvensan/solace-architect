@@ -198,6 +198,18 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
     - path: artifacts/discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
+  timing:
+    wall_sec: 900
+    user_wait_sec: 540
+    execution_sec: 360
+    steps:
+      - step: 1
+        label: "Understand the landscape"
+        execution_sec: 90
+    questions:
+      - id: D1
+        label: "Project type"
+        wait_sec: 120
 ```
 
 **Checkpoint writes.** Every skill writes to `progress.yaml` at these points:
@@ -236,6 +248,73 @@ Total artifacts: N files
 Recommended next: <suggestion>
 ```
 
+## Timing Instrumentation
+
+Track execution time for every skill to separate model work from user wait time.
+All timing data is stored in `progress.yaml` under a `timing` key in each skill's
+progress entry.
+
+### What to capture
+
+Record timestamps at these points using `date -u +%s` (epoch seconds):
+
+1. **Skill start** — immediately after reading project state, before any processing.
+2. **Before each AskUserQuestion** — captures when the model paused for user input.
+3. **After each AskUserQuestion response** — captures when the model resumed work.
+4. **Step boundaries** — when each numbered step begins and ends.
+5. **Skill completion** — after all artifacts are saved.
+
+### How to capture
+
+At each instrumentation point, run:
+
+```bash
+date -u +%s
+```
+
+Keep a mental ledger of timestamps as you go. You do not need to write them to disk
+at each point — accumulate them and write the full timing block once at skill completion,
+alongside the progress update.
+
+### Timing block format
+
+When writing the skill's completion entry to `progress.yaml`, include a `timing` block:
+
+```yaml
+timing:
+  wall_sec: <completed_epoch - started_epoch>
+  user_wait_sec: <sum of all (response_epoch - question_epoch)>
+  execution_sec: <wall_sec - user_wait_sec>
+  steps:
+    - step: 1
+      label: "<step name from template>"
+      execution_sec: <step_end - step_start - user_wait_within_step>
+    - step: 2
+      label: "<step name>"
+      execution_sec: <value>
+  questions:
+    - id: D1
+      label: "<question title>"
+      wait_sec: <response_epoch - question_epoch>
+    - id: D2
+      label: "<question title>"
+      wait_sec: <value>
+```
+
+### Calculation rules
+
+- **wall_sec** = skill completion timestamp - skill start timestamp
+- **user_wait_sec** = sum of all question wait times
+- **execution_sec** = wall_sec - user_wait_sec
+- **Per-step execution_sec** = step end - step start - any user waits within that step
+- If a step has no AskUserQuestion, its execution_sec = step end - step start
+
+### When not to track
+
+- Do not track timing for `/solace-help` or `/solace-projects` (utility skills).
+- If a skill is resumed (not a fresh run), track timing for the resumed portion only.
+  Note `resumed: true` in the timing block so the data is clearly partial.
+
 ## Voice
 
 Solace Architect voice: senior architect judgment, grounded in the Solace platform.
@@ -256,50 +335,113 @@ Bad: "The comprehensive event mesh solution leverages robust messaging capabilit
 
 Every AskUserQuestion is a decision brief and must be sent as tool_use, not prose.
 
+**Exception:** Next-step routing prompts use a separate streamlined format defined in the
+Next Step Chaining section. Routing is workflow navigation ("what to run next"), not an
+architecture decision — it does not use the D<N> schema, self-check, or completeness scoring.
+
 ```
 D<N> — <one-line question title>
-Project/branch/task: <1 short grounding sentence using _BRANCH>
-ELI10: <plain English a 16-year-old could follow, 2-4 sentences, name the stakes>
-Stakes if we pick wrong: <one sentence on what breaks, what user sees, what's lost>
-Recommendation: <choice> because <one-line reason>
-Completeness: A=X/10, B=Y/10   (or: Note: options differ in kind, not coverage — no completeness score)
-Pros / cons:
+Context: <what this decides and what's at stake — 1-2 sentences, plain English>
+
+> **Recommended: <choice>) <option label>**
+> Why: <1-2 sentences — project-specific rationale, not generic. Reference the
+> project's constraints, requirements, or discovery findings that make this the
+> right call.>
+
 A) <option label> (recommended)
-  ✅ <pro — concrete, observable, ≥40 chars>
-  ❌ <con — honest, ≥40 chars>
+  ✅ <pro — concrete, observable, 40-80 chars>
+  ✅ <pro>
+  ❌ <con — honest, 40-80 chars>
+  Completeness: X/10
+
 B) <option label>
   ✅ <pro>
   ❌ <con>
+  Completeness: Y/10
+
 Net: <one-line synthesis of what you're actually trading off>
 ```
 
-D-numbering: first question in a skill invocation is `D1`; increment yourself. This is a model-level instruction, not a runtime counter.
+### Format rules
 
-ELI10 is always present, in plain English, not function names. Recommendation is ALWAYS present. Keep the `(recommended)` label; AUTO_DECIDE depends on it.
+**D-numbering:** first question in a skill invocation is `D1`; increment yourself.
 
-Completeness: use `Completeness: N/10` only when options differ in coverage. 10 = complete, 7 = happy path, 3 = shortcut. If options differ in kind, write: `Note: options differ in kind, not coverage — no completeness score.`
+**Context** replaces the old ELI10/Stakes/Project fields. One block, 1-2 sentences max.
+Plain English a non-engineer could follow. Name the stakes (what breaks if we pick wrong).
 
-Pros / cons: use ✅ and ❌. Minimum 2 pros and 1 con per option when the choice is real; Minimum 40 characters per bullet. Hard-stop escape for one-way/destructive confirmations: `✅ No cons — this is a hard-stop choice`.
+**Recommendation callout** is a blockquote so it stands out visually. The `(recommended)`
+label on the option MUST also be present — AUTO_DECIDE depends on it.
 
-Neutral posture: `Recommendation: <default> — this is a taste call, no strong preference either way`; `(recommended)` STAYS on the default option for AUTO_DECIDE.
+The **Why** line inside the callout must be project-specific. Bad: "because it's simpler."
+Good: "because this is a single-site deployment with 3 backends, where simpler topology
+reduces operational risk." Reference discovery findings, requirements, or constraints.
 
-Effort both-scales: when an option involves effort, label both human-team and AI-assisted time, e.g. `(human: ~2 days / AI-assisted: ~15 min)`. Makes AI compression visible at decision time.
+**Pros / cons:** use ✅ and ❌. Minimum 2 pros and 1 con per option when the choice is
+real. Each bullet 40-80 characters — long enough to be concrete, short enough to scan.
+Hard-stop escape for one-way/destructive confirmations: `✅ No cons — this is a hard-stop choice`.
 
-Net line closes the tradeoff. Per-skill instructions may add stricter rules.
+**Completeness** goes **below each option's pros/cons**, not above the option list.
+This lets the user read the tradeoffs and then see the score in context.
+Use `Completeness: N/10` only when options genuinely differ in coverage (10 = complete,
+7 = happy path, 3 = shortcut). Omit when options differ in kind — don't force a score.
+
+**Neutral posture:** `Recommended: <default>) <label>` with `Why: taste call — no
+strong preference either way`. The `(recommended)` label STAYS on the default.
+
+**Effort both-scales:** when an option involves effort, label both human-team and
+AI-assisted time, e.g. `(human: ~2 days / AI-assisted: ~15 min)`.
+
+**Net line** closes the tradeoff in one sentence.
+
+### Expanding template shorthand
+
+Skill templates sometimes give abbreviated AskUserQuestion instructions like
+`"Use AskUserQuestion: A) option, B) option"`. These are shorthand — you MUST
+expand every AskUserQuestion to the full D<N> format above with Context, Recommendation
+callout, pros/cons, and Net line. Never emit a bare option list.
 
 ### Self-check before emitting
 
 Before calling AskUserQuestion, verify:
 - [ ] D<N> header present
-- [ ] ELI10 paragraph present (stakes line too)
-- [ ] Recommendation line present with concrete reason
-- [ ] Completeness scored (coverage) OR kind-note present (kind)
-- [ ] Every option has ≥2 ✅ and ≥1 ❌, each ≥40 chars (or hard-stop escape)
-- [ ] (recommended) label on one option (even for neutral-posture)
-- [ ] Dual-scale effort labels on effort-bearing options (human / CC)
+- [ ] Context present (1-2 sentences, plain English, stakes named)
+- [ ] Recommendation callout present (blockquote, project-specific Why)
+- [ ] Every option has ≥2 ✅ and ≥1 ❌, each 40-80 chars (or hard-stop escape)
+- [ ] Completeness score below each option's pros/cons (if options differ in coverage)
+- [ ] `(recommended)` label on one option
 - [ ] Net line closes the decision
 - [ ] You are calling the tool, not writing prose
 
+### Free-text prompt format
+
+When a question needs free-text answers (not AskUserQuestion), users can confuse
+numbered question lists with selectable options. Always frame free-text prompts
+with visible hints:
+
+1. **Open with an input hint** — a short line that explicitly signals "type your
+   answer in your own words." Example:
+   `"Answer in your own words — these are open questions, not options to pick from:"`
+2. **Use bullet points (•), not numbers.** Numbers look like selectable options.
+   If numbering is needed for reference, prefix with a descriptive label
+   (e.g., `"Q1."` not just `"1."`).
+3. **Close with an expectation line** — tell the user what to do and that partial
+   answers are fine. Example:
+   `"Type your answers below — as much or as little as you have. Fine to skip what you don't know yet."`
+
+Template:
+
+```
+<topic intro — one sentence, ends with colon>
+Answer in your own words — these are open questions, not options to pick from:
+
+• **<Label>:** <question> (<clarifying examples if needed>)
+• **<Label>:** <question>
+...
+
+Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
+```
+
+This format applies to all plain-prose question lists across every skill.
 
 ## Writing Style
 
@@ -420,6 +562,67 @@ During long-running skill sessions, periodically write a brief `[PROGRESS]` summ
 
 If you are looping on the same diagnostic, same file, or failed fix variants, STOP and reassess. Progress summaries must NEVER mutate git state.
 
+## Next Step Chaining
+
+### Execution mode
+
+Before presenting next-step choices, check `decisions.yaml` for `execution_mode`:
+
+```bash
+ACTIVE=$(cat projects/.active)
+grep "execution_mode" "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NOT_SET"
+```
+
+- **`auto`** — invoke the primary recommended skill immediately. Print a one-line
+  transition before invoking: `"→ Running /solace-<skill> — <title>..."`
+  **Auto mode stops** (falls back to interactive) when:
+  - `/solace-validate` finds critical issues (do not auto-chain to blueprint)
+  - A skill completes with BLOCKED or NEEDS_CONTEXT status
+  - All recommended next steps are already complete
+- **`interactive`** — present the 3-option routing prompt below.
+- **Not set** — treat as `interactive` (default).
+
+### Interactive routing format
+
+After completing a skill and saving all artifacts, present the recommended next skill
+as an interactive choice — not a passive text suggestion.
+
+Use AskUserQuestion with a streamlined **routing format** (not the full D<N> decision brief):
+
+```
+Next: <slash-command> — <skill title>
+<one sentence: what this skill does and why it's the logical next step>
+
+A) Continue — run <slash-command> now (recommended)
+B) Skip for now — I'll come back to it later
+C) Pick a different skill
+```
+
+**On user choice:**
+- **A (Continue):** Invoke the skill immediately via the Skill tool. No further confirmation needed.
+- **B (Skip):** Persist a `status: skipped` entry in `progress.yaml` for the skipped skill:
+
+```yaml
+- skill: <skipped-skill-name>
+  status: skipped
+  skipped_at: <ISO timestamp>
+  reason: "User chose to skip during next-step routing after <current-skill>"
+```
+
+  Acknowledge the skip. Mention they can run it anytime with the slash command. Stop.
+- **C (Custom):** Read progress.yaml, list remaining incomplete skills (exclude `complete` and `skipped`) with their slash commands, and ask which one. Then invoke the chosen skill.
+
+Each skill template declares its recommended next step(s) and the condition for choosing
+between them. Use progress.yaml to check what has already been completed — never recommend
+a skill that is already marked complete. If all recommended next steps are already complete,
+skip routing and close with a brief completion message.
+
+This routing format is for workflow navigation only. Architecture decisions still use the
+full D<N> decision brief format.
+
+Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
+execution — the plan orchestrator handles sequencing.
+
 ## Completion Status Protocol
 
 When completing a skill workflow, report status using one of:
@@ -532,5 +735,6 @@ EOF
 Update decisions.yaml with protocol decisions.
 Update progress to complete.
 
-Recommend next steps — `/solace-integration` for Micro-Integration design, or review
-skills if technical domain skills are complete.
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-integration` — Integration Design (if backends need Micro-Integrations)
+- Alternate: `/solace-architect-review` — Architecture Review (if all technical skills are complete)

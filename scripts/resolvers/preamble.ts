@@ -6,8 +6,8 @@
  * no inline logic beyond tier gating.
  *
  * Tier system:
- *   T1: core bootstrap + voice (trimmed) + grounding + naming + grounding-loading + validation + dependencies + project-mgmt + completion
- *   T2: T1 + voice (full) + ask format + writing style + completeness + confusion + checkpoint + context health
+ *   T1: core bootstrap + voice (trimmed) + grounding + naming + grounding-loading + validation + dependencies + project-mgmt + timing + completion
+ *   T2: T1 + voice (full) + ask format + writing style + completeness + confusion + checkpoint + context health + next-step chaining
  *   T3: T2 + repo-mode + search-before-building
  *   T4: same as T3 (TEST_FAILURE_TRIAGE is a separate {{}} placeholder, not preamble)
  */
@@ -27,8 +27,9 @@ import { generateGroundingLoading } from './preamble/generate-grounding-loading'
 import { generateValidationHook } from './preamble/generate-validation-hook';
 import { generateDependencyEnforcement } from './preamble/generate-dependency-enforcement';
 
-// Project management and progress tracking
+// Project management, progress tracking, and timing
 import { generateProjectManagement } from './preamble/generate-project-management';
+import { generateTimingInstrumentation } from './preamble/generate-timing-instrumentation';
 
 // Behavioral / voice
 import { generateVoiceDirective } from './preamble/generate-voice-directive';
@@ -40,6 +41,7 @@ import { generateCompletenessSection } from './preamble/generate-completeness-se
 import { generateConfusionProtocol } from './preamble/generate-confusion-protocol';
 import { generateContinuousCheckpoint } from './preamble/generate-continuous-checkpoint';
 import { generateContextHealth } from './preamble/generate-context-health';
+import { generateNextStepChaining } from './preamble/generate-next-step-chaining';
 
 // Tier 3+ repo mode + search
 import { generateRepoModeSection } from './preamble/generate-repo-mode-section';
@@ -50,8 +52,8 @@ export { generateTestFailureTriage } from './preamble/generate-test-failure-tria
 
 // Preamble Composition (tier → sections)
 // ─────────────────────────────────────────────
-// T1: bootstrap + grounding + naming + grounding-loading + validation + dependencies + project-mgmt + voice(trimmed) + completion
-// T2: T1 + voice(full) + ask + writing-style + completeness + confusion + checkpoint + context-health
+// T1: bootstrap + grounding + naming + grounding-loading + validation + dependencies + project-mgmt + timing + voice(trimmed) + completion
+// T2: T1 + voice(full) + ask + writing-style + completeness + confusion + checkpoint + context-health + next-step-chaining
 // T3: T2 + repo-mode + search
 // T4: same as T3
 export function generatePreamble(ctx: TemplateContext): string {
@@ -67,6 +69,7 @@ export function generatePreamble(ctx: TemplateContext): string {
     generateValidationHook(),
     generateDependencyEnforcement(),
     generateProjectManagement(),
+    generateTimingInstrumentation(),
     generateVoiceDirective(tier),
     ...(tier >= 2 ? [
       generateAskUserFormat(ctx),
@@ -75,6 +78,7 @@ export function generatePreamble(ctx: TemplateContext): string {
       generateConfusionProtocol(),
       generateContinuousCheckpoint(),
       generateContextHealth(),
+      generateNextStepChaining(),
     ] : []),
     ...(tier >= 3 ? [generateRepoModeSection(), generateSearchBeforeBuildingSection(ctx)] : []),
     generateCompletionStatus(ctx),

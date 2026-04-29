@@ -130,11 +130,15 @@ fi
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it:
+When the user's request matches an available skill, invoke it.
 
+**Primary (suggest these first):**
 - Architecture discovery, new project scoping -> `/solace-discovery`
-- Help, available skills, workflow order, getting started -> `/solace-help`
 - Orchestrate a full engagement, plan the skill sequence -> `/solace-plan`
+- Project list, project status, switch project, compare projects, archive -> `/solace-projects`
+
+**Individual skills (run automatically via /solace-plan):**
+- Help, available skills, workflow order, getting started -> `/solace-help`
 - Topic taxonomy, topic hierarchy, naming, wildcard subscriptions -> `/solace-topic-design`
 - Broker type, cloud vs software vs appliance, sizing -> `/solace-broker-select`
 - SAM, agent mesh, AI assistant, chatbot agents, OrchestratorAgent -> `/solace-sam-design`

@@ -41,35 +41,53 @@ Rules:
 - Do not propose solutions built on non-existent Solace features, invented APIs, or techniques borrowed from other messaging vendors.
 - When a capability is not in the sources, say so explicitly.
 
-## Available skills
+## Getting started — three commands
+
+Most users only need these three:
+
+| Command | Purpose |
+|---------|---------|
+| `/solace-discovery` | Start a new project — describe systems and goals |
+| `/solace-plan` | Run the full engagement (picks skills, runs them in order) |
+| `/solace-projects` | Dashboard — status, timing, summary, switch projects |
+
+`/solace-plan` reads discovery findings and orchestrates all design, review, validation,
+and blueprint skills automatically.
+
+## All available skills
 
 | Category | Skill | Slash command |
 |----------|-------|--------------|
-| Discovery | Discovery | `/solace-discovery` |
-| Technical | Topic Design | `/solace-topic-design` |
-| Technical | Broker Selection | `/solace-broker-select` |
-| Technical | SAM Design | `/solace-sam-design` |
-| Technical | Protocol Selection | `/solace-protocol-select` |
-| Technical | Mesh Design | `/solace-mesh-design` |
-| Technical | HA/DR Design | `/solace-ha-dr` |
-| Technical | Migration Planning | `/solace-migration` |
-| Technical | Integration Design | `/solace-integration` |
+| Start here | Discovery | `/solace-discovery` |
+| Start here | Plan | `/solace-plan` |
+| Start here | Projects | `/solace-projects` |
+| Design | Topic Design | `/solace-topic-design` |
+| Design | Broker Selection | `/solace-broker-select` |
+| Design | SAM Design | `/solace-sam-design` |
+| Design | Protocol Selection | `/solace-protocol-select` |
+| Design | Mesh Design | `/solace-mesh-design` |
+| Design | HA/DR Design | `/solace-ha-dr` |
+| Design | Migration Planning | `/solace-migration` |
+| Design | Integration Design | `/solace-integration` |
 | Review | Architecture Review | `/solace-architect-review` |
 | Review | Operations Review | `/solace-ops-review` |
 | Review | Security Review | `/solace-security-review` |
 | Review | Developer Review | `/solace-dev-review` |
-| Orchestration | Plan | `/solace-plan` |
-| Validation | Validate | `/solace-validate` |
-| Assembly | Blueprint | `/solace-blueprint` |
+| Finalize | Validate | `/solace-validate` |
+| Finalize | Blueprint | `/solace-blueprint` |
 | Utility | Help | `/solace-help` |
 
 ## Skill routing
 
 When the user's request matches an available skill, invoke it via the Skill tool.
 
+Primary (suggest these first):
 - Architecture discovery, new project scoping -> invoke /solace-discovery
+- Plan a full engagement, orchestrate skills, "run everything" -> invoke /solace-plan
+- Project list, project status, switch project, compare projects -> invoke /solace-projects
 - Help, available skills, workflow, getting started -> invoke /solace-help
-- Plan a full engagement, orchestrate skills -> invoke /solace-plan
+
+Individual skills (for re-running specific steps or skipping the orchestrator):
 - Topic taxonomy, topic hierarchy design -> invoke /solace-topic-design
 - Broker type selection, cloud vs software vs appliance -> invoke /solace-broker-select
 - SAM, agent mesh, AI assistant design -> invoke /solace-sam-design
@@ -112,10 +130,11 @@ solace-architect/
     host-config.ts        # HostConfig interface + validator
     url-health-check.ts   # Grounding document URL health checker
     resolvers/            # Template resolver modules
-      index.ts            # Resolver registry (8 entries)
+      index.ts            # Resolver registry (9 entries)
       types.ts            # TemplateContext, HostPaths, Host type
       composition.ts      # INVOKE_SKILL resolver
       utility.ts          # BASE_BRANCH_DETECT, CO_AUTHOR_TRAILER
+      finding-resolution.ts # FINDING_RESOLUTION resolver (review skills)
       preamble/           # Preamble generators (per-tier)
     discover-skills.ts    # Shared .tmpl discovery
     skill-check.ts        # Health dashboard
@@ -145,6 +164,7 @@ solace-architect/
   solace-plan/            # /solace-plan
   solace-validate/        # /solace-validate
   solace-blueprint/       # /solace-blueprint
+  solace-projects/        # /solace-projects
   solace-help/            # /solace-help
   test/                   # Test suite
     helpers/              # Shared test utilities (skill-parser)

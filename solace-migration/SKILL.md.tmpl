@@ -51,17 +51,20 @@ Write initial progress entry.
 
 ## Step 1: Inventory the source system
 
-Identify the source messaging system and its current topology. Ask as plain prose
-if not captured in discovery:
+Identify the source messaging system and its current topology. Ask using the
+**free-text prompt format** if not captured in discovery:
 
-> Tell me about the messaging system you're migrating from:
+> Tell me about the messaging system you're migrating from.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **Platform:** Kafka, RabbitMQ, TIBCO EMS/RV, IBM MQ, or other?
-> 2. **Topology:** How many brokers/clusters? Which data centers?
-> 3. **Scale:** Messages/sec, topics/queues count, consumer group count
-> 4. **Clients:** How many producer and consumer applications? What languages/SDKs?
-> 5. **Patterns in use:** Pub/sub, queuing, request/reply, fan-out, consumer groups?
-> 6. **Schema management:** Schema Registry, Avro, Protobuf, or unmanaged?
+> • **Platform:** Kafka, RabbitMQ, TIBCO EMS/RV, IBM MQ, or other?
+> • **Topology:** How many brokers/clusters? Which data centers?
+> • **Scale:** Messages/sec, topics/queues count, consumer group count
+> • **Clients:** How many producer and consumer applications? What languages/SDKs?
+> • **Patterns in use:** Pub/sub, queuing, request/reply, fan-out, consumer groups?
+> • **Schema management:** Schema Registry, Avro, Protobuf, or unmanaged?
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 ---
 
@@ -200,3 +203,7 @@ EOF
 
 Update decisions.yaml with migration decisions.
 Update progress to complete.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-broker-select` — Broker Selection (if not yet complete)
+- Alternate: `/solace-topic-design` — Topic Design (if topic taxonomy needs work)

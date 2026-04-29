@@ -34,6 +34,7 @@ export const RESOLVERS: Record<string, ResolverFn> = {
   CO_AUTHOR_TRAILER: generateCoAuthorTrailer,
   CONFIDENCE_CALIBRATION: generateConfidenceCalibration,
   INVOKE_SKILL: generateInvokeSkill,
+  FINDING_RESOLUTION: generateFindingResolution,
   BIN_DIR: (ctx) => ctx.paths.binDir,
   GROUNDING_DIR: (ctx) => ctx.paths.groundingDir,
 };
@@ -41,14 +42,16 @@ export const RESOLVERS: Record<string, ResolverFn> = {
 
 Each resolver is a function that takes a `TemplateContext` and returns a string. The context carries the current host, skill metadata, and computed paths.
 
+Most resolvers live inside the preamble composition (`scripts/resolvers/preamble/`). Standalone resolvers like `FINDING_RESOLUTION` are used as `{{PLACEHOLDER}}` markers in specific skill templates (e.g., review skills) rather than being injected into every skill's preamble.
+
 ### The preamble
 
 The `{{PREAMBLE}}` placeholder is the most important resolver. It generates the shared sections that appear at the top of every skill, controlled by a tier system:
 
 | Tier | Sections included | Use case |
 |------|-------------------|----------|
-| T1 | Bootstrap bash, grounding rules, naming conventions, grounding loading, validation hook, dependency enforcement, project management, voice (minimal), completion status | Lightweight utility skills |
-| T2 | T1 + AskUserQuestion format, writing style, completeness principle, confusion protocol, continuous checkpoint, context health | Interactive skills (discovery, design) |
+| T1 | Bootstrap bash, grounding rules, naming conventions, grounding loading, validation hook, dependency enforcement, project management, timing instrumentation, voice (minimal), completion status | Lightweight utility skills |
+| T2 | T1 + AskUserQuestion format, writing style, completeness principle, confusion protocol, continuous checkpoint, context health, next-step chaining | Interactive skills (discovery, design) |
 | T3 | T2 + repo ownership, search before building | Skills that modify code or infrastructure |
 | T4 | T3 (full preamble) | Reserved for future expansion |
 
@@ -65,6 +68,7 @@ export function generatePreamble(ctx: TemplateContext): string {
     generateValidationHook(),
     generateDependencyEnforcement(),
     generateProjectManagement(),
+    generateTimingInstrumentation(),
     generateVoiceDirective(tier),
     ...(tier >= 2 ? [
       generateAskUserFormat(ctx),
@@ -73,6 +77,7 @@ export function generatePreamble(ctx: TemplateContext): string {
       generateConfusionProtocol(),
       generateContinuousCheckpoint(),
       generateContextHealth(),
+      generateNextStepChaining(),
     ] : []),
     ...(tier >= 3 ? [generateRepoModeSection(), generateSearchBeforeBuildingSection(ctx)] : []),
     generateCompletionStatus(ctx),
@@ -90,12 +95,13 @@ Each generator in `scripts/resolvers/preamble/` produces one section:
 | `generate-grounding-rules.ts` | Grounding Discipline | Enforces accuracy: only assert what Solace docs support |
 | `generate-naming-conventions.ts` | Naming Conventions | Solace terminology table + "never use" prohibitions |
 | `generate-voice-directive.ts` | Voice | Senior architect tone, no AI vocabulary, no vendor pitch |
-| `generate-ask-user-format.ts` | AskUserQuestion Format | Decision brief format: D-numbered, ELI10, pros/cons, recommendation |
+| `generate-ask-user-format.ts` | AskUserQuestion Format | Decision brief format: D-numbered, context, recommendation callout, per-option pros/cons with completeness, free-text prompt format |
 | `generate-writing-style.ts` | Writing Style | Jargon glossing, outcome framing, Solace term precision |
 | `generate-completeness-section.ts` | Completeness Principle | "Boil the Lake" philosophy: completeness is cheap with AI |
 | `generate-confusion-protocol.ts` | Confusion Protocol | Stop and ask on high-stakes ambiguity |
 | `generate-continuous-checkpoint.ts` | Continuous Checkpoint | WIP commit discipline when CHECKPOINT_MODE is continuous |
 | `generate-context-health.ts` | Context Health | Progress summaries during long sessions |
+| `generate-next-step-chaining.ts` | Next Step Chaining | 3-option interactive routing (Continue/Skip/Custom) with auto/interactive execution mode |
 | `generate-completion-status.ts` | Completion Status | DONE / BLOCKED / NEEDS_CONTEXT protocol |
 | `generate-preamble-bash.ts` | Preamble bash | Branch detection + skill name echo |
 | `generate-repo-mode-section.ts` | Repo Ownership | Code modification guidelines |
@@ -104,6 +110,7 @@ Each generator in `scripts/resolvers/preamble/` produces one section:
 | `generate-validation-hook.ts` | Artifact Validation | Terminology, naming, and ungrounded claims checks |
 | `generate-dependency-enforcement.ts` | Cross-Skill Dependencies | Input dependency verification before skill execution |
 | `generate-project-management.ts` | Project Management | Project lifecycle, progress tracking, resume support |
+| `generate-timing-instrumentation.ts` | Timing Instrumentation | Per-skill wall time, user wait time, and execution time tracking in progress.yaml |
 
 ## Grounding documents
 
@@ -191,18 +198,35 @@ When generating for an external host (anything other than Claude):
 
 ## Skill categories
 
-Skills are organized into six categories:
+Skills are organized into categories. Users only need three commands to run a full engagement:
+
+| Command | Purpose |
+|---------|---------|
+| `/solace-discovery` | Start a new project — describe systems and goals |
+| `/solace-plan` | Run the full engagement (picks skills, runs them in order) |
+| `/solace-projects` | Dashboard — status, timing, summary, switch projects |
+
+The remaining skills run automatically via `/solace-plan` or can be invoked individually:
 
 | Category | Skills | Description |
 |----------|--------|-------------|
-| Discovery | `/solace-discovery` | Eliciting business problems, surfacing constraints, inventorying existing landscape |
-| Technical domain | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration` | Solace platform knowledge, artifact generation (YAML, diagrams, configs) |
-| Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives applied to current design |
-| Orchestration | `/solace-plan` | Sequencing skills, threading context across the engagement |
-| Validation | `/solace-validate` | Consistency checks, antipattern detection, completeness before handoff |
-| Assembly | `/solace-blueprint` | Final blueprint assembly into engineering handoff package |
+| Start here | `/solace-discovery`, `/solace-plan`, `/solace-projects` | Entry points: project creation, orchestration, dashboard |
+| Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration` | Solace platform knowledge, artifact generation (YAML, diagrams, configs) |
+| Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives with interactive finding resolution |
+| Finalize | `/solace-validate`, `/solace-blueprint` | Consistency checks, antipattern detection, final blueprint assembly |
+| Utility | `/solace-help` | Skill catalog, workflow overview, active project status |
 
 Each skill directory follows the naming convention: `solace-<skill-name>/SKILL.md.tmpl`.
+
+### Interactive finding resolution (review skills)
+
+All four review skills use the `{{FINDING_RESOLUTION}}` resolver to walk through findings interactively. Areas with no issues are displayed as grouped confirmations. Actual issues are presented one at a time with Apply/Defer/Discuss options:
+
+- **Apply** — updates the referenced artifact and records the change in `decisions.yaml`
+- **Defer** — logs the finding for later; `/solace-validate` picks up deferred items
+- **Discuss** — user asks questions before deciding; the finding is re-presented after discussion
+
+In auto execution mode, Advisory and Important findings are auto-applied; only Critical findings pause for user consent. The final review document marks each finding as APPLIED or DEFERRED.
 
 ## Project management infrastructure
 
@@ -239,7 +263,11 @@ projects/<project-slug>/
 
 ### Progress tracking and resume
 
-`progress.yaml` logs what each skill has done: status (started, in-progress, complete, interrupted), timestamps, step reached, artifacts produced, and pending items. When a skill is re-invoked and its previous run was interrupted, the skill offers to resume from where it left off.
+`progress.yaml` logs what each skill has done: status (started, in-progress, complete, interrupted), timestamps, step reached, artifacts produced, pending items, and timing data. Each skill's progress entry includes a `timing` block that tracks `wall_sec`, `user_wait_sec`, and `execution_sec`, with per-step and per-question breakdowns. This separates model work time from user wait time. When a skill is re-invoked and its previous run was interrupted, the skill offers to resume from where it left off.
+
+### Execution mode
+
+Users choose an execution mode during discovery (or plan): `auto` or `interactive`. This is stored in `decisions.yaml` as `execution_mode`. In auto mode, skills chain automatically without per-step confirmation (pausing only on critical review findings or validation failures). In interactive mode, each skill completion presents a 3-option routing prompt: Continue / Skip / Pick a different skill.
 
 ### Cross-skill dependencies
 

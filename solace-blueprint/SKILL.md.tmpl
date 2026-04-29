@@ -41,8 +41,9 @@ fi
 Requires validation complete. If validation has not run, warn: "Validation should
 pass before assembling the blueprint. Run `/solace-validate` first."
 
-Use AskUserQuestion: A) Run validation first, B) Proceed without validation
-(I accept the risk).
+Use AskUserQuestion with the full D<N> format. Default recommendation: A (Run validation).
+- **A) Run validation first** — ensures consistency before final assembly.
+- **B) Proceed without validation** — skip validation, accept the risk of inconsistencies.
 
 Read all project state:
 

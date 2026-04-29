@@ -47,6 +47,18 @@ Read \`projects/.active\` to determine the current project slug. If it exists, t
     - path: artifacts/discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
+  timing:
+    wall_sec: 900
+    user_wait_sec: 540
+    execution_sec: 360
+    steps:
+      - step: 1
+        label: "Understand the landscape"
+        execution_sec: 90
+    questions:
+      - id: D1
+        label: "Project type"
+        wait_sec: 120
 \`\`\`
 
 **Checkpoint writes.** Every skill writes to \`progress.yaml\` at these points:

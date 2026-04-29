@@ -59,13 +59,18 @@ Write initial progress entry and proceed.
 
 ## Step 1: Agent granularity decision
 
-The first design decision is agent granularity. Present via AskUserQuestion:
+The first design decision is agent granularity. Present via AskUserQuestion using the
+full D<N> format. Use the project's backend count and authorization requirements from
+the discovery brief to ground the recommendation. Guideline for the decision:
 
-- **A) Coarse-grained (recommended):** One agent per backend system. Simpler topology,
-  easier to reason about authorization. Each agent owns one system of record.
-- **B) Fine-grained:** One agent per capability. A single backend might have multiple
+- **A) Coarse-grained** — one agent per backend system. Simpler topology, easier to
+  reason about authorization. Each agent owns one system of record.
+- **B) Fine-grained** — one agent per capability. A single backend might have multiple
   agents (e.g., balance-read-agent, balance-transfer-agent). More agents, finer
   authorization control, higher operational complexity.
+
+Default recommendation: A (Coarse-grained) unless the discovery brief shows backends
+with multiple distinct permission scopes that must be independently controlled.
 
 Load the SAM documentation for agent design patterns:
 
@@ -187,5 +192,6 @@ Update decisions.yaml with SAM topology decisions.
 
 Update progress to complete with all artifacts listed.
 
-Recommend next steps — typically `/solace-broker-select` if not yet done,
-or `/solace-protocol-select`.
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-broker-select` — Broker Selection (if not yet complete in progress.yaml)
+- Alternate: `/solace-protocol-select` — Protocol Selection (if broker is already decided)

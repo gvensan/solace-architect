@@ -144,5 +144,7 @@ EOF
 Update decisions.yaml with the broker type decision.
 Update progress to complete.
 
-Recommend next steps — `/solace-mesh-design` if multi-site, `/solace-protocol-select`
-for protocol decisions, or `/solace-sam-design` if SAM is involved.
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-protocol-select` — Protocol Selection
+- Alternate: `/solace-mesh-design` — Mesh Design (if multi-site or multi-cloud)
+- Alternate: `/solace-sam-design` — SAM Design (if SAM is involved and not yet complete)

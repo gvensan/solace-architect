@@ -107,17 +107,55 @@ Estimated: <N> skills, <rough time estimate>
 
 Mark already-completed skills with ✓. Mark the next skill with →.
 
-Use AskUserQuestion:
-A) Proceed with this plan
-B) Skip specific skills (list which to skip)
-C) Reorder skills
-D) Add skills not in the default sequence
+Check `decisions.yaml` for `execution_mode`. If already set (from discovery), show the
+current mode and skip the execution mode question. If not set, ask the user:
+
+```
+D1 — How should we run the remaining skills?
+Context: You have <N> skills to run. This decides whether they chain automatically
+or you confirm each transition. You can switch anytime.
+
+> **Recommended: A) Auto**
+> Why: <N> skills remaining — auto keeps momentum while still pausing for every
+> architecture decision inside each skill. Stops on critical validation issues.
+
+A) Auto — run the plan sequence back-to-back (recommended)
+  ✅ Fastest path to a complete blueprint — no pauses between skills
+  ✅ Still pauses for every architecture decision within each skill
+  ❌ Less visibility between skill transitions — one-line status, not a menu
+
+B) Interactive — confirm each skill before it runs
+  ✅ Full control at every transition — skip, reorder, or pick a different skill
+  ✅ Natural pause points to step away or review artifacts
+  ❌ More prompts to answer — each skill completion asks what to do next
+
+Net: Auto is "drive-through" — you still make every design decision, just without stopping
+at each traffic light between skills. Interactive is "park and walk" — you decide the pace.
+```
+
+Save the choice to `decisions.yaml` (same as discovery — `execution_mode: auto` or `interactive`).
+
+Then confirm the plan itself. Use AskUserQuestion with the full D<N> format.
+Default recommendation: A (Proceed). Guideline for the options:
+
+- **A) Proceed with this plan** — run the skills in the presented sequence.
+- **B) Skip specific skills** — ask which skills to remove, then proceed.
+- **C) Reorder skills** — ask for the new order, then proceed.
+- **D) Add skills** — ask which additional skills to include, then proceed.
 
 ---
 
 ## Step 3: Execute the plan
 
-For each skill in the sequence:
+For each skill in the sequence, check `execution_mode` from `decisions.yaml`:
+
+**Auto mode:** Invoke the skill immediately via the Skill tool. Print a one-line
+transition before each: `"→ Running /solace-<skill> — <title>..."`. After the skill
+completes, read progress, confirm success, and move to the next. Auto mode stops
+(falls back to interactive) if `/solace-validate` finds critical issues or a skill
+completes with BLOCKED or NEEDS_CONTEXT status.
+
+**Interactive mode:**
 
 1. Announce which skill is next: "Next: `/solace-topic-design` — Topic Taxonomy Design"
 2. Tell the user to invoke the skill: "Run `/solace-topic-design` to start."

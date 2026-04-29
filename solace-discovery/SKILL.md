@@ -200,6 +200,18 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
     - path: artifacts/discovery/discovery-brief.md
       type: document
       description: "Discovery brief"
+  timing:
+    wall_sec: 900
+    user_wait_sec: 540
+    execution_sec: 360
+    steps:
+      - step: 1
+        label: "Understand the landscape"
+        execution_sec: 90
+    questions:
+      - id: D1
+        label: "Project type"
+        wait_sec: 120
 ```
 
 **Checkpoint writes.** Every skill writes to `progress.yaml` at these points:
@@ -238,6 +250,73 @@ Total artifacts: N files
 Recommended next: <suggestion>
 ```
 
+## Timing Instrumentation
+
+Track execution time for every skill to separate model work from user wait time.
+All timing data is stored in `progress.yaml` under a `timing` key in each skill's
+progress entry.
+
+### What to capture
+
+Record timestamps at these points using `date -u +%s` (epoch seconds):
+
+1. **Skill start** — immediately after reading project state, before any processing.
+2. **Before each AskUserQuestion** — captures when the model paused for user input.
+3. **After each AskUserQuestion response** — captures when the model resumed work.
+4. **Step boundaries** — when each numbered step begins and ends.
+5. **Skill completion** — after all artifacts are saved.
+
+### How to capture
+
+At each instrumentation point, run:
+
+```bash
+date -u +%s
+```
+
+Keep a mental ledger of timestamps as you go. You do not need to write them to disk
+at each point — accumulate them and write the full timing block once at skill completion,
+alongside the progress update.
+
+### Timing block format
+
+When writing the skill's completion entry to `progress.yaml`, include a `timing` block:
+
+```yaml
+timing:
+  wall_sec: <completed_epoch - started_epoch>
+  user_wait_sec: <sum of all (response_epoch - question_epoch)>
+  execution_sec: <wall_sec - user_wait_sec>
+  steps:
+    - step: 1
+      label: "<step name from template>"
+      execution_sec: <step_end - step_start - user_wait_within_step>
+    - step: 2
+      label: "<step name>"
+      execution_sec: <value>
+  questions:
+    - id: D1
+      label: "<question title>"
+      wait_sec: <response_epoch - question_epoch>
+    - id: D2
+      label: "<question title>"
+      wait_sec: <value>
+```
+
+### Calculation rules
+
+- **wall_sec** = skill completion timestamp - skill start timestamp
+- **user_wait_sec** = sum of all question wait times
+- **execution_sec** = wall_sec - user_wait_sec
+- **Per-step execution_sec** = step end - step start - any user waits within that step
+- If a step has no AskUserQuestion, its execution_sec = step end - step start
+
+### When not to track
+
+- Do not track timing for `/solace-help` or `/solace-projects` (utility skills).
+- If a skill is resumed (not a fresh run), track timing for the resumed portion only.
+  Note `resumed: true` in the timing block so the data is clearly partial.
+
 ## Voice
 
 Solace Architect voice: senior architect judgment, grounded in the Solace platform.
@@ -258,50 +337,113 @@ Bad: "The comprehensive event mesh solution leverages robust messaging capabilit
 
 Every AskUserQuestion is a decision brief and must be sent as tool_use, not prose.
 
+**Exception:** Next-step routing prompts use a separate streamlined format defined in the
+Next Step Chaining section. Routing is workflow navigation ("what to run next"), not an
+architecture decision — it does not use the D<N> schema, self-check, or completeness scoring.
+
 ```
 D<N> — <one-line question title>
-Project/branch/task: <1 short grounding sentence using _BRANCH>
-ELI10: <plain English a 16-year-old could follow, 2-4 sentences, name the stakes>
-Stakes if we pick wrong: <one sentence on what breaks, what user sees, what's lost>
-Recommendation: <choice> because <one-line reason>
-Completeness: A=X/10, B=Y/10   (or: Note: options differ in kind, not coverage — no completeness score)
-Pros / cons:
+Context: <what this decides and what's at stake — 1-2 sentences, plain English>
+
+> **Recommended: <choice>) <option label>**
+> Why: <1-2 sentences — project-specific rationale, not generic. Reference the
+> project's constraints, requirements, or discovery findings that make this the
+> right call.>
+
 A) <option label> (recommended)
-  ✅ <pro — concrete, observable, ≥40 chars>
-  ❌ <con — honest, ≥40 chars>
+  ✅ <pro — concrete, observable, 40-80 chars>
+  ✅ <pro>
+  ❌ <con — honest, 40-80 chars>
+  Completeness: X/10
+
 B) <option label>
   ✅ <pro>
   ❌ <con>
+  Completeness: Y/10
+
 Net: <one-line synthesis of what you're actually trading off>
 ```
 
-D-numbering: first question in a skill invocation is `D1`; increment yourself. This is a model-level instruction, not a runtime counter.
+### Format rules
 
-ELI10 is always present, in plain English, not function names. Recommendation is ALWAYS present. Keep the `(recommended)` label; AUTO_DECIDE depends on it.
+**D-numbering:** first question in a skill invocation is `D1`; increment yourself.
 
-Completeness: use `Completeness: N/10` only when options differ in coverage. 10 = complete, 7 = happy path, 3 = shortcut. If options differ in kind, write: `Note: options differ in kind, not coverage — no completeness score.`
+**Context** replaces the old ELI10/Stakes/Project fields. One block, 1-2 sentences max.
+Plain English a non-engineer could follow. Name the stakes (what breaks if we pick wrong).
 
-Pros / cons: use ✅ and ❌. Minimum 2 pros and 1 con per option when the choice is real; Minimum 40 characters per bullet. Hard-stop escape for one-way/destructive confirmations: `✅ No cons — this is a hard-stop choice`.
+**Recommendation callout** is a blockquote so it stands out visually. The `(recommended)`
+label on the option MUST also be present — AUTO_DECIDE depends on it.
 
-Neutral posture: `Recommendation: <default> — this is a taste call, no strong preference either way`; `(recommended)` STAYS on the default option for AUTO_DECIDE.
+The **Why** line inside the callout must be project-specific. Bad: "because it's simpler."
+Good: "because this is a single-site deployment with 3 backends, where simpler topology
+reduces operational risk." Reference discovery findings, requirements, or constraints.
 
-Effort both-scales: when an option involves effort, label both human-team and AI-assisted time, e.g. `(human: ~2 days / AI-assisted: ~15 min)`. Makes AI compression visible at decision time.
+**Pros / cons:** use ✅ and ❌. Minimum 2 pros and 1 con per option when the choice is
+real. Each bullet 40-80 characters — long enough to be concrete, short enough to scan.
+Hard-stop escape for one-way/destructive confirmations: `✅ No cons — this is a hard-stop choice`.
 
-Net line closes the tradeoff. Per-skill instructions may add stricter rules.
+**Completeness** goes **below each option's pros/cons**, not above the option list.
+This lets the user read the tradeoffs and then see the score in context.
+Use `Completeness: N/10` only when options genuinely differ in coverage (10 = complete,
+7 = happy path, 3 = shortcut). Omit when options differ in kind — don't force a score.
+
+**Neutral posture:** `Recommended: <default>) <label>` with `Why: taste call — no
+strong preference either way`. The `(recommended)` label STAYS on the default.
+
+**Effort both-scales:** when an option involves effort, label both human-team and
+AI-assisted time, e.g. `(human: ~2 days / AI-assisted: ~15 min)`.
+
+**Net line** closes the tradeoff in one sentence.
+
+### Expanding template shorthand
+
+Skill templates sometimes give abbreviated AskUserQuestion instructions like
+`"Use AskUserQuestion: A) option, B) option"`. These are shorthand — you MUST
+expand every AskUserQuestion to the full D<N> format above with Context, Recommendation
+callout, pros/cons, and Net line. Never emit a bare option list.
 
 ### Self-check before emitting
 
 Before calling AskUserQuestion, verify:
 - [ ] D<N> header present
-- [ ] ELI10 paragraph present (stakes line too)
-- [ ] Recommendation line present with concrete reason
-- [ ] Completeness scored (coverage) OR kind-note present (kind)
-- [ ] Every option has ≥2 ✅ and ≥1 ❌, each ≥40 chars (or hard-stop escape)
-- [ ] (recommended) label on one option (even for neutral-posture)
-- [ ] Dual-scale effort labels on effort-bearing options (human / CC)
+- [ ] Context present (1-2 sentences, plain English, stakes named)
+- [ ] Recommendation callout present (blockquote, project-specific Why)
+- [ ] Every option has ≥2 ✅ and ≥1 ❌, each 40-80 chars (or hard-stop escape)
+- [ ] Completeness score below each option's pros/cons (if options differ in coverage)
+- [ ] `(recommended)` label on one option
 - [ ] Net line closes the decision
 - [ ] You are calling the tool, not writing prose
 
+### Free-text prompt format
+
+When a question needs free-text answers (not AskUserQuestion), users can confuse
+numbered question lists with selectable options. Always frame free-text prompts
+with visible hints:
+
+1. **Open with an input hint** — a short line that explicitly signals "type your
+   answer in your own words." Example:
+   `"Answer in your own words — these are open questions, not options to pick from:"`
+2. **Use bullet points (•), not numbers.** Numbers look like selectable options.
+   If numbering is needed for reference, prefix with a descriptive label
+   (e.g., `"Q1."` not just `"1."`).
+3. **Close with an expectation line** — tell the user what to do and that partial
+   answers are fine. Example:
+   `"Type your answers below — as much or as little as you have. Fine to skip what you don't know yet."`
+
+Template:
+
+```
+<topic intro — one sentence, ends with colon>
+Answer in your own words — these are open questions, not options to pick from:
+
+• **<Label>:** <question> (<clarifying examples if needed>)
+• **<Label>:** <question>
+...
+
+Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
+```
+
+This format applies to all plain-prose question lists across every skill.
 
 ## Writing Style
 
@@ -422,6 +564,67 @@ During long-running skill sessions, periodically write a brief `[PROGRESS]` summ
 
 If you are looping on the same diagnostic, same file, or failed fix variants, STOP and reassess. Progress summaries must NEVER mutate git state.
 
+## Next Step Chaining
+
+### Execution mode
+
+Before presenting next-step choices, check `decisions.yaml` for `execution_mode`:
+
+```bash
+ACTIVE=$(cat projects/.active)
+grep "execution_mode" "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NOT_SET"
+```
+
+- **`auto`** — invoke the primary recommended skill immediately. Print a one-line
+  transition before invoking: `"→ Running /solace-<skill> — <title>..."`
+  **Auto mode stops** (falls back to interactive) when:
+  - `/solace-validate` finds critical issues (do not auto-chain to blueprint)
+  - A skill completes with BLOCKED or NEEDS_CONTEXT status
+  - All recommended next steps are already complete
+- **`interactive`** — present the 3-option routing prompt below.
+- **Not set** — treat as `interactive` (default).
+
+### Interactive routing format
+
+After completing a skill and saving all artifacts, present the recommended next skill
+as an interactive choice — not a passive text suggestion.
+
+Use AskUserQuestion with a streamlined **routing format** (not the full D<N> decision brief):
+
+```
+Next: <slash-command> — <skill title>
+<one sentence: what this skill does and why it's the logical next step>
+
+A) Continue — run <slash-command> now (recommended)
+B) Skip for now — I'll come back to it later
+C) Pick a different skill
+```
+
+**On user choice:**
+- **A (Continue):** Invoke the skill immediately via the Skill tool. No further confirmation needed.
+- **B (Skip):** Persist a `status: skipped` entry in `progress.yaml` for the skipped skill:
+
+```yaml
+- skill: <skipped-skill-name>
+  status: skipped
+  skipped_at: <ISO timestamp>
+  reason: "User chose to skip during next-step routing after <current-skill>"
+```
+
+  Acknowledge the skip. Mention they can run it anytime with the slash command. Stop.
+- **C (Custom):** Read progress.yaml, list remaining incomplete skills (exclude `complete` and `skipped`) with their slash commands, and ask which one. Then invoke the chosen skill.
+
+Each skill template declares its recommended next step(s) and the condition for choosing
+between them. Use progress.yaml to check what has already been completed — never recommend
+a skill that is already marked complete. If all recommended next steps are already complete,
+skip routing and close with a brief completion message.
+
+This routing format is for workflow navigation only. Architecture decisions still use the
+full D<N> decision brief format.
+
+Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
+execution — the plan orchestrator handles sequencing.
+
 ## Completion Status Protocol
 
 When completing a skill workflow, report status using one of:
@@ -460,8 +663,9 @@ ACTIVE=$(cat projects/.active 2>/dev/null)
 
 If the active project already has `status: complete` for solace-discovery, warn the user:
 "This project already has a completed discovery brief. Running discovery again will
-overwrite it." Use AskUserQuestion to ask: A) Overwrite and start fresh, B) Create a
-new project instead, C) Cancel.
+overwrite it." Use AskUserQuestion with the full D<N> format. Default recommendation:
+B (Create new project). Options: A) Overwrite and start fresh, B) Create a new project
+instead, C) Cancel.
 
 **If an active project has `status: in-progress` for solace-discovery:** This is a
 resume scenario. Follow the resume behavior from the Progress Tracking section in the
@@ -522,13 +726,15 @@ with no text field. Use it when the user picks from a predefined list (project t
 delivery mode, latency tier, broker preference).
 
 **For questions that need free-text answers** (system names, protocols, regions, team
-details, timeline, volumes, infrastructure inventory), print the question as plain prose
-with clear prompts for what to include, then **stop and wait** for the user to type their
-response as a regular message. Do not wrap free-text questions in AskUserQuestion — the
-user cannot type answers into it.
+details, timeline, volumes, infrastructure inventory), use the **free-text prompt format**
+from the preamble. Always include the input hint line ("Answer in your own words...") and
+the closing prompt line ("Type your answers below..."). Use bullet points (•), not numbered
+lists — numbers look like selectable options and confuse users. Then **stop and wait** for
+the user to type their response as a regular message. Do not wrap free-text questions in
+AskUserQuestion — the user cannot type answers into it.
 
 **Batching:** When consecutive questions all need free-text, combine them into a single
-numbered list so the user can answer in one message. When a free-text question and a
+bulleted list so the user can answer in one message. When a free-text question and a
 multiple-choice question are both needed, ask the free-text question first (as prose),
 collect the answer, then present the multiple-choice question via AskUserQuestion.
 
@@ -538,23 +744,29 @@ collect the answer, then present the multiple-choice question via AskUserQuestio
 
 Ask the user about their current system landscape.
 
-First, use AskUserQuestion to determine the project type (new build, migration, extension,
-SAM integration) — this is a clean multiple-choice selection.
+First, use AskUserQuestion with the full D<N> format to determine the project type.
+Options: A) New build, B) Migration from existing messaging, C) Extension of existing
+Solace deployment, D) SAM integration (AI agent system). No default recommendation —
+this depends entirely on what the user described.
 
 Then ask the following as a **plain prose question** (not AskUserQuestion). Print the
-numbered list and stop. Wait for the user to respond in a regular message.
+question list and stop. Wait for the user to respond in a regular message.
+Use the **free-text prompt format** from the preamble.
 
-> Tell me about your system landscape. Include as much as you know:
+> Tell me about your system landscape.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **Systems:** What systems need to communicate? (Names, owners, approximate data volumes)
->    Which are producers, which are consumers, which are both?
-> 2. **Existing messaging:** Are there messaging systems in place today? (Kafka, RabbitMQ, TIBCO, IBM MQ, cloud-native, none)
-> 3. **Protocols:** What protocols do these systems speak? (REST, MQTT, AMQP, JMS, SMF, WebSocket, gRPC, FIX, etc.)
-> 4. **Events:** What events flow between systems? (Order placed, sensor reading, price update, etc.)
->    What is the shape of payloads? (JSON, Avro, Protobuf, XML, binary)
-> 5. **Volume:** What are the approximate event rates? (Events/sec at peak, daily volume — even rough estimates help)
-> 6. **Schemas:** Are there existing schemas or an AsyncAPI spec?
-> 7. **Vertical:** What industry is this for? (Banking, capital markets, manufacturing, healthcare, retail, etc.)
+> • **Systems:** What systems need to communicate? (Names, owners, approximate data volumes)
+>   Which are producers, which are consumers, which are both?
+> • **Existing messaging:** Are there messaging systems in place today? (Kafka, RabbitMQ, TIBCO, IBM MQ, cloud-native, none)
+> • **Protocols:** What protocols do these systems speak? (REST, MQTT, AMQP, JMS, SMF, WebSocket, gRPC, FIX, etc.)
+> • **Events:** What events flow between systems? (Order placed, sensor reading, price update, etc.)
+>   What is the shape of payloads? (JSON, Avro, Protobuf, XML, binary)
+> • **Volume:** What are the approximate event rates? (Events/sec at peak, daily volume — even rough estimates help)
+> • **Schemas:** Are there existing schemas or an AsyncAPI spec?
+> • **Vertical:** What industry is this for? (Banking, capital markets, manufacturing, healthcare, retail, etc.)
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 If the user provides a codebase or repo, read it first:
 
@@ -603,56 +815,69 @@ After identifying the user's vertical (from the system descriptions or by asking
 domain-specific questions as **plain prose** (not AskUserQuestion). These need free-text
 answers with specifics the user must type out.
 
-Print the relevant domain question list and stop. Wait for the user to respond.
+Print the relevant domain question list using the **free-text prompt format** and stop.
+Wait for the user to respond.
 
 **Banking / Financial Services:**
 
 When the user describes a banking, retail banking, wealth management, or financial services
 use case, print this list and wait:
 
-> Now some banking-specific questions. Answer what you can:
+> Now some banking-specific questions.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **Regulatory constraints:** PCI-DSS requirements? Data residency rules (which jurisdiction)? Audit trail requirements (which events, how long)? Encryption requirements at rest and in transit?
-> 2. **Existing messaging infrastructure:** Does the bank run IBM MQ, TIBCO, or Kafka today? This drives Micro-Integration strategy.
-> 3. **Authorization model:** How do customer permission scopes flow from channel (web, Slack, mobile) through to backends? Existing IAM (OIDC, SAML)?
-> 4. **Data classification:** Which data classes need Guaranteed messaging for audit compliance (transactions, fund transfers) versus Direct messaging for latency-sensitive lookups (balance checks, FAQ)?
-> 5. **Internal vs customer-facing:** Is this for customers, internal staff, or both?
+> • **Regulatory constraints:** PCI-DSS requirements? Data residency rules (which jurisdiction)? Audit trail requirements (which events, how long)? Encryption requirements at rest and in transit?
+> • **Existing messaging infrastructure:** Does the bank run IBM MQ, TIBCO, or Kafka today? This drives Micro-Integration strategy.
+> • **Authorization model:** How do customer permission scopes flow from channel (web, Slack, mobile) through to backends? Existing IAM (OIDC, SAML)?
+> • **Data classification:** Which data classes need Guaranteed messaging for audit compliance (transactions, fund transfers) versus Direct messaging for latency-sensitive lookups (balance checks, FAQ)?
+> • **Internal vs customer-facing:** Is this for customers, internal staff, or both?
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 **Capital Markets:**
 
 When the user describes trading, market data, order management, or exchange connectivity,
 print this list and wait:
 
-> Capital markets-specific questions. Answer what you can:
+> Capital markets-specific questions.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **Latency budget:** What is the latency budget for the hot path (market data to trader screen)? What about the audit path?
-> 2. **Global topology:** Which trading hubs? (NY, London, Singapore, Tokyo, Hong Kong, Chicago) Which asset classes at which hubs?
-> 3. **Feed infrastructure:** What feed handlers and market data providers are in use? (Bloomberg, Refinitiv, direct exchange feeds, etc.) What protocols do they publish on? (FIX, proprietary binary, TCP multicast)
-> 4. **Existing messaging:** Any existing middleware? (Kafka, TIBCO, IBM MQ, 29West/Informatica, Solace already)
-> 5. **Compliance and replay:** Which event streams must be replayable for regulatory audit? What retention period?
+> • **Latency budget:** What is the latency budget for the hot path (market data to trader screen)? What about the audit path?
+> • **Global topology:** Which trading hubs? (NY, London, Singapore, Tokyo, Hong Kong, Chicago) Which asset classes at which hubs?
+> • **Feed infrastructure:** What feed handlers and market data providers are in use? (Bloomberg, Refinitiv, direct exchange feeds, etc.) What protocols do they publish on? (FIX, proprietary binary, TCP multicast)
+> • **Existing messaging:** Any existing middleware? (Kafka, TIBCO, IBM MQ, 29West/Informatica, Solace already)
+> • **Compliance and replay:** Which event streams must be replayable for regulatory audit? What retention period?
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 **Manufacturing / IoT:**
 
 When the user describes plant floor, factory, sensors, OPC UA, SCADA, or industrial IoT,
 print this list and wait:
 
-> Manufacturing/IoT-specific questions. Answer what you can:
+> Manufacturing/IoT-specific questions.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **OT protocol inventory:** What protocols do machines and sensors speak? (OPC UA, Modbus, MQTT, DDS, proprietary)
-> 2. **Edge constraints:** What compute is available at the plant floor? Can a Solace Software Event Broker run there? WAN connectivity to regional/cloud — how reliable?
-> 3. **Telemetry vs command:** Does data flow only plant-to-cloud (telemetry), or do commands flow back (config changes, predictive maintenance)?
-> 4. **Existing historians and MES:** What systems of record exist at the plant? (OSIsoft PI, Siemens MindSphere, Rockwell FactoryTalk)
+> • **OT protocol inventory:** What protocols do machines and sensors speak? (OPC UA, Modbus, MQTT, DDS, proprietary)
+> • **Edge constraints:** What compute is available at the plant floor? Can a Solace Software Event Broker run there? WAN connectivity to regional/cloud — how reliable?
+> • **Telemetry vs command:** Does data flow only plant-to-cloud (telemetry), or do commands flow back (config changes, predictive maintenance)?
+> • **Existing historians and MES:** What systems of record exist at the plant? (OSIsoft PI, Siemens MindSphere, Rockwell FactoryTalk)
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 **Healthcare:**
 
 When the user describes clinical, patient, EHR, HL7, FHIR, or healthcare integration,
 print this list and wait:
 
-> Healthcare-specific questions. Answer what you can:
+> Healthcare-specific questions.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **HIPAA / PHI:** Which events contain protected health information? Encryption, access control, audit requirements?
-> 2. **Interoperability standards:** HL7v2, FHIR, or both? What EHR system? (Epic, Cerner, Meditech)
-> 3. **Real-time vs batch:** Which clinical events need real-time distribution (alerts, orders, results) versus batch (billing, reporting)?
+> • **HIPAA / PHI:** Which events contain protected health information? Encryption, access control, audit requirements?
+> • **Interoperability standards:** HL7v2, FHIR, or both? What EHR system? (Epic, Cerner, Meditech)
+> • **Real-time vs batch:** Which clinical events need real-time distribution (alerts, orders, results) versus batch (billing, reporting)?
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 **Other verticals:** If the user names a vertical not listed above, proceed with generic
 discovery questions from Step 2. Note the vertical as an open question for future
@@ -667,31 +892,39 @@ file. Set `step_reached: "1/5 — landscape and pattern match complete"` and upd
 
 ## Step 2: Understand the requirements
 
-Ask about non-functional requirements. Use AskUserQuestion for questions with clean
-predefined choices (delivery mode, latency tier, topology shape). Use plain prose
-for questions that need the user to describe their situation in their own words.
+Ask about non-functional requirements. Use AskUserQuestion (full D<N> format) for
+questions with predefined choices. Use the free-text prompt format for questions that
+need the user to describe their situation in their own words.
 
-**Reliability — use AskUserQuestion for these (multiple-choice):**
-- Delivery mode: Direct messaging / Guaranteed messaging / Mixed (AskUserQuestion)
-- Ordering: none / per-partition / global (AskUserQuestion)
-- Processing guarantee: exactly-once / at-least-once with idempotent consumers (AskUserQuestion)
-- Latency tier: sub-millisecond / sub-second / seconds / minutes (AskUserQuestion)
+**Reliability — use AskUserQuestion (full D<N> format) for each of these:**
+- Delivery mode: Direct messaging / Guaranteed messaging / Mixed — recommend based on
+  the data classification from Step 1 (transactions → Guaranteed, telemetry → Direct)
+- Ordering: none / per-partition / global — recommend based on the event types identified
+- Processing guarantee: exactly-once / at-least-once with idempotent consumers — recommend
+  based on the compliance requirements from domain questions
+- Latency tier: sub-millisecond / sub-second / seconds / minutes — recommend based on
+  the use case (market data → sub-ms, audit trail → seconds)
 
-**Scale and topology — use AskUserQuestion for the topology shape:**
-- Topology: single site / multi-region / hybrid cloud / edge (AskUserQuestion)
+**Scale and topology — use AskUserQuestion (full D<N> format):**
+- Topology: single site / multi-region / hybrid cloud / edge — recommend based on the
+  site count and data residency requirements from Step 1
 
-**Then ask the rest as plain prose** (these need free-text). Print the list and wait:
+**Then ask the rest as plain prose** (these need free-text). Use the **free-text prompt
+format** — print the list and wait:
 
-> A few more details about scale and operations. Answer what you can:
+> A few more details about scale and operations.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **Sites and regions:** How many sites, regions, or clouds? Name them if known.
-> 2. **IT/OT boundary:** Is there an IT/OT boundary? (Manufacturing, utilities, transportation)
-> 3. **Growth:** Expected growth over the next 1-3 years?
-> 4. **Data residency:** Any regulatory constraints on where data can live or move?
-> 5. **Operations team:** Who operates the messaging infrastructure? (Platform team, app team, managed service)
-> 6. **Solace/EDA experience:** What is the team's experience with event-driven systems and Solace specifically?
-> 7. **Observability:** What observability is in place? (Metrics, tracing, log aggregation)
-> 8. **CI/CD:** Is there an existing CI/CD pipeline for infrastructure?
+> • **Sites and regions:** How many sites, regions, or clouds? Name them if known.
+> • **IT/OT boundary:** Is there an IT/OT boundary? (Manufacturing, utilities, transportation)
+> • **Growth:** Expected growth over the next 1-3 years?
+> • **Data residency:** Any regulatory constraints on where data can live or move?
+> • **Operations team:** Who operates the messaging infrastructure? (Platform team, app team, managed service)
+> • **Solace/EDA experience:** What is the team's experience with event-driven systems and Solace specifically?
+> • **Observability:** What observability is in place? (Metrics, tracing, log aggregation)
+> • **CI/CD:** Is there an existing CI/CD pipeline for infrastructure?
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 ---
 
@@ -699,15 +932,18 @@ for questions that need the user to describe their situation in their own words.
 
 The project type (new build, migration, extension, SAM) was already captured in Step 1
 via AskUserQuestion. Now ask the user to elaborate as **plain prose** — these need
-free-text answers. Print the list and wait:
+free-text answers. Use the **free-text prompt format** — print the list and wait:
 
-> Now tell me about the goals and constraints. Answer what you can:
+> Now tell me about the goals and constraints.
+> Answer in your own words — these are open questions, not options to pick from:
 >
-> 1. **Driver:** What triggered this project? What problem is being solved?
-> 2. **Timeline:** When does this need to be in production?
-> 3. **Budget:** Any constraints that affect broker selection? (Cloud-managed vs self-hosted preference)
-> 4. **Team size:** How many people will build and operate this?
-> 5. **Organizational constraints:** Approval processes, vendor relationships, procurement timelines?
+> • **Driver:** What triggered this project? What problem is being solved?
+> • **Timeline:** When does this need to be in production?
+> • **Budget:** Any constraints that affect broker selection? (Cloud-managed vs self-hosted preference)
+> • **Team size:** How many people will build and operate this?
+> • **Organizational constraints:** Approval processes, vendor relationships, procurement timelines?
+>
+> Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
 
 If the user already provided some of this information in earlier answers, do not re-ask.
 Only ask about what is still missing.
@@ -778,6 +1014,51 @@ If a reference architecture was matched in Step 1b, summarize how it applies and
 of its key design decisions are most relevant to this user's situation. If no pattern
 was matched, note that this is a custom architecture that will need first-principles design.
 
+### Execution mode
+
+Before proceeding, ask the user how they want to run the remaining skills.
+Use AskUserQuestion with the full D<N> decision brief format:
+
+```
+D<N> — How should we run the remaining skills?
+Context: After discovery, several architecture skills remain. This decides whether
+they chain automatically or you confirm each transition. You can switch anytime.
+
+> **Recommended: A) Auto**
+> Why: <N> skills remaining — auto keeps momentum while still pausing for every
+> architecture decision inside each skill. Stops on critical validation issues.
+
+A) Auto — run recommended skills back-to-back (recommended)
+  ✅ Fastest path to a complete blueprint — no pauses between skills
+  ✅ Still pauses for every architecture decision within each skill
+  ❌ Less visibility between skill transitions — one-line status, not a menu
+
+B) Interactive — confirm each skill before it runs
+  ✅ Full control at every transition — skip, reorder, or pick a different skill
+  ✅ Natural pause points to step away or review artifacts between skills
+  ❌ More prompts to answer — each skill completion asks what to do next
+
+Net: Auto is "drive-through" — you still make every design decision, just without stopping
+at each traffic light between skills. Interactive is "park and walk" — you decide the pace.
+```
+
+Save the user's choice:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 -c "
+import yaml
+with open('projects/$ACTIVE/decisions.yaml', 'r') as f:
+    data = yaml.safe_load(f) or {}
+data['execution_mode'] = '<auto or interactive based on user choice>'
+with open('projects/$ACTIVE/decisions.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+" 2>/dev/null || echo "Manual update needed: add execution_mode to decisions.yaml"
+```
+
+If the python/yaml approach fails, use the Edit tool to add `execution_mode: auto` or
+`execution_mode: interactive` to the top level of `decisions.yaml`.
+
 **Update progress to complete:**
 
 ```bash
@@ -805,3 +1086,7 @@ If the python/yaml approach fails, update `progress.yaml` by reading and rewriti
 with the Bash tool or by using the Edit tool directly. The key fields to set:
 `status: complete`, `completed: <now>`, `step_reached: "5/5 — synthesis complete"`,
 `summary`, and `artifacts`.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-plan` — Plan the full engagement sequence based on discovery findings
+- Alternate: the first individually recommended skill from the list above (for users who prefer to run skills one at a time)
