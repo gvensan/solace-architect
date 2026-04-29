@@ -350,43 +350,57 @@ Project notes indicate a Gateway → Entrypoint terminology transition is in pro
 
 ## Verification log
 
-Solace documentation pages directly fetched and reviewed during the build of this reference:
+This log tracks when each canonical source was last verified against live Solace documentation. Each entry carries a verification date. When a date reads "pending re-verification," the entry was confirmed at the original build of this reference but has not been re-checked under the current source-recency discipline; treat the underlying claims as needing a re-fetch before relying on them in external deliverables.
 
-1. `docs.solace.com/Get-Started/solace-platform.htm` — three-layer model.
-2. `docs.solace.com/Get-Started/feature-index.htm` — feature catalog.
-3. `docs.solace.com/Get-Started/what-are-event-brokers.htm` — broker fundamentals.
-4. `docs.solace.com/Get-Started/what-are-topics.htm` — topic architecture basics.
-5. `docs.solace.com/Get-Started/message-delivery-modes.htm` — Direct and Guaranteed messaging.
-6. `docs.solace.com/Messaging/Topic-Architecture-Best-Practices.htm` — topic taxonomy and anti-patterns.
-7. `docs.solace.com/Micro-Integrations/Micro-Integrations.htm` — Micro-Integration overview.
-8. `docs.solace.com/Agentic-AI/agent-mesh.htm` — SAM platform-level overview.
-9. `docs.solace.com/Cloud/Event-Portal/event-portal-lp.htm` — Event Portal capabilities.
-10. `docs.solace.com/Cloud/Insights/Insights.htm` — Insights capabilities.
-11. `docs.solace.com/Features/Distributed-Tracing/Distributed-Tracing-Overview.htm` — Distributed Tracing.
-12. `docs.solace.com/Schema-Registry/schema-registry-overview.htm` — Schema Registry.
-13. `docs.solace.com/API/developer-lp.htm` — developer tools landing.
-14. `docs.solace.com/API/Messaging-APIs/Solace-APIs-Overview.htm` — messaging APIs.
-15. `solacelabs.github.io/solace-agent-mesh/docs/documentation/getting-started/architecture` — SAM architecture overview (v1.19.0).
-16. `solacelabs.github.io/solace-agent-mesh/docs/documentation/components/gateways` — SAM Gateways (v1.19.1).
-17. `solacelabs.github.io/solace-agent-mesh/docs/documentation/components/agents` — SAM Agents (v1.18.35).
-18. `solacelabs.github.io/solace-agent-mesh/docs/documentation/components/orchestrator` — SAM OrchestratorAgent (v1.18.29).
-19. Search results for `solace.com/integration-hub` content.
-20. Search results for DMR documentation (multi-broker mesh, horizontal and multi-site scaling).
+Working refresh window: 90 days for stable platform pages, tighter (30 days) for SAM project pages where versions move fast.
 
-Pages explicitly *not* fetched during this build that should be added in subsequent revisions for full coverage:
+### Anchor pages — verified 2026-04-29
 
-1. Dedicated DMR feature reference (`docs.solace.com/Features/DMR/DMR-Overview.htm`) — captured via search summary; full fetch would add depth.
-2. Dedicated HA/DR replication reference (`docs.solace.com/Features/DR-Replication/`) — referenced but not fetched.
-3. Dedicated security and authentication references.
-4. Sizing and capacity planning references.
-5. SAM Workflows, Proxies, Platform Service, Plugins, Projects component pages.
-6. Event Portal Designer, Runtime Event Manager, and KPI Dashboard detail pages.
-7. Self-Managed and Cloud-Managed Micro-Integration deep-dive pages.
+These five pages were re-verified during the introduction of source-recency dating and serve as the project's most-grounded anchors. Their content matches the corresponding sections of this reference unless noted otherwise.
 
-This verification log is intentional. It tells future maintainers and skills exactly what was confirmed at this build versus what was included as scope-only with a pointer.
+1. `docs.solace.com/Get-Started/solace-platform.htm` — three-layer model. **Verified: 2026-04-29.** Source page last updated 2026-04-23. Content matches.
+2. `docs.solace.com/Messaging/Topic-Architecture-Best-Practices.htm` — topic taxonomy and anti-patterns. **Verified: 2026-04-29.** Source page last updated 2026-04-16. Content matches.
+3. `docs.solace.com/Micro-Integrations/Micro-Integrations.htm` — Micro-Integration overview. **Verified: 2026-04-29.** Source page last updated 2026-02-19. **Finding:** the current page describes only source and target direction types for Solace Cloud Micro-Integrations; this reference document claims a third "processor" direction. The discrepancy needs investigation against `docs.solace.com/Micro-Integrations/Managed/managed-micro-integrations-overview.htm` before the claim is relied on. Treat the three-direction-type claim as **Unverified** pending that check.
+4. `solacelabs.github.io/solace-agent-mesh/docs/documentation/getting-started/architecture` — SAM architecture overview. **Verified: 2026-04-29.** Source page version is now 1.19.1 (this reference previously cited v1.19.0). Content matches; the reference body's v1.19.0 citation should be read as v1.19.1.
+5. `docs.solace.com/Features/DMR/DMR-Overview.htm` — DMR overview. **Verified: 2026-04-29.** Source page last updated 2026-04-23. Content matches the DMR section of this reference.
+
+### Pages confirmed at original build, pending re-verification
+
+These pages were directly fetched and reviewed during the original build of this reference. Their content informed the body of this document but has not been re-checked under the current source-recency discipline. Skills relying on these for external deliverables should re-fetch.
+
+1. `docs.solace.com/Get-Started/feature-index.htm` — feature catalog. **Verified: original build, pending re-verification.**
+2. `docs.solace.com/Get-Started/what-are-event-brokers.htm` — broker fundamentals. **Verified: original build, pending re-verification.**
+3. `docs.solace.com/Get-Started/what-are-topics.htm` — topic architecture basics. **Verified: original build, pending re-verification.**
+4. `docs.solace.com/Get-Started/message-delivery-modes.htm` — Direct and Guaranteed messaging. **Verified: original build, pending re-verification.**
+5. `docs.solace.com/Agentic-AI/agent-mesh.htm` — SAM platform-level overview. **Verified: original build, pending re-verification.**
+6. `docs.solace.com/Cloud/Event-Portal/event-portal-lp.htm` — Event Portal capabilities. **Verified: original build, pending re-verification.**
+7. `docs.solace.com/Cloud/Insights/Insights.htm` — Insights capabilities. **Verified: original build, pending re-verification.**
+8. `docs.solace.com/Features/Distributed-Tracing/Distributed-Tracing-Overview.htm` — Distributed Tracing. **Verified: original build, pending re-verification.**
+9. `docs.solace.com/Schema-Registry/schema-registry-overview.htm` — Schema Registry. **Verified: original build, pending re-verification.**
+10. `docs.solace.com/API/developer-lp.htm` — developer tools landing. **Verified: original build, pending re-verification.**
+11. `docs.solace.com/API/Messaging-APIs/Solace-APIs-Overview.htm` — messaging APIs. **Verified: original build, pending re-verification.**
+12. `solacelabs.github.io/solace-agent-mesh/docs/documentation/components/gateways` — SAM Gateways (cited at v1.19.1 at original build). **Verified: original build, pending re-verification.**
+13. `solacelabs.github.io/solace-agent-mesh/docs/documentation/components/agents` — SAM Agents (cited at v1.18.35 at original build). **Verified: original build, pending re-verification.**
+14. `solacelabs.github.io/solace-agent-mesh/docs/documentation/components/orchestrator` — SAM OrchestratorAgent (cited at v1.18.29 at original build). **Verified: original build, pending re-verification.**
+15. Search results for `solace.com/integration-hub` content. **Verified: original build, pending re-verification.**
+
+### Pages explicitly not fetched, should be added in subsequent revisions
+
+1. Dedicated HA/DR replication reference (`docs.solace.com/Features/DR-Replication/`) — referenced but not fetched.
+2. Dedicated security and authentication references.
+3. Sizing and capacity planning references.
+4. SAM Workflows, Proxies, Platform Service, Plugins, Projects component pages.
+5. Event Portal Designer, Runtime Event Manager, and KPI Dashboard detail pages.
+6. Self-Managed and Cloud-Managed Micro-Integration deep-dive pages (specifically `Managed/managed-micro-integrations-overview.htm`, needed to resolve the direction-types finding above).
+
+### Maintenance discipline
+
+When a section of this reference is re-verified against live docs, update the entry's date to the verification date. When source pages have changed in ways that affect this reference's claims, update both the relevant section body and the verification log entry. Stale grounding is silent grounding failure.
 
 ---
 
 ## Version note
 
-A Solace Agent Mesh component-page version drift is visible in the current docs: architecture page at v1.19.0, Gateways at v1.19.1, Agents at v1.18.35, OrchestratorAgent at v1.18.29. This is normal for a fast-moving project but worth flagging — skill content drawn from these pages should record which version was the source, and a periodic refresh discipline will be needed.
+A Solace Agent Mesh component-page version drift is visible in the current docs. As of 2026-04-29, the architecture page is at v1.19.1 (re-verified). Gateways, Agents, and OrchestratorAgent component pages were captured at v1.19.1, v1.18.35, and v1.18.29 at the original build of this reference and have not been re-verified since.
+
+This drift is normal for a fast-moving project. Skill content drawn from these pages should record which version was the source, and a periodic refresh discipline is needed — particularly for SAM, where the 30-day refresh window applies rather than the 90-day default for stable platform pages.

@@ -16,6 +16,12 @@ Capability claims, configuration details, and technical specifics within each pa
 
 Each pattern's Sources section names which specific URLs were used. Pattern claims that cannot be cited from a Solace source are marked explicitly as architectural inference rather than presented as fact.
 
+### Verification convention
+
+Each pattern carries a "Pattern grounding last verified" date immediately after its title. This date reflects when the pattern's most-relied-on technical sources were last re-fetched against live Solace documentation. Marketing sources (used for narrative framing) carry a wider tolerance because the framing they support is less time-sensitive than capability claims.
+
+When using a pattern for an external deliverable, check the verification date. If the technical sources are within the working refresh window (90 days for stable platform pages, 30 days for SAM project pages), the pattern can be relied on with the standard citation discipline. If the sources are outside that window, re-fetch the relevant URLs before using the pattern in output that will be presented as authoritative.
+
 ---
 
 ## Pattern catalog
@@ -29,6 +35,8 @@ These three were chosen to span the platform's range. Pattern 1 is SAM-centric. 
 ---
 
 ## Pattern 1: Multi-system AI assistant
+
+**Pattern grounding last verified: 2026-04-29.** SAM architecture and Topic best practices sources re-fetched on this date; SAM platform overview and Gateways/OrchestratorAgent component pages remain on original-build verification. Re-verify SAM project sources within 30 days for external deliverables.
 
 ### Problem
 
@@ -99,6 +107,8 @@ The event mesh is the integration plane. No agent or gateway needs to know where
 
 ## Pattern 2: Real-time market data distribution
 
+**Pattern grounding last verified: 2026-04-29.** Topic best practices and DMR overview sources re-fetched on this date. Marketing sources (28Stone white paper, financial services solution briefs) remain on original-build verification — these inform narrative framing rather than capability claims, so the recency tolerance is wider, but should be refreshed within 90 days before any external deliverable that quotes them.
+
 ### Problem
 
 A capital markets firm — investment bank, hedge fund, exchange, FX trading platform — needs to distribute market data and order flow across global trading hubs (typically New York, London, Singapore, Tokyo, Hong Kong) with sub-millisecond latency on the hot path, guaranteed delivery on the audit path, and protocol heterogeneity end to end. The firm's traders sit in browsers consuming WebSocket streams. Its backend feed handlers publish over native protocols. Its analytics platforms consume over AMQP or JMS. Its compliance and audit systems require persistent, replayable streams.
@@ -167,6 +177,8 @@ Event mesh is the distribution backbone. No agents involved — this is a pure e
 ---
 
 ## Pattern 3: Hybrid IT/OT manufacturing event mesh
+
+**Pattern grounding last verified: 2026-04-29.** Topic best practices, Micro-Integrations overview, and DMR overview sources re-fetched on this date. **Finding from re-verification:** the current Micro-Integrations overview page describes only source and target direction types for Solace Cloud Micro-Integrations; this pattern's Solace components section may need adjustment if the deeper Managed Micro-Integrations page does not confirm the third "processor" direction. Manufacturing solution briefs and case studies remain on original-build verification.
 
 ### Problem
 

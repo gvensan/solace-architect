@@ -1,17 +1,20 @@
 # Solace canonical sources
 
+**Index last reviewed: 2026-04-29.** The next scheduled review is 90 days from this date for stable platform URLs and 30 days for SAM project URLs at `solacelabs.github.io`. Individual URLs may have been re-fetched more recently than the index review; the platform reference's verification log records per-URL verification dates for the entries that anchor it.
+
 ## Purpose
 
 This is the URL-by-topic retrieval index for Solace Architect. When a skill or contributor needs to ground a claim, generate a recommendation, or check a detail, this document points to the authoritative source.
 
 It is a fetch-target list, not a coverage map. The coverage map is `solace-platform-reference.md`, which says *what's in scope* and how it fits together. This document says *where to read* for each piece of that surface.
 
-Two rules govern how this index is used:
+Three rules govern how this index is used:
 
 1. The URLs listed here are the canonical sources for their respective topics. When a skill needs depth, it fetches from these URLs rather than reasoning from analogy or prior training data.
 2. Marketing pages (any URL on `solace.com/solutions`, `solace.com/products`, `solace.com/blog`, `solace.com/use-cases`) are acceptable for narrative framing of *use cases and reference architectures only*. Capability claims, configuration details, and technical specifics must come from `docs.solace.com`, `solacelabs.github.io`, or `github.com/SolaceLabs`.
+3. Source recency matters. A URL that was correct six months ago may not be correct today. Skills citing a URL for an external deliverable should re-fetch within the working refresh window (90 days for stable platform pages, 30 days for SAM project pages) or flag the citation as unverified.
 
-URLs were collected during the construction of `solace-platform-reference.md`. The reference document's verification log records which were directly fetched versus referenced from linked content; that distinction is not duplicated here. If any URL in this index returns a 404, the page has likely moved — search `docs.solace.com` for the page name and update this index.
+URLs were collected during the construction of `solace-platform-reference.md`. The reference document's verification log records which were directly fetched and when. If any URL in this index returns a 404, the page has likely moved — search `docs.solace.com` for the page name and update this index.
 
 ---
 
