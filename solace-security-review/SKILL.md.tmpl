@@ -125,9 +125,9 @@ Based on the discovery brief's regulatory requirements:
 
 ---
 
-## Step 5: Write findings and complete
+## Step 5: Classify findings
 
-Structure findings by severity:
+After completing steps 1–4, classify every finding by severity:
 
 - **Critical** — security vulnerabilities or compliance violations that must be fixed
   before production.
@@ -138,14 +138,28 @@ Structure findings by severity:
 Each finding must be specific, reference the relevant Solace documentation, and propose
 a concrete remediation.
 
-Save the review:
+---
+
+## Step 6: Resolve findings interactively
+
+{{FINDING_RESOLUTION}}
+
+---
+
+## Step 7: Write findings and complete
+
+Save the review document with resolution status on each finding:
 
 ```bash
 ACTIVE=$(cat projects/.active)
 mkdir -p "projects/$ACTIVE/artifacts/reviews"
 cat > "projects/$ACTIVE/artifacts/reviews/security-review.md" << 'EOF'
-<paste the structured review findings>
+<paste the structured review findings with APPLIED/DEFERRED status>
 EOF
 ```
 
+Update decisions.yaml with all applied and deferred entries from the resolution.
 Update progress to complete.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-dev-review` — Developer Experience Review

@@ -10,6 +10,7 @@ import { generateTestFailureTriage } from './preamble';
 import { generateBaseBranchDetect, generateCoAuthorTrailer } from './utility';
 import { generateConfidenceCalibration } from './confidence';
 import { generateInvokeSkill } from './composition';
+import { generateFindingResolution } from './finding-resolution';
 
 export const RESOLVERS: Record<string, ResolverFn> = {
   PREAMBLE: generatePreamble,
@@ -18,6 +19,7 @@ export const RESOLVERS: Record<string, ResolverFn> = {
   CO_AUTHOR_TRAILER: generateCoAuthorTrailer,
   CONFIDENCE_CALIBRATION: generateConfidenceCalibration,
   INVOKE_SKILL: generateInvokeSkill,
+  FINDING_RESOLUTION: generateFindingResolution,
   BIN_DIR: (ctx) => ctx.paths.binDir,
   GROUNDING_DIR: (ctx) => ctx.paths.groundingDir,
 };

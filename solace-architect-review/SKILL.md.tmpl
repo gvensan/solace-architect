@@ -112,9 +112,9 @@ Check for architectural gaps:
 
 ---
 
-## Step 4: Write findings and complete
+## Step 4: Classify findings
 
-Structure findings by severity:
+After completing steps 1–3, classify every finding by severity:
 
 - **Critical** — architectural decisions that will cause production failures or
   security vulnerabilities.
@@ -127,14 +127,27 @@ Each finding must:
 - Reference the relevant Solace documentation or antipattern
 - Propose a concrete alternative
 
-Save the review:
+---
+
+## Step 5: Resolve findings interactively
+
+{{FINDING_RESOLUTION}}
+
+---
+
+## Step 6: Write findings and complete
+
+Save the review document with resolution status on each finding:
 
 ```bash
 ACTIVE=$(cat projects/.active)
 cat > "projects/$ACTIVE/artifacts/reviews/architect-review.md" << 'EOF'
-<paste the structured review findings>
+<paste the structured review findings with APPLIED/DEFERRED status>
 EOF
 ```
 
-Update decisions.yaml with any new decisions from the review.
+Update decisions.yaml with all applied and deferred entries from the resolution.
 Update progress to complete.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-ops-review` — Operations Review

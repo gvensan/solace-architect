@@ -79,25 +79,22 @@ cat {{GROUNDING_DIR}}/solace-platform-reference.md | grep -A30 "Dynamic Message 
 
 ## Step 2: Select topology pattern
 
-Present the topology options via AskUserQuestion:
+Present the topology options via AskUserQuestion using the full D<N> format. Use the
+project's site count, throughput requirements, and topology shape from discovery to
+ground the recommendation. Guideline for the options:
 
-**A) Single broker (recommended for simple deployments):**
-One broker handles all traffic. Simplest to operate. Right when all producers and
-consumers are in the same site and throughput fits within one broker's capacity.
+- **A) Single broker** — one broker handles all traffic. Simplest to operate. Right when
+  all producers and consumers are in the same site and throughput fits one broker.
+- **B) DMR cluster** — multiple brokers connected via internal links forming a full mesh.
+  Use when a single broker can't handle the connection count or throughput within one site.
+- **C) Multi-site federation via external links** — brokers across sites connected via
+  external links. Selective links allow controlled subscription propagation. Use for
+  multi-region, multi-cloud, or hybrid deployments.
+- **D) Hybrid (cluster + federation)** — DMR clusters within sites, external links between
+  sites. The most complex topology but necessary for large-scale global deployments.
 
-**B) DMR cluster (horizontal scaling within a site):**
-Multiple brokers connected via internal links forming a full mesh. Each node connects
-to every other node. Use when a single broker can't handle the connection count or
-throughput, but all traffic is within one site.
-
-**C) Multi-site federation via external links:**
-Brokers across sites connected via external links. Full mesh is not required — selective
-links allow controlled subscription propagation. Use for multi-region, multi-cloud, or
-hybrid deployments.
-
-**D) Hybrid (cluster + federation):**
-DMR clusters within sites, external links between sites. The most complex topology
-but necessary for large-scale global deployments.
+Default recommendation: A for single-site, C for multi-site, D for high-scale multi-site.
+Tie the recommendation Why to the specific site count and throughput from discovery.
 
 Reference Pattern 2 (market data) for multi-site examples, Pattern 3 (manufacturing)
 for edge-to-cloud patterns:
@@ -177,4 +174,6 @@ EOF
 Update decisions.yaml with mesh topology decisions.
 Update progress to complete.
 
-Recommend next steps — `/solace-ha-dr` for HA and DR design, or `/solace-protocol-select`.
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-ha-dr` — HA/DR Design
+- Alternate: `/solace-protocol-select` — Protocol Selection (if not yet complete)

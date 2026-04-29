@@ -1,15 +1,17 @@
 ---
-name: solace-help
+name: solace-projects
 preamble-tier: 1
 version: 0.1.0
 description: |
-  Solace Architect help and status. Lists available skills, shows the recommended
-  workflow, displays active project status, and explains how to get started.
-  Use when asked about available skills, workflow order, or project status.
+  Project management dashboard for Solace Architect engagements. List projects,
+  view per-skill status, show summaries, switch active project, archive, and
+  compare projects side by side.
 allowed-tools:
   - Read
   - Bash
-interactive: false
+  - Edit
+  - AskUserQuestion
+interactive: true
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
@@ -19,7 +21,7 @@ interactive: false
 ```bash
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
-echo "SKILL: solace-help"
+echo "SKILL: solace-projects"
 ```
 
 ## Grounding Discipline
@@ -328,106 +330,252 @@ When completing a skill workflow, report status using one of:
 
 Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
 
-# /solace-help — Solace Architect Help
+# /solace-projects — Project Dashboard
 
-Display help information for Solace Architect. Read project state and show status.
-
----
-
-## Step 1: Show getting started
-
-Print:
-
-```
-Solace Architect — Getting Started
-
-  You only need three commands:
-
-    /solace-discovery     Start a new project — describe your systems and goals
-    /solace-plan          Run the full engagement (picks the right skills, runs them in order)
-    /solace-projects      Dashboard — project status, timing, summary, switch projects
-
-  That's it. /solace-plan reads your discovery findings, determines which design
-  and review skills your project needs, and runs them — either automatically or
-  one at a time (you choose).
-
-  Start with: /solace-discovery
-```
+Manage and inspect Solace Architect projects. Parse the user's request to determine
+which subcommand to run. If the request is ambiguous or just `/solace-projects` with
+no arguments, default to **status** for the active project. If no active project exists,
+default to **list**.
 
 ---
 
-## Step 2: Show active project status
+## Subcommand: list
 
-Check if a project is active:
+Show all projects with summary info.
 
 ```bash
-cat projects/.active 2>/dev/null || echo "NO_ACTIVE_PROJECT"
+if ls projects/*/context.yaml 1>/dev/null 2>&1; then
+  ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+  for ctx in projects/*/context.yaml; do
+    slug=$(dirname "$ctx" | xargs basename)
+    display=$(grep "display_name" "$ctx" 2>/dev/null | sed 's/display_name: //')
+    created=$(grep "created" "$ctx" 2>/dev/null | sed 's/created: //')
+    status=$(grep "status" "$ctx" 2>/dev/null | sed 's/status: //')
+    artifacts=$(find "projects/$slug/artifacts" -type f 2>/dev/null | wc -l | tr -d ' ')
+    marker=""
+    if [ "$slug" = "$ACTIVE" ]; then marker=" (active)"; fi
+    echo "$slug$marker — $display — $status — created: $created — $artifacts artifacts"
+  done
+else
+  echo "NO_PROJECTS"
+fi
 ```
 
-If a project is active, read its progress:
+If no projects exist, print:
+
+```
+No projects found. Run /solace-discovery to start your first project.
+```
+
+If projects exist, format as a table:
+
+```
+Solace Architect — Projects
+
+  Project                 Status    Created       Artifacts
+  ─────────────────────   ───────   ───────────   ─────────
+  acme-bank-chat (active) active    2026-04-28    12 files
+  market-data-poc         active    2026-04-15    8 files
+  factory-telemetry       archived  2026-03-10    22 files
+```
+
+---
+
+## Subcommand: status
+
+Show detailed per-skill status for the active project (or a named project if the user
+specifies one).
 
 ```bash
-cat projects/$(cat projects/.active 2>/dev/null)/progress.yaml 2>/dev/null || echo "NO_PROGRESS"
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/context.yaml" 2>/dev/null
+  echo "---PROGRESS---"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null || echo "NO_PROGRESS"
+  echo "---DECISIONS---"
+  cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NO_DECISIONS"
+fi
 ```
 
-If there is an active project with progress data, display the project status summary
-(completed skills, interrupted skills, not started, total artifacts, recommended next step).
+Parse `progress.yaml` and present the status of every skill. Use these status markers:
 
-If no active project exists, print:
+- `✓` — complete (show step reached and artifact count)
+- `→` — in-progress (show step reached, what's pending)
+- `⊘` — skipped (user explicitly skipped via plan or interactive routing)
+- `·` — not started
+
+Include the full skill sequence so the user sees what's done, what's next, and what's
+remaining. Read `execution_mode` from decisions.yaml and show it.
+
+Format:
 
 ```
-No active project. Run /solace-discovery to start your first project.
+Project: <display name> (<slug>)
+Mode: <auto|interactive>  |  Created: <date>  |  Status: <active|archived>
+
+  Skill                    Status         Step        Artifacts   Exec Time
+  ────────────────────     ──────────     ─────────   ─────────   ─────────
+  ✓ Discovery              complete       5/5         1 file      6m (12m wait)
+  ✓ Topic Design           complete       5/5         3 files     4m (3m wait)
+  → SAM Design             in-progress    3/5         4 files     5m (8m wait)
+  · Broker Selection       not started    —           —           —
+  ⊘ Mesh Design            skipped        —           —           —
+  · Protocol Selection     not started    —           —           —
+  · HA/DR Design           not started    —           —           —
+  · Integration            not started    —           —           —
+  · Architecture Review    not started    —           —           —
+  · Operations Review      not started    —           —           —
+  · Security Review        not started    —           —           —
+  · Developer Review       not started    —           —           —
+  · Validation             not started    —           —           —
+  · Blueprint              not started    —           —           —
+
+  Decisions: 8 recorded  |  Artifacts: 8 files total
+  Timing: 38m wall / 23m user wait / 15m execution
+
+  Recommended next: /solace-sam-design (resume from step 3/5)
 ```
+
+The **Exec Time** column shows execution_sec (model work) and user_wait_sec in parentheses.
+The **Timing** summary line aggregates across all completed and in-progress skills.
+Format minutes as `Xm`, seconds as `Xs` for values under 60.
+
+For the "Recommended next" line:
+1. If a skill is in-progress, recommend resuming it.
+2. Otherwise, recommend the first not-started skill in the engagement sequence.
+3. If all skills are complete, show "All skills complete — run /solace-blueprint if not done."
 
 ---
 
-## Step 3: Show full skill catalog
+## Subcommand: summary
 
-Print:
+Show key decisions and findings for the active project.
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NO_DECISIONS"
+  echo "---BRIEF---"
+  cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+fi
+```
+
+Present a structured summary:
 
 ```
-  Individual Skills
-  ─────────────────────────────────────────────────────────────────
+Project Summary: <display name>
 
-  These run automatically via /solace-plan. Use them directly only
-  to re-run a specific step or skip the orchestrator.
+Discovery:
+  • Vertical: <industry>
+  • Pattern match: <reference architecture or "custom">
+  • Systems: <count> identified
+  • Project type: <new build | migration | extension | SAM>
 
-  Design:
-    /solace-topic-design       Topic taxonomy (Domain/Noun/Verb/Version/Properties)
-    /solace-broker-select      Broker type: Cloud, Software, or Appliance
-    /solace-sam-design         SAM agent topology: OrchestratorAgent, agents, Gateways
-    /solace-protocol-select    Protocol assignment: SMF, MQTT, AMQP, JMS, REST, WebSocket
-    /solace-mesh-design        DMR topology for multi-site, multi-cloud, hybrid
-    /solace-ha-dr              HA/DR: replication, failover, DMR resilience
-    /solace-migration          Migration from Kafka, RabbitMQ, TIBCO, IBM MQ
-    /solace-integration        Micro-Integration design for backend connectivity
+Key Decisions:
+  • Execution mode: <auto | interactive>
+  • Broker type: <cloud | software | appliance | hybrid> (if decided)
+  • Topology: <single | cluster | federation | hybrid> (if decided)
+  • Delivery mode: <direct | guaranteed | mixed> (if decided)
+  • <other decisions from decisions.yaml>
 
-  Review:
-    /solace-architect-review   Architecture trade-offs and component choices
-    /solace-ops-review         Operations readiness: monitoring, capacity, runbooks
-    /solace-security-review    Security posture: ACL, TLS, compliance
-    /solace-dev-review         Developer experience: SDK, onboarding, schemas
-
-  Finalize:
-    /solace-validate           Consistency checks and antipattern detection
-    /solace-blueprint          Final blueprint assembly
+Open Questions:
+  • <any items flagged as open or pending in decisions or reviews>
 ```
+
+If no discovery brief exists, show only what's available from decisions.yaml and
+progress.yaml.
 
 ---
 
-## Step 4: Reference grounding documents
+## Subcommand: switch
 
-Print:
+Switch the active project.
+
+```bash
+ls -d projects/*/context.yaml 2>/dev/null | while read ctx; do
+  slug=$(dirname "$ctx" | xargs basename)
+  display=$(grep "display_name" "$ctx" 2>/dev/null | sed 's/display_name: //')
+  echo "$slug — $display"
+done
+```
+
+Present the list via AskUserQuestion (full D<N> format). After the user picks, write
+the selected slug to `projects/.active`:
+
+```bash
+echo "<selected-slug>" > projects/.active
+```
+
+Then show the status for the newly active project (run the **status** subcommand).
+
+---
+
+## Subcommand: archive
+
+Mark a project as archived. It stays on disk but is dimmed in the list view.
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+```
+
+If the user names a project, archive that one. If no name given, ask via AskUserQuestion
+which project to archive.
+
+Update context.yaml:
+
+```bash
+SLUG="<project-to-archive>"
+sed -i.bak 's/status: active/status: archived/' "projects/$SLUG/context.yaml"
+rm -f "projects/$SLUG/context.yaml.bak"
+```
+
+If the archived project was the active project, clear `projects/.active` and tell the
+user to switch to another project or start a new one.
+
+---
+
+## Subcommand: compare
+
+Side-by-side comparison of two projects. Useful when re-running discovery with different
+assumptions.
+
+Ask for two project slugs (or parse from the user's command). Read both progress files:
+
+```bash
+SLUG_A="<first>"
+SLUG_B="<second>"
+echo "---A---"
+cat "projects/$SLUG_A/progress.yaml" 2>/dev/null
+echo "---B---"
+cat "projects/$SLUG_B/progress.yaml" 2>/dev/null
+echo "---DECISIONS_A---"
+cat "projects/$SLUG_A/decisions.yaml" 2>/dev/null
+echo "---DECISIONS_B---"
+cat "projects/$SLUG_B/decisions.yaml" 2>/dev/null
+```
+
+Present as a side-by-side table:
 
 ```
-  Grounding
-  ─────────────────────────────────────────────────────────────────
+Comparison: <project A> vs <project B>
 
-  All recommendations are grounded in Solace documentation.
-  When a capability is not documented, Solace Architect says so.
+  Skill                 <project A>        <project B>
+  ────────────────────  ─────────────────  ─────────────────
+  Discovery             ✓ complete         ✓ complete
+  Topic Design          ✓ complete         · not started
+  Broker Selection      Cloud              Software
+  ...
 
-    solace-platform-reference.md       Coverage map — what Solace Architect knows
-    solace-canonical-sources.md        URL-by-topic index for depth fetches
-    solace-reference-architectures.md  3 worked patterns: AI assistant, market data, IT/OT
-    antipatterns.md                    Known mistakes by category
+  Key Decision Differences:
+  • Broker type: Cloud (A) vs Software (B)
+  • Topology: single-site (A) vs multi-site (B)
+  • <other differences>
 ```
+
+Highlight decisions that differ between the two projects.

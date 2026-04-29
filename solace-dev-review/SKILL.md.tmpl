@@ -122,24 +122,43 @@ data evolves.
 
 ---
 
-## Step 5: Write findings and complete
+## Step 5: Classify findings
 
-Structure findings by developer impact:
+After completing steps 1–4, classify every finding by developer impact:
 
-- **Friction** — things that slow developers down or cause confusion.
-- **Missing** — capabilities or documentation that should exist but don't.
-- **Good** — things that are well-designed and should be preserved.
+- **Critical (Friction)** — things that slow developers down or cause confusion.
+  Blocks productive onboarding.
+- **Important (Missing)** — capabilities or documentation that should exist but don't.
+- **Advisory (Good)** — things that are well-designed and should be preserved.
+  These become confirmations, not issues.
 
 Each finding should include a concrete recommendation for improvement.
 
-Save the review:
+---
+
+## Step 6: Resolve findings interactively
+
+{{FINDING_RESOLUTION}}
+
+Note: "Good" findings are confirmations (no issue) — display them in the confirmation
+block, not as issues requiring Apply/Defer/Discuss.
+
+---
+
+## Step 7: Write findings and complete
+
+Save the review document with resolution status on each finding:
 
 ```bash
 ACTIVE=$(cat projects/.active)
 mkdir -p "projects/$ACTIVE/artifacts/reviews"
 cat > "projects/$ACTIVE/artifacts/reviews/dev-review.md" << 'EOF'
-<paste the structured review findings>
+<paste the structured review findings with APPLIED/DEFERRED status>
 EOF
 ```
 
+Update decisions.yaml with all applied and deferred entries from the resolution.
 Update progress to complete.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-validate` — Validation

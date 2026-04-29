@@ -251,5 +251,6 @@ with open('projects/$ACTIVE/progress.yaml', 'w') as f:
 " 2>/dev/null || echo "Progress update requires PyYAML"
 ```
 
-Recommend next steps based on the project's needs — typically `/solace-broker-select`
-or `/solace-sam-design` if the project involves SAM.
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-broker-select` — Broker Selection
+- Alternate: `/solace-sam-design` — SAM Design (if the project involves Solace Agent Mesh)

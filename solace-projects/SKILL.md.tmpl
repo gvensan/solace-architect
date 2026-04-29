@@ -1,0 +1,267 @@
+---
+name: solace-projects
+preamble-tier: 1
+version: 0.1.0
+description: |
+  Project management dashboard for Solace Architect engagements. List projects,
+  view per-skill status, show summaries, switch active project, archive, and
+  compare projects side by side.
+allowed-tools:
+  - Read
+  - Bash
+  - Edit
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-projects — Project Dashboard
+
+Manage and inspect Solace Architect projects. Parse the user's request to determine
+which subcommand to run. If the request is ambiguous or just `/solace-projects` with
+no arguments, default to **status** for the active project. If no active project exists,
+default to **list**.
+
+---
+
+## Subcommand: list
+
+Show all projects with summary info.
+
+```bash
+if ls projects/*/context.yaml 1>/dev/null 2>&1; then
+  ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+  for ctx in projects/*/context.yaml; do
+    slug=$(dirname "$ctx" | xargs basename)
+    display=$(grep "display_name" "$ctx" 2>/dev/null | sed 's/display_name: //')
+    created=$(grep "created" "$ctx" 2>/dev/null | sed 's/created: //')
+    status=$(grep "status" "$ctx" 2>/dev/null | sed 's/status: //')
+    artifacts=$(find "projects/$slug/artifacts" -type f 2>/dev/null | wc -l | tr -d ' ')
+    marker=""
+    if [ "$slug" = "$ACTIVE" ]; then marker=" (active)"; fi
+    echo "$slug$marker — $display — $status — created: $created — $artifacts artifacts"
+  done
+else
+  echo "NO_PROJECTS"
+fi
+```
+
+If no projects exist, print:
+
+```
+No projects found. Run /solace-discovery to start your first project.
+```
+
+If projects exist, format as a table:
+
+```
+Solace Architect — Projects
+
+  Project                 Status    Created       Artifacts
+  ─────────────────────   ───────   ───────────   ─────────
+  acme-bank-chat (active) active    2026-04-28    12 files
+  market-data-poc         active    2026-04-15    8 files
+  factory-telemetry       archived  2026-03-10    22 files
+```
+
+---
+
+## Subcommand: status
+
+Show detailed per-skill status for the active project (or a named project if the user
+specifies one).
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/context.yaml" 2>/dev/null
+  echo "---PROGRESS---"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null || echo "NO_PROGRESS"
+  echo "---DECISIONS---"
+  cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NO_DECISIONS"
+fi
+```
+
+Parse `progress.yaml` and present the status of every skill. Use these status markers:
+
+- `✓` — complete (show step reached and artifact count)
+- `→` — in-progress (show step reached, what's pending)
+- `⊘` — skipped (user explicitly skipped via plan or interactive routing)
+- `·` — not started
+
+Include the full skill sequence so the user sees what's done, what's next, and what's
+remaining. Read `execution_mode` from decisions.yaml and show it.
+
+Format:
+
+```
+Project: <display name> (<slug>)
+Mode: <auto|interactive>  |  Created: <date>  |  Status: <active|archived>
+
+  Skill                    Status         Step        Artifacts   Exec Time
+  ────────────────────     ──────────     ─────────   ─────────   ─────────
+  ✓ Discovery              complete       5/5         1 file      6m (12m wait)
+  ✓ Topic Design           complete       5/5         3 files     4m (3m wait)
+  → SAM Design             in-progress    3/5         4 files     5m (8m wait)
+  · Broker Selection       not started    —           —           —
+  ⊘ Mesh Design            skipped        —           —           —
+  · Protocol Selection     not started    —           —           —
+  · HA/DR Design           not started    —           —           —
+  · Integration            not started    —           —           —
+  · Architecture Review    not started    —           —           —
+  · Operations Review      not started    —           —           —
+  · Security Review        not started    —           —           —
+  · Developer Review       not started    —           —           —
+  · Validation             not started    —           —           —
+  · Blueprint              not started    —           —           —
+
+  Decisions: 8 recorded  |  Artifacts: 8 files total
+  Timing: 38m wall / 23m user wait / 15m execution
+
+  Recommended next: /solace-sam-design (resume from step 3/5)
+```
+
+The **Exec Time** column shows execution_sec (model work) and user_wait_sec in parentheses.
+The **Timing** summary line aggregates across all completed and in-progress skills.
+Format minutes as `Xm`, seconds as `Xs` for values under 60.
+
+For the "Recommended next" line:
+1. If a skill is in-progress, recommend resuming it.
+2. Otherwise, recommend the first not-started skill in the engagement sequence.
+3. If all skills are complete, show "All skills complete — run /solace-blueprint if not done."
+
+---
+
+## Subcommand: summary
+
+Show key decisions and findings for the active project.
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NO_DECISIONS"
+  echo "---BRIEF---"
+  cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+fi
+```
+
+Present a structured summary:
+
+```
+Project Summary: <display name>
+
+Discovery:
+  • Vertical: <industry>
+  • Pattern match: <reference architecture or "custom">
+  • Systems: <count> identified
+  • Project type: <new build | migration | extension | SAM>
+
+Key Decisions:
+  • Execution mode: <auto | interactive>
+  • Broker type: <cloud | software | appliance | hybrid> (if decided)
+  • Topology: <single | cluster | federation | hybrid> (if decided)
+  • Delivery mode: <direct | guaranteed | mixed> (if decided)
+  • <other decisions from decisions.yaml>
+
+Open Questions:
+  • <any items flagged as open or pending in decisions or reviews>
+```
+
+If no discovery brief exists, show only what's available from decisions.yaml and
+progress.yaml.
+
+---
+
+## Subcommand: switch
+
+Switch the active project.
+
+```bash
+ls -d projects/*/context.yaml 2>/dev/null | while read ctx; do
+  slug=$(dirname "$ctx" | xargs basename)
+  display=$(grep "display_name" "$ctx" 2>/dev/null | sed 's/display_name: //')
+  echo "$slug — $display"
+done
+```
+
+Present the list via AskUserQuestion (full D<N> format). After the user picks, write
+the selected slug to `projects/.active`:
+
+```bash
+echo "<selected-slug>" > projects/.active
+```
+
+Then show the status for the newly active project (run the **status** subcommand).
+
+---
+
+## Subcommand: archive
+
+Mark a project as archived. It stays on disk but is dimmed in the list view.
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+```
+
+If the user names a project, archive that one. If no name given, ask via AskUserQuestion
+which project to archive.
+
+Update context.yaml:
+
+```bash
+SLUG="<project-to-archive>"
+sed -i.bak 's/status: active/status: archived/' "projects/$SLUG/context.yaml"
+rm -f "projects/$SLUG/context.yaml.bak"
+```
+
+If the archived project was the active project, clear `projects/.active` and tell the
+user to switch to another project or start a new one.
+
+---
+
+## Subcommand: compare
+
+Side-by-side comparison of two projects. Useful when re-running discovery with different
+assumptions.
+
+Ask for two project slugs (or parse from the user's command). Read both progress files:
+
+```bash
+SLUG_A="<first>"
+SLUG_B="<second>"
+echo "---A---"
+cat "projects/$SLUG_A/progress.yaml" 2>/dev/null
+echo "---B---"
+cat "projects/$SLUG_B/progress.yaml" 2>/dev/null
+echo "---DECISIONS_A---"
+cat "projects/$SLUG_A/decisions.yaml" 2>/dev/null
+echo "---DECISIONS_B---"
+cat "projects/$SLUG_B/decisions.yaml" 2>/dev/null
+```
+
+Present as a side-by-side table:
+
+```
+Comparison: <project A> vs <project B>
+
+  Skill                 <project A>        <project B>
+  ────────────────────  ─────────────────  ─────────────────
+  Discovery             ✓ complete         ✓ complete
+  Topic Design          ✓ complete         · not started
+  Broker Selection      Cloud              Software
+  ...
+
+  Key Decision Differences:
+  • Broker type: Cloud (A) vs Software (B)
+  • Topology: single-site (A) vs multi-site (B)
+  • <other differences>
+```
+
+Highlight decisions that differ between the two projects.

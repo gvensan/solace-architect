@@ -69,15 +69,16 @@ Start every engagement by seeing what's available.
 
 ### What happens
 
-Solace Architect prints three things:
+Solace Architect prints:
 
-1. **Skills catalog** — every available skill grouped by category (Discovery, Technical Domain, Review, Orchestration, Utility)
-2. **Recommended workflow** — the sequence: discovery, plan, technical skills, reviews, validation, blueprint
-3. **Active project status** — since this is your first run, it will say "No active project"
+1. **Getting Started** — the three primary commands: `/solace-discovery`, `/solace-plan`, `/solace-projects`
+2. **Active project status** — since this is your first run, it will say "No active project"
+3. **Individual skills catalog** — Design, Review, and Finalize skills (these run automatically via `/solace-plan`)
+4. **Grounding documents** — the reference material that backs all recommendations
 
 ### What you learn
 
-The workflow has a clear arc: discover the problem, plan the engagement, design the technical components, review from four perspectives, validate consistency, and assemble the final deliverable. You don't have to run every skill, and `/solace-plan` will tell you which ones your project actually needs.
+You only need three commands. `/solace-discovery` starts a project. `/solace-plan` orchestrates the full engagement — it picks the right skills, runs them in order, and threads context between them. `/solace-projects` is your dashboard for status, timing, and project switching.
 
 ### Key concept: Skills are modular
 
@@ -128,29 +129,37 @@ projects/retail-banking-chat-agent/
 
 ### What happens next: Project type selection
 
-Discovery uses **AskUserQuestion** to ask what kind of project this is. AskUserQuestion presents a structured decision brief with clickable options, not free-text. It looks something like this:
+Discovery uses **AskUserQuestion** to ask what kind of project this is. AskUserQuestion presents a structured decision brief with a recommendation callout, per-option pros/cons, and clickable options. It looks something like this:
 
 ```
 D1 — What type of project is this?
 
-Project/branch/task: retail-banking-chat-agent, starting discovery
-ELI10: We need to know whether this is a brand-new system, a migration from
-existing messaging, an extension to something already running on Solace, or
-specifically an AI agent integration using Solace Agent Mesh (SAM). This
-determines which skills we'll need later.
-Stakes if we pick wrong: Wrong project type means wrong skill sequence —
-we'd miss migration planning or skip SAM design when it's needed.
-Recommendation: SAM integration because the project centers on an AI
-assistant with multiple backends and channels.
+Context: Determines which skills the engagement needs —
+wrong type means missed steps or unnecessary work.
+
+> **Recommended: D) SAM integration**
+> Why: The project centers on an AI assistant with multiple
+> backends and channels — this is a SAM pattern.
 
 A) New build
-  ...
+  Pros: Clean slate, no legacy constraints
+  Cons: No migration planning; wrong if MQ coexistence is needed
+  Completeness: 60% — misses agent mesh design
+
 B) Migration
-  ...
+  Pros: Covers MQ transition path
+  Cons: Focuses on migration, not the AI assistant
+  Completeness: 40% — wrong primary pattern
+
 C) Extension
-  ...
+  Pros: Right if Solace is already in place
+  Cons: This is greenfield, not extending existing Solace
+  Completeness: 30% — wrong premise
+
 D) SAM integration (recommended)
-  ...
+  Pros: Covers agent mesh, channels, backends, MQ coexistence
+  Cons: Most complex skill sequence
+  Completeness: 95% — matches Pattern 1 reference architecture
 ```
 
 **You select:** SAM integration
@@ -159,24 +168,26 @@ D) SAM integration (recommended)
 
 Solace Architect uses two interaction modes:
 
-- **AskUserQuestion** — for multiple-choice selections. Presents structured decision briefs with pros/cons, a recommendation, and clickable options. Used when the answer is one of a known set.
-- **Free-text (plain prose)** — for questions that need descriptive answers. Prints a numbered list and waits for you to type your response. Used when the answer requires specifics about your systems, constraints, or goals.
+- **AskUserQuestion** — for multiple-choice selections. Presents structured decision briefs with a recommendation callout (blockquote with project-specific rationale), per-option pros/cons with completeness scoring, and clickable options. Used when the answer is one of a known set.
+- **Free-text (plain prose)** — for questions that need descriptive answers. Prints bullet points (•) with an explicit hint ("Type your answers below") so you know free-text input is expected. Used when the answer requires specifics about your systems, constraints, or goals.
 
 Discovery uses both extensively.
 
 ### System landscape (free-text)
 
-Discovery prints a numbered list of questions about your systems. This is a plain prose question, not AskUserQuestion, because it needs your specific details:
+Discovery presents questions with bullet points and a clear input hint. This is a plain prose question, not AskUserQuestion, because it needs your specific details:
 
-> Tell me about your system landscape. Include as much as you know:
+> **Answer in your own words — describe your system landscape:**
 >
-> 1. **Systems:** What systems need to communicate?
-> 2. **Existing messaging:** Are there messaging systems in place today?
-> 3. **Protocols:** What protocols do these systems speak?
-> 4. **Events:** What events flow between systems?
-> 5. **Volume:** What are the approximate event rates?
-> 6. **Schemas:** Are there existing schemas or an AsyncAPI spec?
-> 7. **Vertical:** What industry is this for?
+> • **Systems:** What systems need to communicate?
+> • **Existing messaging:** Are there messaging systems in place today?
+> • **Protocols:** What protocols do these systems speak?
+> • **Events:** What events flow between systems?
+> • **Volume:** What are the approximate event rates?
+> • **Schemas:** Are there existing schemas or an AsyncAPI spec?
+> • **Vertical:** What industry is this for?
+>
+> Type your answers below.
 
 **You type:**
 
@@ -249,6 +260,28 @@ Then asks the remaining details as free-text:
 **You type:**
 
 > Customer demand for self-service banking. MVP in production in 4 months. Prefer cloud-managed to reduce ops burden — Solace Cloud subscription, no complex procurement. Team of 6.
+
+### Execution mode
+
+Before synthesizing, discovery asks one final question: how do you want the engagement to run?
+
+```
+D6 — How should skills run after each step?
+
+> **Recommended: A) Auto-pilot**
+> Why: 14 remaining skills — auto-pilot runs them in sequence,
+> pausing only when critical issues arise or your input is needed.
+
+A) Auto-pilot
+  After each skill, automatically run the next recommended skill.
+  Pauses on: critical review findings, validation failures, blocked status.
+
+B) Interactive
+  After each skill, ask what to do next (Continue / Skip / Pick different).
+  Full control at every transition.
+```
+
+The choice is stored in `decisions.yaml` as `execution_mode` and governs how all subsequent skills chain together.
 
 ### The discovery brief
 
@@ -801,7 +834,7 @@ The skill produces a coexistence topology diagram and a topic mapping table (IBM
 
 ## Step 12: Architecture review — `/solace-architect-review`
 
-Now the four review skills examine the accumulated design from different perspectives. Each review reads all prior artifacts and produces findings.
+Now the four review skills examine the accumulated design from different perspectives. Each review reads all prior artifacts, generates findings, and then walks through each finding interactively.
 
 ### What you type
 
@@ -819,17 +852,45 @@ The architect review evaluates the overall design for structural soundness:
 - **Mesh and HA/DR:** Does the topology support the EU expansion? Are RPO/RTO targets achievable?
 - **Integration and migration:** Is the coexistence bridge correctly designed? Are Micro-Integration choices sound?
 
-The review references Pattern 1 from the reference architectures and checks whether the design follows the pattern's key design decisions. It also looks for simpler alternatives. If the design is over-engineered anywhere, the review says so.
+### Key concept: Interactive finding resolution
 
-Findings are specific and actionable, not generic observations. For example:
+After running all checks, the review presents results in two groups:
 
-> **Finding A-3:** The TransferAgent handles fund transfers as a single operation, but PCI-DSS requires a two-step confirmation flow (initiate + authorize). The agent design should separate initiation from authorization, with the OrchestratorAgent managing the confirmation step.
+**Confirmations** — areas with no issues are displayed as a grouped block:
+
+```
+✓ Confirmed — No Issues
+  • Broker selection: Event broker service matches team size and cloud preference
+  • Protocol assignments: simplest protocols selected for each integration point
+  • Topic taxonomy: consistent Domain/Noun/Verb/Version/Properties structure
+```
+
+**Issues** — each actual finding is presented one at a time with Apply/Defer/Discuss:
+
+```
+Finding 1/3 — Critical
+
+  Issue:    TransferAgent handles fund transfers as a single operation
+  Impact:   PCI-DSS requires two-step confirmation (initiate + authorize)
+  Fix:      Separate initiation from authorization; OrchestratorAgent manages confirmation step
+  Artifact: artifacts/sam-design/agent-topology.md
+
+  A) Apply — update agent-topology.md with the proposed fix
+  B) Defer — log this finding for later; proceed to next
+  C) Discuss — I have questions before deciding
+```
+
+Applied fixes update the referenced artifact immediately and record the change in `decisions.yaml`. Deferred findings are logged and picked up by `/solace-validate`. After all findings are resolved, a summary shows what was applied, deferred, and confirmed.
+
+In auto execution mode, Advisory and Important findings are auto-applied; only Critical findings pause for user consent.
 
 ### What you produced
 
 | Artifact | Location |
 |----------|----------|
-| Architect review | `artifacts/reviews/architect-review.md` |
+| Architect review | `artifacts/reviews/architect-review.md` (with APPLIED/DEFERRED status per finding) |
+| Updated artifacts | Any artifacts modified by applied findings |
+| Updated decisions | `decisions.yaml` (applied and deferred entries) |
 
 ---
 
@@ -851,11 +912,13 @@ The ops review evaluates production readiness:
 - **Upgrade path:** How do you upgrade SAM agents, Micro-Integrations, and the broker without downtime?
 - **Alerting:** What does the on-call engineer see at 3 AM? Which alerts fire, and what runbook do they follow?
 
+Like the architect review, findings are presented interactively with Apply/Defer/Discuss. Non-issues are confirmed in a grouped block.
+
 ### What you produced
 
 | Artifact | Location |
 |----------|----------|
-| Ops review | `artifacts/reviews/ops-review.md` |
+| Ops review | `artifacts/reviews/ops-review.md` (with APPLIED/DEFERRED status) |
 
 ---
 
@@ -878,11 +941,13 @@ The security review is particularly thorough for a PCI-DSS-regulated banking sys
 - **Data residency:** When EU expansion happens, does the architecture prevent US-stored customer PII from replicating to EU, and vice versa, without explicit consent?
 - **Audit trail:** Are all Guaranteed messaging flows captured for the 7-year retention requirement?
 
+Findings are resolved interactively (Apply/Defer/Discuss). Critical security findings always require explicit user consent, even in auto mode.
+
 ### What you produced
 
 | Artifact | Location |
 |----------|----------|
-| Security review | `artifacts/reviews/security-review.md` |
+| Security review | `artifacts/reviews/security-review.md` (with APPLIED/DEFERRED status) |
 
 ---
 
@@ -905,11 +970,13 @@ The developer review evaluates the architecture from the perspective of the 4 ap
 - **Testing strategy:** How do developers test SAM agents locally? Can they run a local Software Event Broker for development?
 - **CI/CD integration:** How do GitHub Actions deploy agent updates, MI configuration changes, and topic taxonomy updates?
 
+The dev review classifies findings differently: Friction (blocks developers), Missing (gaps in tooling or docs), and Good (well-designed, preserved as confirmations). Good findings appear in the confirmation block; Friction and Missing are presented as Apply/Defer/Discuss issues.
+
 ### What you produced
 
 | Artifact | Location |
 |----------|----------|
-| Developer review | `artifacts/reviews/dev-review.md` |
+| Developer review | `artifacts/reviews/dev-review.md` (with APPLIED/DEFERRED status) |
 
 ---
 
@@ -1101,11 +1168,15 @@ The `projects/retail-banking-chat-agent/` directory contains everything: the dis
 
 **Use `/solace-plan` to stay on track.** Plan reads the discovery brief and tells you which skills to run. If you skip one, it will be noted in validation.
 
+**Choose your execution mode.** Discovery asks whether you want auto-pilot (skills chain automatically) or interactive (you control each transition). Auto-pilot is faster for engagements where you trust the recommendations. Interactive gives you full control at every step.
+
+**Use `/solace-projects` for your dashboard.** See per-skill status, execution timing, project summaries, or switch between projects. Compare two projects side by side when running discovery with different assumptions.
+
 **You can resume.** If you close Claude Code mid-engagement, your progress is saved in `progress.yaml`. When you re-invoke a skill, it offers to resume where you left off.
 
 **You can skip skills.** Not every project needs every skill. A single-site project can skip mesh-design. A greenfield project can skip migration. Plan will ask you what to include.
 
-**Review findings are inputs, not outputs.** The four review skills often surface issues that need design changes. Address findings before running validation. Validation will catch inconsistencies they flag.
+**Review findings are resolved in-line.** The four review skills walk through each finding interactively — Apply the fix, Defer it for later, or Discuss before deciding. Applied fixes update artifacts immediately. Deferred findings are logged and flagged by validation.
 
 **The grounding documents are the source of truth.** Every recommendation Solace Architect makes is grounded in Solace documentation. When it cannot find a capability in the docs, it says so explicitly and labels any first-principles reasoning as "architectural inference."
 
