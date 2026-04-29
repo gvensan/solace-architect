@@ -1,0 +1,148 @@
+---
+name: solace-broker-select
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Select the Solace broker deployment model: Cloud event broker services, Software
+  Event Broker, or Appliance Event Broker. Evaluates latency, regulatory, team capacity,
+  budget, and scale constraints from discovery. Produces a recommendation with rationale,
+  cost model comparison, and sizing notes. Use after discovery.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-broker-select — Broker Type Selection
+
+You are running the broker selection skill. Your job is to recommend the right Solace
+broker deployment model based on the project's constraints, and present the trade-offs
+so the user can make an informed decision.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
+```
+
+If no active project or discovery not complete, warn and recommend `/solace-discovery`.
+
+If this skill was previously in-progress, offer resume via AskUserQuestion.
+
+Read the discovery brief and decisions:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+```
+
+Write initial progress entry.
+
+---
+
+## Step 1: Extract selection criteria
+
+From the discovery brief, extract the factors that drive broker selection:
+
+- **Latency requirements** — sub-millisecond needs push toward Appliance
+- **Regulatory and data residency** — where must data reside? Cloud vs self-managed implications
+- **Team size and Solace experience** — small/new teams benefit from managed services
+- **Scale** — message rates, number of connections, message spool requirements
+- **Budget** — CapEx vs OpEx preference
+- **Deployment topology** — single site, multi-region, hybrid cloud, edge
+- **HA/DR requirements** — built-in (Cloud) vs self-managed
+
+Present the extracted criteria back to the user for confirmation. If any critical
+criteria are missing, ask as plain prose.
+
+---
+
+## Step 2: Evaluate the three options
+
+Load the platform reference for broker details:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-platform-reference.md | head -100
+```
+
+Present all three options with trade-offs. Structure as a comparison table:
+
+| Criterion | Event Broker Service (Cloud) | Software Event Broker | Appliance Event Broker |
+|-----------|------------------------------|----------------------|----------------------|
+| Operations | Fully managed by Solace | Self-managed (Docker, K8s, VM) | Self-managed hardware |
+| Latency | Cloud-grade (low ms) | Depends on host | Sub-microsecond capable |
+| Data residency | Solace Cloud regions | Your infrastructure | Your data center |
+| HA | Built-in | Self-configured pairs | Self-configured pairs |
+| Scaling | Service plan tiers | Manual (add brokers) | Hardware capacity |
+| Cost model | OpEx (subscription) | OpEx or CapEx (license) | CapEx (hardware + license) |
+| Team burden | Lowest | Medium | Highest |
+
+**Decision factors and biases (grounded in Solace docs):**
+
+- For small teams new to Solace: bias toward **Event broker service** — less operational
+  burden, HA built-in, Solace manages upgrades.
+- For regulated environments with strict data residency: **Software Event Broker** gives
+  full control over where data lives.
+- For ultra-low-latency (capital markets, HFT): **Appliance Event Broker** — purpose-built
+  hardware for sub-microsecond performance.
+- For hybrid/edge: **Software Event Broker** at the edge, potentially **Event broker service**
+  in the cloud, connected via DMR.
+
+**Never fabricate pricing or specific SKU details.** Flag pricing as "verify with Solace
+sales" — exact pricing depends on service plan, throughput tier, and enterprise agreements.
+
+---
+
+## Step 3: Present recommendation
+
+Use AskUserQuestion to present the recommendation:
+
+- State the recommended broker type with clear rationale tied to the project's constraints.
+- Present all three options with pros/cons.
+- If a hybrid approach is warranted (e.g., Cloud in the cloud + Software at the edge),
+  present that as an option.
+
+After the user confirms:
+
+---
+
+## Step 4: Sizing notes and write artifacts
+
+Provide sizing guidance based on the selected broker type:
+
+- **Event broker service:** Which service class? (Developer, Enterprise, Enterprise+).
+  Developer is free tier for evaluation. Enterprise and Enterprise+ differ in message
+  spool, connection limits, and features.
+- **Software Event Broker:** Container resource requirements. Standard, Enterprise, and
+  Enterprise+ editions. Minimum and recommended CPU/memory.
+- **Appliance:** Model selection guidance — but flag that specific model selection requires
+  Solace engagement.
+
+Save the broker recommendation artifact:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/broker-select/broker-recommendation.md" << 'EOF'
+<paste the full recommendation with rationale, comparison table, sizing notes>
+EOF
+```
+
+Update decisions.yaml with the broker type decision.
+Update progress to complete.
+
+Recommend next steps — `/solace-mesh-design` if multi-site, `/solace-protocol-select`
+for protocol decisions, or `/solace-sam-design` if SAM is involved.

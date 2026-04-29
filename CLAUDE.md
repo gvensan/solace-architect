@@ -15,7 +15,9 @@ bun run gen:skill-docs            # regenerate SKILL.md for claude host only
 bun run gen:skill-docs --host all # regenerate for all 10 hosts
 bun run skill:check  # health dashboard for all skills
 bun run dev:skill    # watch mode: auto-regen + validate on change
+bun run url:check    # check all grounding document URLs for health
 ./setup              # full install: deps + generate + symlink into ~/.claude/skills/
+./uninstall          # remove all skill symlinks from ~/.claude/skills/
 ```
 
 ## Grounding documents
@@ -29,7 +31,10 @@ The authoritative sources live in `solace-grounding/`:
 | `solace-canonical-sources.md` | URL-by-topic retrieval index. When you need depth, fetch from these URLs. |
 | `solace-reference-architectures.md` | Worked examples of how Solace components compose. |
 | `antipatterns.md` | Known mistakes organized by category. Every skill checks output against this. |
+| `integration-hub-catalog.md` | Snapshot of available Micro-Integrations from solace.com/integration-hub. Refreshed monthly. |
 | `claude-instructions.md` | Claude-specific operating instructions for Solace Architect. |
+| `gaps.md` | Gap tracker for missing grounding document coverage. |
+| `MAINTENANCE.md` | Refresh manifest for all external resources with cadence and version tracking. |
 
 Rules:
 - Only assert what you can ground in `docs.solace.com`, `solacelabs.github.io/solace-agent-mesh`, `github.com/SolaceLabs`, or `solace.com/integration-hub`.
@@ -38,19 +43,47 @@ Rules:
 
 ## Available skills
 
-| Skill | Slash command | Description |
-|-------|--------------|-------------|
-| Discovery | `/solace-discovery` | Structured elicitation for event-driven architecture projects. Produces a discovery brief. |
-| Help | `/solace-help` | Lists available skills, shows workflow, displays project status. |
-
-Future skills follow the `solace-` prefix convention: `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, etc.
+| Category | Skill | Slash command |
+|----------|-------|--------------|
+| Discovery | Discovery | `/solace-discovery` |
+| Technical | Topic Design | `/solace-topic-design` |
+| Technical | Broker Selection | `/solace-broker-select` |
+| Technical | SAM Design | `/solace-sam-design` |
+| Technical | Protocol Selection | `/solace-protocol-select` |
+| Technical | Mesh Design | `/solace-mesh-design` |
+| Technical | HA/DR Design | `/solace-ha-dr` |
+| Technical | Migration Planning | `/solace-migration` |
+| Technical | Integration Design | `/solace-integration` |
+| Review | Architecture Review | `/solace-architect-review` |
+| Review | Operations Review | `/solace-ops-review` |
+| Review | Security Review | `/solace-security-review` |
+| Review | Developer Review | `/solace-dev-review` |
+| Orchestration | Plan | `/solace-plan` |
+| Validation | Validate | `/solace-validate` |
+| Assembly | Blueprint | `/solace-blueprint` |
+| Utility | Help | `/solace-help` |
 
 ## Skill routing
 
 When the user's request matches an available skill, invoke it via the Skill tool.
 
-- Architecture discovery, new project scoping, migration assessment -> invoke /solace-discovery
+- Architecture discovery, new project scoping -> invoke /solace-discovery
 - Help, available skills, workflow, getting started -> invoke /solace-help
+- Plan a full engagement, orchestrate skills -> invoke /solace-plan
+- Topic taxonomy, topic hierarchy design -> invoke /solace-topic-design
+- Broker type selection, cloud vs software vs appliance -> invoke /solace-broker-select
+- SAM, agent mesh, AI assistant design -> invoke /solace-sam-design
+- Protocol selection -> invoke /solace-protocol-select
+- DMR, mesh topology, multi-site -> invoke /solace-mesh-design
+- HA, DR, replication, failover -> invoke /solace-ha-dr
+- Migration from Kafka, RabbitMQ, TIBCO, IBM MQ -> invoke /solace-migration
+- Micro-Integration strategy -> invoke /solace-integration
+- Architecture review -> invoke /solace-architect-review
+- Operations review -> invoke /solace-ops-review
+- Security review -> invoke /solace-security-review
+- Developer experience review -> invoke /solace-dev-review
+- Validation, consistency checks -> invoke /solace-validate
+- Blueprint assembly -> invoke /solace-blueprint
 
 ## Naming conventions
 
@@ -69,51 +102,68 @@ See `scripts/resolvers/preamble/generate-naming-conventions.ts` for the full lis
 
 ```
 solace-architect/
-├── hosts/              # Typed host configs (one per AI coding agent)
-│   ├── claude.ts       # Primary host config
-│   ├── codex.ts        # OpenAI Codex
-│   ├── factory.ts      # Factory
-│   ├── kiro.ts         # Kiro
-│   ├── opencode.ts     # OpenCode
-│   ├── slate.ts        # Slate
-│   ├── cursor.ts       # Cursor
-│   ├── openclaw.ts     # OpenClaw
-│   ├── hermes.ts       # Hermes
-│   ├── gbrain.ts       # GBrain
-│   └── index.ts        # Registry: exports all, derives Host type
-├── scripts/            # Build + DX tooling
-│   ├── gen-skill-docs.ts    # Template → SKILL.md generator
-│   ├── host-config.ts       # HostConfig interface + validator
-│   ├── resolvers/           # Template resolver modules
-│   │   ├── index.ts         # Resolver registry (8 entries)
-│   │   ├── types.ts         # TemplateContext, HostPaths, Host type
-│   │   ├── composition.ts   # INVOKE_SKILL resolver
-│   │   ├── utility.ts       # BASE_BRANCH_DETECT, CO_AUTHOR_TRAILER
-│   │   └── preamble/        # Preamble generators (per-tier)
-│   ├── discover-skills.ts   # Shared .tmpl discovery
-│   ├── skill-check.ts       # Health dashboard
-│   ├── dev-skill.ts         # Watch mode
-│   ├── models.ts            # Model registry
-│   └── jargon-list.json     # EDA/Solace jargon (68 terms)
-├── solace-grounding/   # Solace platform grounding documents
-│   ├── solace-platform-reference.md
-│   ├── solace-canonical-sources.md
-│   ├── solace-reference-architectures.md
-│   ├── antipatterns.md
-│   └── claude-instructions.md
-├── solace-discovery/   # /solace-discovery skill
-│   ├── SKILL.md.tmpl   # Template (edit this)
-│   └── SKILL.md        # Generated (don't edit)
-├── solace-help/        # /solace-help skill
-│   ├── SKILL.md.tmpl   # Template (edit this)
-│   └── SKILL.md        # Generated (don't edit)
-├── projects/           # Project data (gitignored, local to user)
-├── SKILL.md.tmpl       # Root skill template
-├── SKILL.md            # Generated root skill
-├── setup               # Install script
-├── ARCHITECTURE.md     # How the template pipeline works
-├── ETHOS.md            # Working principles
-└── package.json        # Build scripts
+  hosts/                  # Typed host configs (one per AI coding agent)
+    claude.ts             # Primary host config
+    codex.ts              # OpenAI Codex
+    factory.ts, kiro.ts, opencode.ts, slate.ts, cursor.ts, openclaw.ts, hermes.ts, gbrain.ts
+    index.ts              # Registry: exports all, derives Host type
+  scripts/                # Build + DX tooling
+    gen-skill-docs.ts     # Template -> SKILL.md generator
+    host-config.ts        # HostConfig interface + validator
+    url-health-check.ts   # Grounding document URL health checker
+    resolvers/            # Template resolver modules
+      index.ts            # Resolver registry (8 entries)
+      types.ts            # TemplateContext, HostPaths, Host type
+      composition.ts      # INVOKE_SKILL resolver
+      utility.ts          # BASE_BRANCH_DETECT, CO_AUTHOR_TRAILER
+      preamble/           # Preamble generators (per-tier)
+    discover-skills.ts    # Shared .tmpl discovery
+    skill-check.ts        # Health dashboard
+    dev-skill.ts          # Watch mode
+    models.ts             # Model registry
+    jargon-list.json      # EDA/Solace jargon (68 terms)
+  solace-grounding/       # Solace platform grounding documents
+    solace-platform-reference.md
+    solace-canonical-sources.md
+    solace-reference-architectures.md
+    antipatterns.md
+    claude-instructions.md
+    gaps.md               # Grounding document gap tracker
+  solace-discovery/       # /solace-discovery
+  solace-topic-design/    # /solace-topic-design
+  solace-broker-select/   # /solace-broker-select
+  solace-sam-design/      # /solace-sam-design
+  solace-protocol-select/ # /solace-protocol-select
+  solace-mesh-design/     # /solace-mesh-design
+  solace-ha-dr/           # /solace-ha-dr
+  solace-migration/       # /solace-migration
+  solace-integration/     # /solace-integration
+  solace-architect-review/  # /solace-architect-review
+  solace-ops-review/      # /solace-ops-review
+  solace-security-review/ # /solace-security-review
+  solace-dev-review/      # /solace-dev-review
+  solace-plan/            # /solace-plan
+  solace-validate/        # /solace-validate
+  solace-blueprint/       # /solace-blueprint
+  solace-help/            # /solace-help
+  test/                   # Test suite
+    helpers/              # Shared test utilities (skill-parser)
+    fixtures/             # Scenario fixtures for eval testing
+    skill-terminology.test.ts
+    skill-structure.test.ts
+    skill-token-budget.test.ts
+    skill-gen.test.ts
+  projects/               # Project data (gitignored, local to user)
+  SKILL.md.tmpl           # Root skill template
+  SKILL.md                # Generated root skill
+  setup                   # Install script
+  uninstall               # Remove script
+  VERSION                 # Current version tag
+  IMPROVEMENTS.md         # Skill improvement tracking from feedback
+  ARCHITECTURE.md         # How the template pipeline works
+  GETTING-STARTED.md      # Full walkthrough of a complete engagement
+  ETHOS.md                # Working principles
+  package.json            # Build scripts
 ```
 
 ## SKILL.md workflow

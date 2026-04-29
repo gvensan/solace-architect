@@ -500,7 +500,7 @@ The root skill handles project lifecycle. Respond to these requests:
 ```bash
 PROJECT_SLUG="<slugified-name>"
 DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{discovery,topic-design,sam-design,broker-select,protocol-select,mesh-design,ha-dr,integration,migration,validation,blueprint}
+mkdir -p "projects/$PROJECT_SLUG/artifacts/"{discovery,topic-design,sam-design,broker-select,protocol-select,mesh-design,ha-dr,integration,migration,reviews,validation,blueprint}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
 display_name: $DISPLAY_NAME
@@ -513,6 +513,9 @@ DECEOF
 cat > "projects/$PROJECT_SLUG/progress.yaml" << PROGEOF
 progress: []
 PROGEOF
+cat > "projects/$PROJECT_SLUG/feedback.yaml" << FBEOF
+feedback: []
+FBEOF
 echo "$PROJECT_SLUG" > projects/.active
 ```
 
@@ -557,5 +560,20 @@ fi
 
 When the user's request matches an available skill, invoke it:
 
-- Architecture discovery, new project scoping, migration assessment -> `/solace-discovery`
+- Architecture discovery, new project scoping -> `/solace-discovery`
 - Help, available skills, workflow order, getting started -> `/solace-help`
+- Orchestrate a full engagement, plan the skill sequence -> `/solace-plan`
+- Topic taxonomy, topic hierarchy, naming, wildcard subscriptions -> `/solace-topic-design`
+- Broker type, cloud vs software vs appliance, sizing -> `/solace-broker-select`
+- SAM, agent mesh, AI assistant, chatbot agents, OrchestratorAgent -> `/solace-sam-design`
+- Protocol selection, SMF, MQTT, AMQP, JMS, REST, WebSocket -> `/solace-protocol-select`
+- DMR, event mesh topology, multi-site, multi-cloud, federation -> `/solace-mesh-design`
+- HA, DR, replication, failover, RPO/RTO -> `/solace-ha-dr`
+- Migration from Kafka, RabbitMQ, TIBCO, IBM MQ -> `/solace-migration`
+- Micro-Integration strategy, backend connectivity, Integration Hub -> `/solace-integration`
+- Architecture review, trade-off analysis -> `/solace-architect-review`
+- Operations review, monitoring, runbooks, capacity -> `/solace-ops-review`
+- Security review, ACL, TLS, compliance -> `/solace-security-review`
+- Developer experience review, SDK, onboarding -> `/solace-dev-review`
+- Validation, consistency checks, antipattern detection -> `/solace-validate`
+- Blueprint assembly, final deliverable -> `/solace-blueprint`

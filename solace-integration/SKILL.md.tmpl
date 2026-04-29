@@ -1,0 +1,157 @@
+---
+name: solace-integration
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Design the Micro-Integration strategy for Solace architectures. Determines which
+  backends need cloud-managed vs self-managed Micro-Integrations, checks Integration
+  Hub availability, identifies custom Micro-Integration needs, and configures Kafka
+  bridge where applicable. Use after discovery.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-integration — Micro-Integration Design
+
+You are running the integration skill. Your job is to design the Micro-Integration
+strategy: which backend systems connect through which Micro-Integrations, whether
+cloud-managed or self-managed, and where custom Micro-Integrations are needed.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
+```
+
+Requires discovery complete. Read the inputs:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+cat "projects/$ACTIVE/artifacts/sam-design/agent-topology.md" 2>/dev/null || echo "NO_SAM"
+cat "projects/$ACTIVE/artifacts/broker-select/broker-recommendation.md" 2>/dev/null || echo "NO_BROKER"
+```
+
+Write initial progress entry.
+
+---
+
+## Step 1: Inventory backend systems
+
+From the discovery brief and SAM design (if available), list every backend system
+that needs to connect to the event mesh:
+
+| Backend System | Connection Type | Current Protocol | Data Direction | Volume |
+|---------------|----------------|-----------------|---------------|--------|
+
+For SAM projects, distinguish between:
+- **Agent tools** — direct backend calls from within an agent. The agent's Python code
+  calls the backend API. Simpler but tightly coupled to the agent.
+- **Micro-Integrations** — decoupled via the event mesh. The backend publishes/subscribes
+  through a Micro-Integration. Scales better when multiple agents or non-agent consumers
+  need the same backend data.
+
+Present the inventory and ask the user to confirm or correct.
+
+---
+
+## Step 2: Check Integration Hub availability
+
+For each backend system, check whether a Micro-Integration exists in the Integration Hub.
+
+**Do not fabricate Micro-Integration names.** If you are uncertain whether a
+Micro-Integration exists for a specific system, flag it as:
+"Verify against Integration Hub at solace.com/integration-hub."
+
+Load the Integration Hub catalog snapshot:
+
+```bash
+cat {{GROUNDING_DIR}}/integration-hub-catalog.md
+```
+
+Match each backend system from Step 1 against the catalog. For each backend, classify:
+
+| Backend | Micro-Integration Available? | Type | Deployment Model | Notes |
+|---------|------------------------------|------|-----------------|-------|
+| Salesforce | Yes — in catalog | Self-Managed | 2-way via Pub/Sub gRPC API | — |
+| Kafka | Yes — Broker Integrated | Broker Integrated | Built into broker | Not a Spring Boot MI |
+| Custom DB | No — custom needed | Custom | Self-managed | Python or Spring Boot |
+
+If a system is **not in the catalog**, it does not mean no Micro-Integration exists.
+The catalog is a periodic snapshot. Flag it as:
+"Not in catalog snapshot. Verify at solace.com/integration-hub for latest availability."
+
+**Critical distinction:** The Kafka bridge is **Broker Integrated** — it runs inside the
+broker, not as a separate Spring Boot Micro-Integration. Get this right. Other
+Micro-Integrations run as external processes.
+
+---
+
+## Step 3: Design custom Micro-Integrations
+
+For each backend that needs a custom Micro-Integration, produce a specification:
+
+- **Name** — following Solace naming conventions
+- **Technology** — Python (SAM-native) or Spring Boot
+- **Events published** — topic, payload format, delivery mode
+- **Events consumed** — topic subscription, processing semantics
+- **Authentication** — how credentials are managed (never hardcoded)
+- **Error handling** — dead message queue strategy, retry behavior
+
+---
+
+## Step 4: SAM agent tool vs Micro-Integration decisions
+
+If the project involves SAM, for each backend present the trade-off:
+
+| Backend | Agent Tool | Micro-Integration | Recommendation |
+|---------|-----------|-------------------|----------------|
+| Core Banking API | Agent calls REST directly | Events published to mesh | MI if multiple consumers |
+| Knowledge Base | Agent queries vector store | — | Tool (single consumer) |
+
+Use AskUserQuestion when the trade-off is genuine and the user should decide.
+
+---
+
+## Step 5: Write artifacts and complete
+
+Save artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/integration/micro-integration-map.md" << 'EOF'
+<paste the full Micro-Integration inventory>
+EOF
+mkdir -p "projects/$ACTIVE/artifacts/integration/custom-integration-specs"
+```
+
+For each custom Micro-Integration, write a spec file:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/integration/custom-integration-specs/<name>.md" << 'EOF'
+<paste the custom MI specification>
+EOF
+```
+
+Update decisions.yaml with integration decisions.
+Update progress to complete.
+
+Recommend next steps — review skills or `/solace-validate` if all technical skills
+are complete.

@@ -1,0 +1,145 @@
+---
+name: solace-dev-review
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Developer experience review. Evaluates topic taxonomy usability, SDK selection,
+  API design, developer onboarding path, schema governance, and what it takes for
+  a new developer to produce or consume events. Use after technical domain skills
+  are complete.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-dev-review — Developer Experience Review
+
+You are running the developer review skill. Your job is to evaluate the architecture
+from a developer's perspective: are the APIs right? Is the topic taxonomy usable?
+What does onboarding look like for a developer consuming or producing events?
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+fi
+```
+
+Requires at least one technical skill complete. Read all available artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+for dir in topic-design sam-design protocol-select integration; do
+  for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
+    [ -f "$f" ] && echo "=== $f ===" && cat "$f"
+  done 2>/dev/null
+done
+```
+
+---
+
+## Step 1: Topic taxonomy usability
+
+Evaluate the topic taxonomy from a developer's perspective:
+
+- **Discoverability:** Can a developer figure out which topic to subscribe to for a
+  given use case? Is the naming intuitive?
+- **Consistency:** Does the taxonomy follow `Domain/Noun/Verb/Version/Properties`
+  consistently across all topics? Are naming conventions (camelCase/PascalCase) uniform?
+- **Documentation:** Is the topic taxonomy documented with examples and subscription
+  patterns?
+- **Event Portal governance:** Is Event Portal configured so developers can discover
+  topics, view schemas, and understand the event catalog?
+
+---
+
+## Step 2: SDK and API selection
+
+Evaluate the SDK choices for each integration point:
+
+- **Language fit:** Are the selected Solace APIs available for the languages developers
+  use? (Solace supports 11 language APIs: C, C#, Go, Java, JavaScript, JMS, Node.js,
+  Python, MQTT, AMQP, REST)
+- **Abstraction level:** Is the chosen abstraction right? Direct Solace API vs Spring
+  Cloud Stream vs MQTT client vs REST? Simpler is better for developers who just need
+  to publish or subscribe.
+- **Sample code availability:** Can developers find working examples for their use case
+  in SolaceLabs GitHub or Solace tutorials?
+
+Load canonical sources for developer resources:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-canonical-sources.md | grep -i -A2 "tutorial\|sample\|SDK\|API\|developer"
+```
+
+---
+
+## Step 3: Onboarding path
+
+Evaluate what a new developer needs to do to start producing or consuming events:
+
+1. **Environment access** — how does a developer get broker credentials? Self-service
+   or request-based?
+2. **Topic discovery** — how do they find the right topic? Event Portal? Documentation?
+   Ask a colleague?
+3. **Schema discovery** — how do they find the event schema? Schema Registry? AsyncAPI
+   spec? Documentation?
+4. **First message** — how many steps from "I want to publish an event" to "I published
+   an event"? Count the steps. Fewer is better.
+5. **Testing** — can developers test against a local broker? Is there a Developer service
+   class for experimentation?
+6. **Error handling** — are error scenarios documented? What happens when the broker
+   rejects a message? When a consumer can't keep up?
+
+---
+
+## Step 4: Schema governance
+
+Evaluate schema management:
+
+- **Schema Registry adoption:** Is Solace Schema Registry in use? Are schemas versioned?
+- **Schema evolution policy:** How are breaking changes handled? Version in topics?
+  Consumer compatibility guarantees?
+- **AsyncAPI specs:** Are event definitions published as AsyncAPI specs? This enables
+  code generation and documentation automation.
+
+Check the antipattern: **Skipping Schema Registry for "simple" data.** Even simple
+data evolves.
+
+---
+
+## Step 5: Write findings and complete
+
+Structure findings by developer impact:
+
+- **Friction** — things that slow developers down or cause confusion.
+- **Missing** — capabilities or documentation that should exist but don't.
+- **Good** — things that are well-designed and should be preserved.
+
+Each finding should include a concrete recommendation for improvement.
+
+Save the review:
+
+```bash
+ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/reviews"
+cat > "projects/$ACTIVE/artifacts/reviews/dev-review.md" << 'EOF'
+<paste the structured review findings>
+EOF
+```
+
+Update progress to complete.

@@ -1,0 +1,202 @@
+---
+name: solace-migration
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Plan migrations from Kafka, RabbitMQ, TIBCO, or IBM MQ to Solace. Designs phased
+  coexistence strategy, Micro-Integration bridging, topic mapping from source to Solace
+  taxonomy, and cutover milestones. Use after discovery for brownfield migrations.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-migration — Migration Planning
+
+You are running the migration skill. Your job is to plan a phased migration from an
+existing messaging system to Solace. Never propose a big-bang migration — always phased,
+always with a coexistence period.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
+```
+
+Requires discovery complete. Read the inputs:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+```
+
+Write initial progress entry.
+
+---
+
+## Step 1: Inventory the source system
+
+Identify the source messaging system and its current topology. Ask as plain prose
+if not captured in discovery:
+
+> Tell me about the messaging system you're migrating from:
+>
+> 1. **Platform:** Kafka, RabbitMQ, TIBCO EMS/RV, IBM MQ, or other?
+> 2. **Topology:** How many brokers/clusters? Which data centers?
+> 3. **Scale:** Messages/sec, topics/queues count, consumer group count
+> 4. **Clients:** How many producer and consumer applications? What languages/SDKs?
+> 5. **Patterns in use:** Pub/sub, queuing, request/reply, fan-out, consumer groups?
+> 6. **Schema management:** Schema Registry, Avro, Protobuf, or unmanaged?
+
+---
+
+## Step 2: Map source concepts to Solace
+
+Each source platform has concepts that map differently to Solace:
+
+**Kafka → Solace:**
+| Kafka Concept | Solace Equivalent | Notes |
+|--------------|-------------------|-------|
+| Topic + partitions | Topic + queue subscriptions | Solace topics are hierarchical, not partitioned |
+| Consumer group | Non-exclusive queue with multiple consumers | Different semantics — flag |
+| Offset management | Message acknowledgment + replay | Solace replay is time-based or message-ID-based |
+| Schema Registry | Solace Schema Registry | Compatible but separate |
+| Kafka Streams | Custom app on Solace APIs | No direct equivalent — architectural decision |
+| Kafka Connect | Micro-Integrations | Different model — event-mesh-native |
+
+**RabbitMQ → Solace:**
+| RabbitMQ Concept | Solace Equivalent | Notes |
+|-----------------|-------------------|-------|
+| Exchange + binding | Topic hierarchy + subscription | Solace uses topic-based routing, not exchange types |
+| Queue | Queue endpoint | Similar but different durability model |
+| Shovel/Federation | DMR external links | Different architecture — mesh vs point-to-point |
+
+**TIBCO → Solace:**
+| TIBCO Concept | Solace Equivalent | Notes |
+|--------------|-------------------|-------|
+| Subject-based routing | Topic hierarchy | Similar concept, different syntax |
+| Certified messaging | Guaranteed messaging | Comparable |
+| TIBCO EMS queues | Queue endpoints | Similar |
+
+**IBM MQ → Solace:**
+| MQ Concept | Solace Equivalent | Notes |
+|-----------|-------------------|-------|
+| Queue manager | Event broker | Different architecture |
+| MQ channels | DMR links | Different model |
+| MQ clusters | DMR cluster | Different topology |
+| Dead letter queue | Dead message queue | Similar concept |
+
+Present the mapping table for the relevant source platform.
+
+**Only make migration claims that Solace documentation supports.** Cross-platform
+comparisons are appropriate only where Solace sources explicitly address them.
+
+---
+
+## Step 3: Design the coexistence topology
+
+During migration, the old and new systems run side by side. Design the bridge:
+
+- **Kafka:** Use the Broker Integrated Kafka bridge. One direction of authority per
+  topic — never bidirectional on the same topic (antipattern: infinite message loops).
+- **RabbitMQ/TIBCO/IBM MQ:** Use a Micro-Integration bridge or REST-based relay.
+  Document the bridge architecture.
+
+Generate a Mermaid diagram:
+
+```mermaid
+graph LR
+    subgraph "Source System"
+        S[Kafka Cluster]
+    end
+    subgraph "Solace Event Mesh"
+        B[Event Broker]
+    end
+    S -->|"Kafka Bridge (Broker Integrated)"| B
+    B -->|"New consumers subscribe here"| C[New Apps]
+    S -->|"Legacy consumers stay here during migration"| L[Legacy Apps]
+```
+
+---
+
+## Step 4: Design the phased migration plan
+
+Structure the migration in phases:
+
+**Phase 1: Bridge and observe.**
+Deploy the Solace broker alongside the existing system. Set up the bridge. Mirror
+traffic. Validate that events arrive correctly. No consumer migration yet.
+
+**Phase 2: New consumers on Solace.**
+New applications subscribe on Solace. Existing applications stay on the source system.
+Both systems see the same events via the bridge.
+
+**Phase 3: Migrate existing consumers.**
+Move existing consumers from the source system to Solace, one application at a time.
+Validate each migration. Roll back if issues arise.
+
+**Phase 4: Migrate producers.**
+Once all consumers are on Solace, migrate producers. The bridge can be reversed
+temporarily if needed.
+
+**Phase 5: Decommission source.**
+Remove the bridge. Decommission the source system. This is the final phase and
+should not be rushed.
+
+For each phase, identify:
+- Duration estimate (flag as "depends on application count and team capacity")
+- Validation criteria (how do you know this phase succeeded?)
+- Rollback plan (what happens if this phase fails?)
+- Applications affected
+
+---
+
+## Step 5: Topic mapping
+
+Map source system topics/queues to the Solace topic taxonomy:
+
+| Source Topic/Queue | Solace Topic | Delivery Mode | Migration Phase |
+|-------------------|-------------|---------------|----------------|
+
+If `/solace-topic-design` has already run, reference those decisions. If not, apply
+the `Domain/Noun/Verb/Version/Properties` structure to the migrated topics.
+
+---
+
+## Step 6: Write artifacts and complete
+
+Save artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/migration/migration-plan.md" << 'EOF'
+<paste the phased migration plan>
+EOF
+cat > "projects/$ACTIVE/artifacts/migration/coexistence-topology.md" << 'EOF'
+<paste the coexistence design>
+EOF
+cat > "projects/$ACTIVE/artifacts/migration/coexistence-topology.mermaid" << 'EOF'
+<paste the Mermaid diagram>
+EOF
+cat > "projects/$ACTIVE/artifacts/migration/topic-mapping.md" << 'EOF'
+<paste the topic mapping table>
+EOF
+```
+
+Update decisions.yaml with migration decisions.
+Update progress to complete.

@@ -25,7 +25,13 @@ SA_LINK="$CLAUDE_SKILLS_DIR/solace-architect"
 if [ -L "$SA_LINK" ] || [ -d "$SA_LINK" ]; then rm -rf "$SA_LINK"; fi
 mkdir -p "$SA_LINK"
 ln -snf "$SA_DIR/SKILL.md" "$SA_LINK/SKILL.md"
-echo "  linked: /solace-architect"
+
+# Symlink runtime assets into root skill directory (grounding docs, etc.)
+for asset in solace-grounding ETHOS.md; do
+  [ -e "$SA_DIR/$asset" ] && ln -snf "$SA_DIR/$asset" "$SA_LINK/$asset"
+done
+
+echo "  linked: /solace-architect (+ solace-grounding)"
 
 # Skill subdirectories
 for skill_dir in "$SA_DIR"/solace-*/; do
@@ -45,9 +51,24 @@ echo "  Skills directory: $CLAUDE_SKILLS_DIR"
 echo "  Source: $SA_DIR"
 echo ""
 echo "Available commands:"
-echo "  /solace-architect  — Architecture advisor (root skill)"
-echo "  /solace-discovery  — Structured discovery for EDA projects"
-echo "  /solace-help       — Skills catalog, workflow, project status"
+echo "  /solace-architect        — Architecture advisor (root skill)"
+echo "  /solace-discovery        — Structured discovery for EDA projects"
+echo "  /solace-plan             — Orchestrate skills for a complete engagement"
+echo "  /solace-topic-design     — Topic taxonomy design"
+echo "  /solace-broker-select    — Broker type selection"
+echo "  /solace-sam-design       — SAM agent topology design"
+echo "  /solace-protocol-select  — Protocol selection"
+echo "  /solace-mesh-design      — DMR mesh topology design"
+echo "  /solace-ha-dr            — HA and DR design"
+echo "  /solace-migration        — Migration planning"
+echo "  /solace-integration      — Micro-Integration design"
+echo "  /solace-architect-review — Architecture review"
+echo "  /solace-ops-review       — Operations readiness review"
+echo "  /solace-security-review  — Security posture review"
+echo "  /solace-dev-review       — Developer experience review"
+echo "  /solace-validate         — Validation and consistency checks"
+echo "  /solace-blueprint        — Final blueprint assembly"
+echo "  /solace-help             — Skills catalog, workflow, project status"
 echo ""
 echo "To regenerate after editing templates:"
 echo "  bun run build"

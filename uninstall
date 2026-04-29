@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Solace Architect uninstall — remove symlinks from ~/.claude/skills/
+set -e
+
+CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
+
+if [ ! -d "$CLAUDE_SKILLS_DIR" ]; then
+  echo "No skills directory found at $CLAUDE_SKILLS_DIR"
+  exit 0
+fi
+
+removed=0
+
+# Remove root skill
+SA_LINK="$CLAUDE_SKILLS_DIR/solace-architect"
+if [ -L "$SA_LINK/SKILL.md" ] || [ -d "$SA_LINK" ]; then
+  rm -rf "$SA_LINK"
+  echo "  removed: /solace-architect"
+  removed=$((removed + 1))
+fi
+
+# Remove skill subdirectories
+for skill_dir in "$CLAUDE_SKILLS_DIR"/solace-*/; do
+  [ -d "$skill_dir" ] || continue
+  skill_name="$(basename "$skill_dir")"
+  [ "$skill_name" = "solace-architect" ] && continue
+  rm -rf "$skill_dir"
+  echo "  removed: /$skill_name"
+  removed=$((removed + 1))
+done
+
+if [ "$removed" -eq 0 ]; then
+  echo "No Solace Architect skills found."
+else
+  echo ""
+  echo "Removed $removed skill(s) from $CLAUDE_SKILLS_DIR"
+  echo ""
+  echo "To reinstall: ./setup"
+fi

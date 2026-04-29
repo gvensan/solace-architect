@@ -47,7 +47,7 @@ The `{{PREAMBLE}}` placeholder is the most important resolver. It generates the 
 
 | Tier | Sections included | Use case |
 |------|-------------------|----------|
-| T1 | Bootstrap bash, grounding rules, naming conventions, voice (minimal), completion status | Lightweight utility skills |
+| T1 | Bootstrap bash, grounding rules, naming conventions, grounding loading, validation hook, dependency enforcement, project management, voice (minimal), completion status | Lightweight utility skills |
 | T2 | T1 + AskUserQuestion format, writing style, completeness principle, confusion protocol, continuous checkpoint, context health | Interactive skills (discovery, design) |
 | T3 | T2 + repo ownership, search before building | Skills that modify code or infrastructure |
 | T4 | T3 (full preamble) | Reserved for future expansion |
@@ -61,6 +61,10 @@ export function generatePreamble(ctx: TemplateContext): string {
     generatePreambleBash(ctx),
     generateGroundingRules(ctx),
     generateNamingConventions(),
+    generateGroundingLoading(ctx),
+    generateValidationHook(),
+    generateDependencyEnforcement(),
+    generateProjectManagement(),
     generateVoiceDirective(tier),
     ...(tier >= 2 ? [
       generateAskUserFormat(ctx),
@@ -111,7 +115,10 @@ The `solace-grounding/` directory contains the authoritative source material tha
 | `solace-canonical-sources.md` | URL-by-topic index. When a skill needs technical depth, it fetches from these URLs rather than reasoning from training data. |
 | `solace-reference-architectures.md` | Three worked patterns: multi-system AI assistant (SAM), real-time market data distribution (event mesh), hybrid IT/OT manufacturing (federated mesh). |
 | `antipatterns.md` | Known mistakes organized by category. Every technical domain and validation skill checks output against this library. |
+| `integration-hub-catalog.md` | Point-in-time snapshot of Solace Integration Hub. Skills match backend systems against available Micro-Integrations without live fetching. |
 | `claude-instructions.md` | Claude-specific operating instructions. |
+| `gaps.md` | Gap tracker. Records when a skill can't find what it needs in the grounding documents. |
+| `MAINTENANCE.md` | Refresh manifest. Tracks all external resources, their refresh cadence, and version numbers. |
 
 The grounding discipline is enforced in `generate-grounding-rules.ts`. It tells the agent:
 - Only assert what Solace docs support
@@ -184,15 +191,16 @@ When generating for an external host (anything other than Claude):
 
 ## Skill categories
 
-Skills are organized into five planned categories:
+Skills are organized into six categories:
 
-| Category | Description | Status |
-|----------|-------------|--------|
-| Discovery | Eliciting business problems, surfacing constraints, inventorying existing landscape | `/solace-discovery` shipped |
-| Role-based | Architect, developer, ops, security perspectives applied to current problem | Planned |
-| Technical domain | Solace platform knowledge, artifact generation (YAML, diagrams, blueprints) | Planned |
-| Orchestration | Sequencing skills, threading context, conditional paths | Planned |
-| Validation | Consistency checks, antipattern detection, completeness before handoff | Planned |
+| Category | Skills | Description |
+|----------|--------|-------------|
+| Discovery | `/solace-discovery` | Eliciting business problems, surfacing constraints, inventorying existing landscape |
+| Technical domain | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration` | Solace platform knowledge, artifact generation (YAML, diagrams, configs) |
+| Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives applied to current design |
+| Orchestration | `/solace-plan` | Sequencing skills, threading context across the engagement |
+| Validation | `/solace-validate` | Consistency checks, antipattern detection, completeness before handoff |
+| Assembly | `/solace-blueprint` | Final blueprint assembly into engineering handoff package |
 
 Each skill directory follows the naming convention: `solace-<skill-name>/SKILL.md.tmpl`.
 
@@ -209,15 +217,18 @@ projects/<project-slug>/
   context.yaml          # project name, creation date, status
   decisions.yaml        # accumulated design decisions across skills
   progress.yaml         # skill execution log with resume support
+  feedback.yaml         # per-project feedback on skill output quality
   artifacts/            # all generated outputs, organized by skill
     discovery/
     topic-design/
     sam-design/
     broker-select/
+    protocol-select/
     mesh-design/
     ha-dr/
     integration/
     migration/
+    reviews/
     validation/
     blueprint/
 ```
@@ -238,9 +249,41 @@ The dependency map in `generate-dependency-enforcement.ts` ensures skills check 
 
 `solace-grounding/antipatterns.md` extracts all antipatterns from the reference architectures into a single categorized reference. Every technical domain skill and the validation skill checks output against this library before writing artifacts.
 
+### Feedback loops
+
+`projects/<slug>/feedback.yaml` records what worked and what didn't about each skill's output. When feedback patterns repeat across projects, they become entries in `IMPROVEMENTS.md` at the repo root, which maps patterns to specific skill template changes.
+
+`solace-grounding/gaps.md` records when a skill can't find what it needs in the grounding documents. Each gap entry names the topic, the skill that needed it, and the workaround used. This drives grounding document maintenance priorities.
+
+## Testing infrastructure
+
+The `test/` directory contains automated quality checks that run via `bun test`:
+
+| Test file | What it checks |
+|-----------|---------------|
+| `skill-terminology.test.ts` | Scans all SKILL.md files for forbidden terminology (connector, QoS, orchestrator agent, etc.). Excludes the naming conventions preamble section where terms appear as "never use" rules. |
+| `skill-structure.test.ts` | Validates frontmatter (name, description present), resolved placeholders (no `{{PLACEHOLDER}}` markers), generated headers, grounding discipline section, and correct preamble sections per tier. |
+| `skill-token-budget.test.ts` | Enforces per-skill (40K tokens) and total (200K tokens) budget ceilings. Prevents silent context window consumption growth. |
+| `skill-gen.test.ts` | Verifies generation freshness (committed files match `--dry-run` output), resolver registry completeness, and template discovery count. |
+
+### Scenario fixtures
+
+`test/fixtures/scenarios.ts` contains pre-recorded discovery inputs for the three reference architecture patterns:
+
+1. **Bank chat agent** (Pattern 1) — SAM, multi-backend, regulated
+2. **Global market data distribution** (Pattern 2) — event-mesh-only, global, ultra-low-latency
+3. **Hybrid IT/OT manufacturing** (Pattern 3) — edge-to-cloud, OT protocols, optional SAM
+
+These fixtures drive eval testing and provide reproducible test inputs for manual skill validation.
+
+## Grounding document maintenance
+
+`scripts/url-health-check.ts` fetches every URL in `solace-canonical-sources.md` and reports health status (200, redirect, 404, timeout). Run via `bun run url:check`. This catches broken links before they affect skill output quality.
+
+The canonical sources index follows three update rules: add URLs found during skill development, fix 404s, and push depth into the platform reference when topics gain real coverage.
+
 ## What's intentionally not here
 
 - **No browser automation.** Solace Architect is a pure skills toolkit. No Playwright, no headless Chromium, no daemon process.
 - **No design tooling.** No image generation, no visual design tools. The output is architecture documentation and event-driven design artifacts.
 - **No deploy pipeline.** Solace Architect advises on architecture. It does not deploy brokers or configure infrastructure.
-- **No eval infrastructure yet.** E2E testing via `claude -p` and LLM-as-judge evals are planned but not yet implemented.

@@ -1,0 +1,191 @@
+---
+name: solace-sam-design
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Design Solace Agent Mesh (SAM) topologies. Defines agent inventory, Gateway types,
+  Micro-Integration mapping, OrchestratorAgent configuration, A2A topic layout, and
+  authorization model. Produces agent and gateway YAML configs. Use after discovery
+  for projects that involve AI agent orchestration on Solace.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-sam-design — SAM Agent Topology Design
+
+You are running the SAM design skill. Your job is to design the complete Solace Agent
+Mesh topology: which agents, which Gateways, which Micro-Integrations connect to which
+backends, how the OrchestratorAgent routes work, and how authorization propagates from
+channel to backend.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
+```
+
+If no active project or discovery not complete, warn and recommend `/solace-discovery`.
+
+If this skill was previously in-progress, offer resume via AskUserQuestion:
+A) Resume, B) Start over, C) Review decisions first.
+
+Read the discovery brief, decisions, and topic taxonomy (if available):
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+cat "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" 2>/dev/null || echo "NO_TOPIC_TAXONOMY"
+```
+
+Write initial progress entry and proceed.
+
+---
+
+## Step 1: Agent granularity decision
+
+The first design decision is agent granularity. Present via AskUserQuestion:
+
+- **A) Coarse-grained (recommended):** One agent per backend system. Simpler topology,
+  easier to reason about authorization. Each agent owns one system of record.
+- **B) Fine-grained:** One agent per capability. A single backend might have multiple
+  agents (e.g., balance-read-agent, balance-transfer-agent). More agents, finer
+  authorization control, higher operational complexity.
+
+Load the SAM documentation for agent design patterns:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-canonical-sources.md | grep -i -A2 "agent\|SAM\|mesh"
+```
+
+Fetch the relevant SAM documentation URL for current agent configuration schema.
+
+Based on the discovery brief, identify each backend system and propose an agent for it.
+Present as a table:
+
+| Agent Name | Backend System | Capabilities | Micro-Integration or Tool |
+|------------|---------------|--------------|---------------------------|
+
+For cross-domain queries (questions that span multiple backends), explain how the
+OrchestratorAgent decomposes the request into sub-tasks dispatched to individual agents.
+
+---
+
+## Step 2: Gateway selection
+
+For each user-facing channel identified in discovery, select a Gateway type. The
+available Gateway types from SAM documentation:
+
+- **HTTP SSE Gateway** — web applications with streaming responses
+- **REST Gateway** — simple request/response integrations
+- **Webhook Gateway** — event-triggered external notifications
+- **Slack Gateway** — Slack workspace integration
+- **Teams Gateway** — Microsoft Teams integration (Enterprise)
+- **Event Mesh Gateway** — other event-mesh-connected systems
+- **Custom Gateway** — only when no standard Gateway fits the channel
+
+Present via AskUserQuestion when there is genuine choice. When the channel clearly maps
+to one Gateway type, state the selection with rationale.
+
+Check the antipattern: **Custom gateway when a standard one fits.** Only recommend custom
+when the channel itself is novel.
+
+| Channel | Gateway Type | Rationale |
+|---------|-------------|-----------|
+
+---
+
+## Step 3: Micro-Integration mapping
+
+For each backend system, determine the integration approach:
+
+1. **Check the Integration Hub** for existing Micro-Integrations. Do not fabricate
+   Micro-Integration names — if uncertain, flag as "verify against Integration Hub
+   at solace.com/integration-hub."
+2. **Distinguish cloud-managed vs self-managed** Micro-Integrations.
+3. **For SAM agent tools vs Micro-Integrations:** An agent tool calls the backend
+   directly. A Micro-Integration decouples via the event mesh. The decoupled pattern
+   scales better when multiple agents or non-agent consumers need the same backend.
+
+Present the mapping:
+
+| Backend System | Integration Type | Micro-Integration Name | Deployment | Notes |
+|---------------|-----------------|----------------------|------------|-------|
+
+---
+
+## Step 4: A2A topic layout and authorization model
+
+Design the A2A protocol topic namespace. SAM uses a structured topic hierarchy for
+agent-to-agent communication. The A2A topics must not collide with application topics
+designed in `/solace-topic-design`.
+
+If topic design has already run, verify alignment:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" 2>/dev/null
+```
+
+Design the authorization propagation model:
+
+1. **At the Gateway:** Authentication happens here. User identity and permission scopes
+   are established.
+2. **Through OrchestratorAgent:** Scopes propagate with the A2A request. The orchestrator
+   does not escalate privileges.
+3. **At each agent:** The agent's tools are filtered by the propagated scopes. An agent
+   never exposes tools beyond what the user's scope permits.
+
+Present the auth model as a flow:
+
+```
+User → [Gateway: authenticate, establish scopes] → [OrchestratorAgent: route with scopes]
+  → [Agent: filter tools by scope] → [Backend: execute within scope]
+```
+
+Check antipatterns:
+- Agents skipping the orchestrator
+- Hardcoded backend credentials in agent YAML
+- Environment names in SAM namespace
+- Synchronous request/response thinking for agent calls
+
+---
+
+## Step 5: Generate YAML configs and complete
+
+Generate structurally valid SAM YAML for each component. Reference the SAM documentation
+for the current config schema before generating.
+
+Save artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/sam-design/agent-configs"
+mkdir -p "projects/$ACTIVE/artifacts/sam-design/gateway-configs"
+```
+
+Write agent topology overview, individual agent configs, gateway configs,
+Micro-Integration map, A2A topic map, and auth model document to the
+`artifacts/sam-design/` directory.
+
+Update decisions.yaml with SAM topology decisions.
+
+Update progress to complete with all artifacts listed.
+
+Recommend next steps — typically `/solace-broker-select` if not yet done,
+or `/solace-protocol-select`.

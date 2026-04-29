@@ -89,6 +89,7 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - Creating a Micro-Integration: `https://docs.solace.com/Micro-Integrations/Managed/create-micro-integration.htm`
 - Self-managed Micro-Integrations: `https://docs.solace.com/Micro-Integrations/Self-Managed/self-managed-micro-integrations.htm`
 - Integration Hub (catalog): `https://solace.com/integration-hub/`
+- Integration Hub catalog snapshot: `solace-grounding/integration-hub-catalog.md` (local, refreshed monthly)
 - Integration guides: `https://docs.solace.com/API/Integration-Guides.htm`
 - Connectors documentation page: `https://docs.solace.com/API/Connectors/Connectors.htm`
 - Solace Integration Guides (community): `https://solacelabs.github.io/solace-integration-guides/`
@@ -260,9 +261,9 @@ References outside Solace that the platform's architecture depends on. Skills ge
 
 ### Frameworks SAM depends on
 
-- Google Agent Development Kit (ADK): the canonical Google source for the ADK SAM uses for agent logic. (Note: a stable canonical URL was not captured during the build of this index. When a skill needs ADK depth, search the current Google Cloud documentation for "Agent Development Kit" and update this entry with the resolved URL.)
-- Solace AI Connector (SAC): SAC is the runtime SAM uses to host agents and gateways. (Note: dedicated SAC documentation URL was not captured during the build of this index. The SAM architecture page references SAC inline; if a SAC-specific reference exists, add it here.)
-- Model Context Protocol (MCP): the protocol SAM agents use to integrate with external tool servers. (Note: a stable canonical URL was not captured during the build of this index.)
+- Google Agent Development Kit (ADK): `https://google.github.io/adk-docs/` — the canonical Google source for the ADK SAM uses for agent logic.
+- Solace AI Connector (SAC): `https://solacelabs.github.io/solace-ai-connector/` — SAC is the runtime SAM uses to host agents and gateways.
+- Model Context Protocol (MCP): `https://modelcontextprotocol.io/` �� the protocol SAM agents use to integrate with external tool servers.
 
 ---
 

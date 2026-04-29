@@ -1,0 +1,151 @@
+---
+name: solace-security-review
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Security posture review. Evaluates ACL model, TLS configuration, authentication
+  and authorization propagation, regulatory compliance (PCI-DSS, HIPAA, etc.),
+  encryption at rest and in transit, credential management, and SAM-specific security.
+  Use after technical domain skills are complete.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-security-review — Security Posture Review
+
+You are running the security review skill. Your job is to evaluate the security model
+of the architecture: authentication, authorization, encryption, credential management,
+and regulatory compliance.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+fi
+```
+
+Requires at least one technical skill complete. Read all available artifacts:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+for dir in sam-design broker-select mesh-design ha-dr integration; do
+  for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
+    [ -f "$f" ] && echo "=== $f ===" && cat "$f"
+  done 2>/dev/null
+done
+```
+
+**Grounding note:** The platform reference notes that detailed security and
+authentication references have not been deep-fetched. Fetch the canonical source
+for security documentation:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-canonical-sources.md | grep -i -A2 "security\|authentication\|ACL\|TLS\|authorization"
+```
+
+---
+
+## Step 1: Authentication model
+
+Evaluate how clients authenticate to the event broker:
+
+- **Client authentication:** Basic auth, client certificates, OAuth 2.0, LDAP, RADIUS?
+- **Per-VPN vs per-broker:** Are authentication domains scoped to message VPNs?
+- **Service account management:** How are service accounts for Micro-Integrations and
+  SAM agents provisioned and rotated?
+
+For SAM projects:
+- How do end users authenticate through the Gateway?
+- How are user identities mapped to broker client connections?
+
+---
+
+## Step 2: Authorization model
+
+Evaluate the ACL (Access Control List) model:
+
+- **Client profiles** — are client profiles defined per application or role?
+- **ACL profiles** — do ACL profiles restrict topic publish/subscribe per client?
+- **Topic-level authorization** — can each producer only publish to its authorized topics?
+  Can each consumer only subscribe to its authorized topics?
+
+For SAM projects:
+- **Scope propagation** — do user permission scopes flow from Gateway through
+  OrchestratorAgent to agent tools? Is the chain complete?
+- **Agent tool filtering** — are agent tools filtered by propagated scopes?
+- **No privilege escalation** — can an agent access more than the user's scope permits?
+
+Check the antipattern: **Hardcoded backend credentials in agent YAML.** Agent configs
+should be safe to store in version control.
+
+---
+
+## Step 3: Encryption
+
+Evaluate encryption posture:
+
+- **In transit:** Is TLS configured for all client connections? For DMR links? For
+  replication? What TLS version and cipher suites?
+- **At rest:** Is message spool encryption enabled? What key management system?
+- **Certificate management:** Where are certificates stored? What is the rotation
+  schedule? Who has access to private keys?
+
+---
+
+## Step 4: Regulatory compliance
+
+Based on the discovery brief's regulatory requirements:
+
+- **PCI-DSS:** If cardholder data flows through the mesh — are topics carrying PAN
+  data encrypted? Are access logs retained? Is the broker in a PCI-compliant network
+  segment?
+- **HIPAA:** If PHI flows through the mesh — are BAAs in place with Solace (for Cloud)?
+  Is audit logging comprehensive?
+- **Data residency:** Do DMR links or replication paths cross jurisdictional boundaries
+  that violate data residency requirements?
+- **Audit trail:** Which events must be logged for compliance? Is broker audit logging
+  configured to capture authentication events, authorization failures, and
+  administrative changes?
+
+---
+
+## Step 5: Write findings and complete
+
+Structure findings by severity:
+
+- **Critical** — security vulnerabilities or compliance violations that must be fixed
+  before production.
+- **Important** — security gaps that increase risk but don't represent immediate
+  vulnerabilities.
+- **Advisory** — security hardening recommendations that improve the posture.
+
+Each finding must be specific, reference the relevant Solace documentation, and propose
+a concrete remediation.
+
+Save the review:
+
+```bash
+ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/reviews"
+cat > "projects/$ACTIVE/artifacts/reviews/security-review.md" << 'EOF'
+<paste the structured review findings>
+EOF
+```
+
+Update progress to complete.

@@ -1,0 +1,180 @@
+---
+name: solace-plan
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Orchestrate Solace Architect skills in sequence for a complete engagement. Reads
+  the discovery brief, determines which technical domain skills are relevant, sequences
+  them, and threads context across invocations via decisions.yaml. Use after discovery
+  to get a guided architecture workflow.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-plan — Engagement Orchestrator
+
+You are running the plan skill. Your job is to read the discovery brief, determine
+which Solace Architect skills this project needs, sequence them correctly, and guide
+the user through the complete architecture engagement.
+
+---
+
+## Step 0: Project and dependency check
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
+```
+
+Requires discovery complete. If not, tell the user to run `/solace-discovery` first.
+
+Read all current project state:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+```
+
+If the plan skill was previously run and skills are already in progress, show the
+current state and offer to continue from where things left off.
+
+---
+
+## Step 1: Determine relevant skills
+
+Based on the discovery brief, determine which skills this project needs:
+
+**Always include:**
+- `/solace-topic-design` — every project needs a topic taxonomy
+- `/solace-broker-select` — every project needs a broker type decision
+- `/solace-protocol-select` — every project needs protocol assignments
+
+**Conditional:**
+- `/solace-sam-design` — include if SAM, AI assistant, chatbot, agent orchestration mentioned
+- `/solace-mesh-design` — include if multi-site, multi-region, multi-cloud, or edge
+- `/solace-ha-dr` — include if HA/DR requirements mentioned, regulated environment, or multi-site
+- `/solace-integration` — include if backend systems need Micro-Integrations
+- `/solace-migration` — include if migrating from another messaging system
+
+**Always at the end:**
+- Review skills (architect, ops, security, dev) — all four by default, user can skip
+- `/solace-validate` — consistency and completeness check
+- `/solace-blueprint` — final assembly
+
+---
+
+## Step 2: Present the plan
+
+Present the sequenced plan to the user:
+
+```
+Engagement Plan for: <project name>
+
+Based on discovery, here's the recommended skill sequence:
+
+  1. ✓ Discovery (complete)
+  2. → Topic taxonomy design (/solace-topic-design)
+  3. → Broker selection (/solace-broker-select)
+  4. → SAM agent design (/solace-sam-design)         [if applicable]
+  5. → Protocol selection (/solace-protocol-select)
+  6. → Mesh topology (/solace-mesh-design)            [if applicable]
+  7. → HA/DR design (/solace-ha-dr)                   [if applicable]
+  8. → Micro-Integration design (/solace-integration)
+  9. → Migration planning (/solace-migration)          [if applicable]
+  10. → Architecture review (/solace-architect-review)
+  11. → Operations review (/solace-ops-review)
+  12. → Security review (/solace-security-review)
+  13. → Developer review (/solace-dev-review)
+  14. → Validation (/solace-validate)
+  15. → Blueprint assembly (/solace-blueprint)
+
+Estimated: <N> skills, <rough time estimate>
+```
+
+Mark already-completed skills with ✓. Mark the next skill with →.
+
+Use AskUserQuestion:
+A) Proceed with this plan
+B) Skip specific skills (list which to skip)
+C) Reorder skills
+D) Add skills not in the default sequence
+
+---
+
+## Step 3: Execute the plan
+
+For each skill in the sequence:
+
+1. Announce which skill is next: "Next: `/solace-topic-design` — Topic Taxonomy Design"
+2. Tell the user to invoke the skill: "Run `/solace-topic-design` to start."
+3. After the skill completes, read the updated progress and decisions:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+```
+
+4. Confirm the skill completed successfully. If it was interrupted, note the
+   interruption point and offer to resume or skip.
+5. Move to the next skill in the sequence.
+
+**Context threading:** Each skill writes to `decisions.yaml`. The next skill reads
+those decisions. This is how context flows across the engagement. The plan skill does
+not need to manually thread context — the project infrastructure handles it.
+
+**Handling interruptions:** If the user stops mid-plan, the plan's progress is saved.
+When the plan skill is re-invoked, it reads `progress.yaml`, identifies where things
+left off, and offers to continue.
+
+---
+
+## Step 4: Track plan progress
+
+After each skill completion, update the plan's own progress entry:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 -c "
+import yaml, datetime
+with open('projects/$ACTIVE/progress.yaml', 'r') as f:
+    data = yaml.safe_load(f) or {}
+for entry in data.get('progress', []):
+    if entry.get('skill') == 'solace-plan':
+        entry['step_reached'] = '<N>/<total> — <last completed skill>'
+        entry['summary'] = '<skills completed so far>'
+        break
+with open('projects/$ACTIVE/progress.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+" 2>/dev/null || echo "Progress update requires PyYAML"
+```
+
+---
+
+## Step 5: Complete the plan
+
+When all skills in the sequence have been completed:
+
+1. Present a summary of the engagement:
+   - Skills completed
+   - Total artifacts produced
+   - Key decisions made
+   - Any open questions or concerns from review skills
+
+2. Update the plan's progress to complete.
+
+3. The last skill in the sequence should always be `/solace-blueprint`, which
+   assembles the final deliverable.

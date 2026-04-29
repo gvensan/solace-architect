@@ -1,0 +1,255 @@
+---
+name: solace-topic-design
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Design topic taxonomies for Solace event-driven architectures. Maps data flows
+  to the Domain/Noun/Verb/Version/Properties structure, selects delivery mode per
+  topic, generates wildcard subscription recommendations, and validates against
+  antipatterns. Use after discovery to define the topic hierarchy.
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-topic-design — Topic Taxonomy Design
+
+You are running the topic design skill. Your job is to map every data flow identified
+in discovery to a well-structured Solace topic taxonomy, assign delivery modes, design
+wildcard subscriptions, and validate against known antipatterns.
+
+---
+
+## Step 0: Project and dependency check
+
+Check the active project and verify discovery is complete:
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+fi
+```
+
+If no active project exists, tell the user to create one or run `/solace-discovery` first.
+
+If discovery is not complete (`status: complete`), warn: "Discovery hasn't been completed
+for this project. Topic design needs discovery output to map data flows to topics.
+Run `/solace-discovery` first." Use AskUserQuestion: A) Run discovery first, B) Proceed
+anyway (I'll provide the information manually).
+
+If this skill was previously started (`status: in-progress` for solace-topic-design),
+offer to resume. Use AskUserQuestion: A) Resume from where we left off, B) Start over,
+C) Review completed decisions first.
+
+If proceeding, read the discovery brief and decisions:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/artifacts/discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+```
+
+Write initial progress:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 -c "
+import yaml, datetime
+with open('projects/$ACTIVE/progress.yaml', 'r') as f:
+    data = yaml.safe_load(f) or {}
+progress = data.get('progress', [])
+progress.append({
+    'skill': 'solace-topic-design',
+    'status': 'in-progress',
+    'started': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'completed': None,
+    'summary': 'Topic design started',
+    'step_reached': '0/5 — initialization',
+    'artifacts': []
+})
+data['progress'] = progress
+with open('projects/$ACTIVE/progress.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+" 2>/dev/null || echo "Progress write requires PyYAML"
+```
+
+---
+
+## Step 1: Inventory data flows
+
+Extract all data flows from the discovery brief. For each flow, identify:
+
+- **Producer** — which system publishes the event
+- **Consumer(s)** — which system(s) subscribe
+- **Event type** — what happened (order placed, balance checked, sensor read, etc.)
+- **Payload shape** — JSON, Avro, Protobuf, XML
+- **Volume** — events/sec at peak
+- **Delivery requirement** — Direct messaging or Guaranteed messaging
+
+Present the inventory as a table and ask the user to confirm or correct it. Use plain
+prose for any clarifications needed (the user may need to add flows that weren't captured
+in discovery).
+
+If the discovery brief matched a reference architecture pattern, load the relevant
+grounding docs for pattern-specific topic guidance:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-reference-architectures.md
+```
+
+---
+
+## Step 2: Map flows to topic taxonomy
+
+For each data flow, construct a topic string following `Domain/Noun/Verb/Version/Properties`:
+
+1. **Domain** — the organizational owner. Format: `dataSystem/applicationDomain` or just `applicationDomain`.
+2. **Noun** — the business object (e.g., `order`, `balance`, `temperature`, `ticket`).
+3. **Verb** — the action in past tense (e.g., `created`, `updated`, `read`, `deleted`).
+4. **Version** — `v1` always. Increment only for breaking schema changes.
+5. **Properties** — ordered least-specific to most-specific by cardinality.
+
+**Hard limits:** 250 characters max, 128 levels max. Use camelCase or PascalCase.
+
+**For SAM projects:** Design A2A protocol topics separately from application topics.
+A2A topics follow a different namespace convention. The two namespaces must not collide.
+Check the SAM documentation for the A2A topic structure:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-canonical-sources.md | grep -A2 "A2A\|agent-mesh"
+```
+
+Present the proposed topic taxonomy as a table:
+
+| # | Topic String | Delivery Mode | Producer | Consumer(s) | Rationale |
+|---|-------------|---------------|----------|-------------|-----------|
+
+Use AskUserQuestion for delivery mode decisions where there is genuine ambiguity
+(the user needs to choose based on business requirements). Present Direct messaging
+vs Guaranteed messaging with clear trade-offs.
+
+---
+
+## Step 3: Design wildcard subscriptions
+
+For each consumer identified in Step 2, design its subscription set:
+
+- Which wildcard subscriptions (`*` for single level, `>` for trailing) give the consumer
+  exactly the events it needs?
+- Are any subscriptions overly broad? Flag if a wildcard pulls data the consumer doesn't
+  need — especially across DMR external links where every subscription has bandwidth cost.
+- Are negative subscriptions (`!` prefix, Guaranteed messaging only) needed to carve out
+  exceptions from broader subscriptions?
+
+Present the subscription map:
+
+| Consumer | Subscription(s) | Events Matched | Bandwidth Notes |
+|----------|-----------------|----------------|-----------------|
+
+---
+
+## Step 4: Validate against antipatterns
+
+Read the antipattern library:
+
+```bash
+cat {{GROUNDING_DIR}}/antipatterns.md
+```
+
+Check every proposed topic against:
+
+1. **Environment names in topics** — no `dev/`, `qa/`, `prod/` in any topic string.
+2. **Tracing/audit IDs in topics** — no correlation IDs, trace IDs in topic hierarchy.
+3. **Overly broad wildcards across DMR** — flag any `domain/>` subscriptions on DMR-connected brokers.
+4. **Plant/line/machine ID in topic root** — properties must be after version, not before domain.
+5. **Message properties for filtering** — routing must live in topics, not JMS selectors.
+6. **Spaces or special characters** — no spaces, `*`, `>`, `!` in published topic strings.
+
+Additionally, run the naming convention check from the preamble's Artifact Validation section.
+
+If any antipatterns are found, fix them before writing artifacts.
+
+Present the validation results:
+
+```
+Antipattern check: [PASS/FAIL]
+  ✓ No environment names in topics
+  ✓ No tracing IDs in topics
+  ✓ Wildcard subscriptions appropriately scoped
+  ✓ Properties after version in taxonomy
+  ✓ No selector-based filtering
+  ✓ No special characters in published topics
+  [list any failures with what to fix]
+```
+
+---
+
+## Step 5: Write artifacts and complete
+
+Save the topic taxonomy artifact:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/topic-design/topic-taxonomy.md" << 'EOF'
+<paste the full topic taxonomy table here>
+EOF
+```
+
+Save the wildcard subscription map:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/topic-design/wildcard-subscriptions.md" << 'EOF'
+<paste the subscription map here>
+EOF
+```
+
+Save the antipattern report:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/topic-design/antipattern-report.md" << 'EOF'
+<paste the validation results here>
+EOF
+```
+
+Update decisions.yaml with topic taxonomy decisions (topics chosen, delivery modes,
+subscription strategy, any trade-offs the user decided).
+
+Update progress to complete:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 -c "
+import yaml, datetime
+with open('projects/$ACTIVE/progress.yaml', 'r') as f:
+    data = yaml.safe_load(f) or {}
+for entry in data.get('progress', []):
+    if entry.get('skill') == 'solace-topic-design':
+        entry['status'] = 'complete'
+        entry['completed'] = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        entry['step_reached'] = '5/5 — taxonomy validated'
+        entry['summary'] = '<one-line summary of topic design>'
+        entry['artifacts'] = [
+            {'path': 'artifacts/topic-design/topic-taxonomy.md', 'type': 'document', 'description': 'Topic taxonomy with delivery modes'},
+            {'path': 'artifacts/topic-design/wildcard-subscriptions.md', 'type': 'document', 'description': 'Wildcard subscription map per consumer'},
+            {'path': 'artifacts/topic-design/antipattern-report.md', 'type': 'document', 'description': 'Antipattern validation results'}
+        ]
+        break
+with open('projects/$ACTIVE/progress.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+" 2>/dev/null || echo "Progress update requires PyYAML"
+```
+
+Recommend next steps based on the project's needs — typically `/solace-broker-select`
+or `/solace-sam-design` if the project involves SAM.
