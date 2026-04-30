@@ -109,6 +109,11 @@ Check for architectural gaps:
   Are metrics, traces, and logs flowing?
 - **Security model completeness:** Does the security design cover every integration
   point? Are there unprotected paths?
+- **Integration path verification:** For every custom Micro-Integration in the
+  integration map, re-read `{{GROUNDING_DIR}}/integration-hub-catalog.md`. Verify
+  that no cataloged Micro-Integration — direct or via a well-known intermediate
+  system (see the "Common indirect paths" section of the catalog) — covers the same
+  path. If a simpler cataloged path exists, flag it as an **Important** finding.
 
 ---
 
