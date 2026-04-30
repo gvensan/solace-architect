@@ -107,3 +107,8 @@ skill and technical domain skill should check output against these patterns.
 **What's wrong:** Starting with SAM agents before establishing the underlying event mesh topology, topic taxonomy, and broker infrastructure.
 **What to do instead:** The event mesh is the foundation. SAM is an extension. Build the mesh first, validate connectivity and delivery modes, then add the agent layer on top.
 **Source:** Pattern 3 key design decisions (where SAM enters).
+
+### Custom Micro-Integration when a cataloged path exists
+**What's wrong:** Designing a custom Micro-Integration (Cloud Function, Lambda, Spring Boot app) for a backend system when a cataloged Micro-Integration already covers the path — either directly or through a well-known intermediate system. Example: building a custom GCS-to-Solace Cloud Function bridge when GCS natively sends events to Google Pub/Sub, and a Google Pub/Sub Source Micro-Integration exists in the Integration Hub.
+**What to do instead:** Before designing any custom Micro-Integration, check the Integration Hub catalog for both direct and indirect paths. Many cloud services natively publish events to an intermediate system (Pub/Sub, SNS/SQS, Event Grid/Service Bus) that already has a cataloged Source Micro-Integration. Use the cataloged path. It is tested, maintained, and operationally simpler than custom code.
+**Source:** Integration Hub catalog, "Common indirect paths" section.

@@ -75,6 +75,16 @@ Present the inventory and ask the user to confirm or correct.
 
 For each backend system, check whether a Micro-Integration exists in the Integration Hub.
 
+**Do not trust the discovery brief's MI availability assessment as final.** Discovery
+is an initial screening. This skill is the authoritative MI inventory. For every backend:
+
+1. Re-read the Integration Hub catalog independently (below)
+2. Check for direct MI matches (same system name in the catalog)
+3. Check the "Common indirect paths" section of the catalog for paths through
+   intermediate systems (e.g., GCS → Google Pub/Sub → Google Pub/Sub Source MI)
+4. If the discovery brief says "custom needed" but a cataloged path exists (direct or
+   indirect), flag the discrepancy and present both options to the user via AskUserQuestion
+
 **Do not fabricate Micro-Integration names.** If you are uncertain whether a
 Micro-Integration exists for a specific system, flag it as:
 "Verify against Integration Hub at solace.com/integration-hub."
@@ -91,10 +101,11 @@ Match each backend system from Step 1 against the catalog. For each backend, cla
 |---------|------------------------------|------|-----------------|-------|
 | Salesforce | Yes — in catalog | Self-Managed | 2-way via Pub/Sub gRPC API | — |
 | Kafka | Yes — Broker Integrated | Broker Integrated | Built into broker | Not a Spring Boot MI |
+| GCS | Yes — indirect path | Cloud-Managed | Via Google Pub/Sub Source MI | GCS → Pub/Sub → MI |
 | Custom DB | No — custom needed | Custom | Self-managed | Python or Spring Boot |
 
-If a system is **not in the catalog**, it does not mean no Micro-Integration exists.
-The catalog is a periodic snapshot. Flag it as:
+If a system is **not in the catalog** — neither directly nor via an indirect path — it
+does not mean no Micro-Integration exists. The catalog is a periodic snapshot. Flag it as:
 "Not in catalog snapshot. Verify at solace.com/integration-hub for latest availability."
 
 **Critical distinction:** The Kafka bridge is **Broker Integrated** — it runs inside the

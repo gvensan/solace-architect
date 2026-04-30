@@ -172,6 +172,27 @@ If a system is not in this catalog, it does not mean no Micro-Integration exists
 
 ---
 
+## Common indirect paths
+
+Some systems do not have a direct Solace Micro-Integration but can reach the event
+broker through an intermediate system that does. Check these paths before concluding
+a custom Micro-Integration is needed.
+
+| Source System | Intermediate System | Cataloged MI Used | Path Description |
+|---|---|---|---|
+| Google Cloud Storage (GCS) | Google Pub/Sub | Google Pub/Sub Source MI | GCS natively sends object change notifications to Pub/Sub. The Google Pub/Sub Source MI ingests those events into Solace. No custom code needed. |
+| AWS CloudWatch | Amazon SNS / Amazon SQS | Amazon SQS Source MI | CloudWatch alarms publish to SNS, which fans out to SQS. The Amazon SQS Source MI ingests from SQS into Solace. |
+| Webhook-capable systems | Solace REST ingest | (none — broker-native REST) | Systems that emit webhooks can POST directly to the broker's REST messaging endpoint. No Micro-Integration needed if REST delivery points are configured. |
+| Azure Blob Storage | Azure Event Grid / Azure Service Bus | Azure Service Bus Source MI | Blob Storage emits events to Event Grid, which routes to Service Bus. The Azure Service Bus Source MI ingests into Solace. |
+
+**How to use this table:** When `/solace-discovery` or `/solace-integration` finds a
+backend with no direct MI, check whether that backend natively publishes events to one
+of the intermediate systems listed above. If it does, the cataloged MI for the intermediate
+system provides the inbound path. Only classify as "custom needed" after confirming no
+indirect path exists.
+
+---
+
 ## Update discipline
 
 This catalog is a point-in-time snapshot. Solace adds new Micro-Integrations regularly. To keep it current:

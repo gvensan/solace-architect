@@ -350,7 +350,7 @@ produce a **Discovery Brief** in this structure:
 - Protocols in play: <list>
 - Event types: <list with approximate rates>
 - Matched reference architecture: <Pattern N: name, or "None — custom architecture">
-- Micro-Integration availability: <for each backend, note if a cataloged MI exists — check {{GROUNDING_DIR}}/integration-hub-catalog.md>
+- Micro-Integration availability: <for each backend, check {{GROUNDING_DIR}}/integration-hub-catalog.md for both direct and indirect paths. See the "Common indirect paths" section of the catalog. If no direct Source MI exists for a backend, check whether that system can natively send events to another system that DOES have a Source MI (e.g., GCS → Google Pub/Sub → Google Pub/Sub Source MI). Document both cataloged and indirect paths. Only classify as "custom needed" after confirming no cataloged path — direct or indirect — exists.>
 
 ## Requirements
 - Delivery guarantee: <Direct / Guaranteed / Mixed>

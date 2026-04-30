@@ -746,6 +746,20 @@ Check that decisions across skills are consistent:
 - Do replication groups align with the DMR topology?
 - Do replication mates appear as single nodes to DMR?
 
+**Source verification (Micro-Integration claims):**
+
+Re-read `~/.claude/skills/solace-architect/solace-grounding/integration-hub-catalog.md` independently. For every
+Micro-Integration claim in the integration map:
+- Verify the named Micro-Integration exists in the catalog with the stated deployment model.
+- For every "custom needed" classification, check whether a cataloged path exists —
+  either a direct Source/Target MI or an indirect path through a well-known intermediate
+  system (see the "Common indirect paths" section of the catalog).
+- For every open question from discovery that affects the integration model, verify
+  the question was explicitly resolved with the user before the design was finalized.
+  If an open question was silently assumed away, flag it.
+
+If any claim does not match the catalog, flag it as a **fail**.
+
 ---
 
 ## Step 3: Completeness check
