@@ -12,9 +12,8 @@ import { discoverSkillFiles } from '../scripts/discover-skills';
 const ROOT = path.resolve(import.meta.dir, '..');
 const SKILL_FILES = discoverSkillFiles(ROOT).map(f => path.join(ROOT, f));
 
-const PER_SKILL_BYTE_CEILING = 160_000;
 const PER_SKILL_TOKEN_CEILING = 40_000;
-const TOTAL_TOKEN_WARNING = 220_000;
+const TOTAL_TOKEN_WARNING = 250_000;
 
 function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);
@@ -58,7 +57,7 @@ describe('token budget report', () => {
     budget.sort((a, b) => b.tokens - a.tokens);
     const total = budget.reduce((s, b) => s + b.tokens, 0);
 
-    expect(budget.length).toBeGreaterThan(0);
-    expect(total).toBeGreaterThan(0);
+    expect(budget.length).toBeGreaterThanOrEqual(20); // 22 skills expected
+    expect(total).toBeGreaterThan(100_000); // current total is ~200K+ tokens
   });
 });

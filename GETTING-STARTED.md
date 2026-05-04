@@ -45,17 +45,20 @@ Then launch the agent from the project root. It will discover its skills in the 
 
 ---
 
-## Three commands
+## Key commands
 
-Most users only need three commands:
+Most users only need these commands:
 
 | Command | Purpose |
 |---------|---------|
+| `/solace-intake` | Skip the interview — fill out a template offline, then import. |
 | `/solace-discovery` | Start a new project. Describe systems and goals. |
 | `/solace-plan` | Run the full engagement. Picks skills, runs them in order, threads context between them. |
 | `/solace-projects` | Dashboard. Status, timing, summary, switch projects, launch the web UI. |
 
-Everything else is available as individual slash commands if you want to re-run a specific step or skip the orchestrator entirely. There are 18 slash commands in total: 4 for getting started and project management, 8 design skills, 4 review skills, and 2 finalize skills.
+Alternatively, use `/solace-intake` to generate a DOCX template for offline requirements gathering. Import the completed template to skip interactive discovery.
+
+Everything else is available as individual slash commands if you want to re-run a specific step or skip the orchestrator entirely. There are 22 slash commands in total: 4 start-here + 9 design + 4 review + 3 finalize + 2 utility = 22.
 
 ---
 
@@ -150,6 +153,8 @@ projects/retail-banking-chat-agent/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### What happens next: Project type selection

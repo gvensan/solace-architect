@@ -10,6 +10,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - Write
   - WebFetch
   - WebSearch
   - AskUserQuestion
@@ -419,9 +420,28 @@ EOF
 
 ---
 
-## Step 6: Final review and complete
+## Step 6: Self-validation and complete
 
-Present the executive summary to the user:
+Before marking the executive summary complete, verify that all three required
+artifacts exist. Run this check and fix any gaps before writing the completion
+entry to progress.yaml.
+
+```bash
+ACTIVE=$(cat projects/.active)
+echo "=== Executive self-validation ==="
+for f in executive-summary.md business-architecture.mermaid roi-framework.md; do
+  [ -f "projects/$ACTIVE/artifacts/14-executive/$f" ] && echo "OK: $f" || echo "MISSING: $f"
+done
+```
+
+**If any artifacts are MISSING:** Go back to the step that produces the missing artifact
+and generate it. Do NOT mark the skill as complete until all 3 artifacts exist.
+
+- Missing `executive-summary.md` -> go back to Step 3
+- Missing `business-architecture.mermaid` -> go back to Step 4
+- Missing `roi-framework.md` -> go back to Step 5
+
+Only after all checks pass, present the summary:
 
 ```
 Executive Summary assembled for: <project name>
@@ -433,6 +453,7 @@ Contents:
 
 Audience: CXO, business leaders, investment decision-makers
 Tone: Business outcomes, zero technical jargon
+Self-validation: <PASS/FAIL count>
 ```
 
 Ask the user to review. If they identify gaps or want tone adjustments, address

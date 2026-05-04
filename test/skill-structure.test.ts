@@ -83,6 +83,10 @@ describe('preamble tier sections', () => {
       expect(content).toContain('## Grounding Discipline');
       expect(content).toContain('## Naming Conventions');
       expect(content).toContain('## Completion Status Protocol');
+      expect(content).toContain('## Project Management');
+      expect(content).toContain('## Cross-Skill Dependencies');
+      expect(content).toContain('## Voice');
+      expect(content).toContain('## Artifact Validation');
 
       if (tier >= 2) {
         expect(content).toContain('## AskUserQuestion Format');

@@ -24,12 +24,13 @@ const FORBIDDEN_TERMS: ForbiddenTerm[] = [
   { pattern: /\bconnector\b(?!s?\s+documentation)/gi, label: 'connector', correctTerm: 'Micro-Integration' },
   { pattern: /\badapter\b/gi, label: 'adapter', correctTerm: 'Micro-Integration' },
   { pattern: /\bintegration module\b/gi, label: 'integration module', correctTerm: 'Micro-Integration' },
-  { pattern: /\bQoS\s*[012]/gi, label: 'QoS level', correctTerm: 'Direct messaging / Guaranteed messaging', lineExclude: /mapped to/i },
+  { pattern: /\bQoS\b/gi, label: 'QoS', correctTerm: 'Direct messaging / Guaranteed messaging', lineExclude: /mapped to/i },
   { pattern: /\bquality of service\b/gi, label: 'quality of service', correctTerm: 'Direct messaging / Guaranteed messaging' },
   { pattern: /\borchestrator\s+agent\b(?!s?\b)/gi, label: 'orchestrator agent (two words)', correctTerm: 'OrchestratorAgent' },
   { pattern: /\bpersistent messaging\b/gi, label: 'persistent messaging', correctTerm: 'Guaranteed messaging' },
   { pattern: /\bfire-and-forget\b/gi, label: 'fire-and-forget', correctTerm: 'Direct messaging' },
   { pattern: /\bmanaged broker\b/gi, label: 'managed broker', correctTerm: 'Event broker service' },
+  { pattern: /\bthe portal\b/gi, label: 'the portal', correctTerm: 'Event Portal' },
 ];
 
 const PREAMBLE_SECTIONS = [
@@ -50,6 +51,8 @@ const PREAMBLE_SECTIONS = [
   '## Repo Ownership',
   '## Search Before Building',
   '## Completion Status Protocol',
+  '## Timing Instrumentation',
+  '## Next Step Chaining',
 ];
 
 function stripPreambleSections(content: string): string {

@@ -111,6 +111,7 @@ Each generator in `scripts/resolvers/preamble/` produces one section:
 | `generate-dependency-enforcement.ts` | Cross-Skill Dependencies | Input dependency verification before skill execution |
 | `generate-project-management.ts` | Project Management | Project lifecycle, progress tracking, resume support |
 | `generate-timing-instrumentation.ts` | Timing Instrumentation | Per-skill wall time, user wait time, and execution time tracking in progress.yaml |
+| `generate-test-failure-triage.ts` | Test Failure Triage | Diagnostic guidance when tests fail (standalone resolver) |
 
 ## Grounding documents
 
@@ -142,6 +143,8 @@ External host output directories (`.agents/`, `.cursor/`, `.kiro/`, etc.) are **
 
 ### Host config interface
 
+<!-- Simplified excerpt — see scripts/host-config.ts for the full interface -->
+
 ```typescript
 interface HostConfig {
   name: string;
@@ -155,14 +158,14 @@ interface HostConfig {
     mode: 'allowlist' | 'denylist';
     keepFields?: string[];
     stripFields?: string[];
-    descriptionLimit: number | null;
+    descriptionLimit?: number | null;
   };
   generation: {
     generateMetadata: boolean;
   };
   pathRewrites: Array<{ from: string; to: string }>;
-  toolRewrites: Record<string, string>;
-  suppressedResolvers: string[];
+  toolRewrites?: Record<string, string>;
+  suppressedResolvers?: string[];
   runtimeRoot: {
     globalSymlinks: string[];
   };
@@ -170,7 +173,7 @@ interface HostConfig {
     prefixable: boolean;
     linkingStrategy: string;
   };
-  coAuthorTrailer: string;
+  coAuthorTrailer?: string;
 }
 ```
 
@@ -182,11 +185,13 @@ When generating for an external host (anything other than Claude):
 
 2. **Path rewrites.** Each host specifies `from → to` path pairs. For example, hosts that use environment variables rewrite `~/.claude/skills/solace-architect` to `$SOLACE_ARCHITECT_ROOT`.
 
-3. **Tool rewrites.** Hosts that don't share Claude's tool names get rewrites. For example, `use the Bash tool` may become `use the exec tool` or `run this command` depending on the host.
+3. **Invoke prefix rewrite.** Hosts set `invokePrefix` (default `/`) to control how skill commands appear in generated prose. After path rewrites, a regex replaces `/solace-<skill>` command references with the host's prefix (e.g., `$solace-discovery` for Codex). The negative lookbehind `(?<![.\w/])` prevents rewriting file paths and URLs.
 
-4. **Metadata generation.** Some hosts need additional files alongside each SKILL.md (e.g., YAML manifests).
+4. **Tool rewrites.** Hosts that don't share Claude's tool names get rewrites. For example, `use the Bash tool` may become `use the exec tool` or `run this command` depending on the host.
 
-5. **Skill naming.** External hosts prefix skill names with `solace-`. The `externalSkillName()` function handles this: `discovery` becomes `solace-discovery`. Names already starting with `solace-` pass through unchanged.
+5. **Metadata generation.** Some hosts need additional files alongside each SKILL.md (e.g., YAML manifests).
+
+6. **Skill naming.** External hosts prefix skill names with `solace-`. The `externalSkillName()` function handles this: `discovery` becomes `solace-discovery`. Names already starting with `solace-` pass through unchanged.
 
 ### The generator
 
@@ -213,11 +218,11 @@ The remaining skills run automatically via `/solace-plan` or can be invoked indi
 
 | Category | Skills | Description |
 |----------|--------|-------------|
-| Start here | `/solace-discovery`, `/solace-plan`, `/solace-projects` | Entry points: project creation, orchestration, dashboard |
+| Start here | `/solace-intake`, `/solace-discovery`, `/solace-plan`, `/solace-projects` | Entry points: intake, project creation, orchestration, dashboard |
 | Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration`, `/solace-event-portal` | Solace platform knowledge, artifact generation (YAML, diagrams, configs) |
 | Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives with interactive finding resolution |
-| Finalize | `/solace-validate`, `/solace-blueprint` | Consistency checks, antipattern detection, final blueprint assembly |
-| Utility | `/solace-help` | Skill catalog, workflow overview, active project status |
+| Finalize | `/solace-validate`, `/solace-blueprint`, `/solace-executive` | Consistency checks, antipattern detection, final blueprint assembly, executive summary |
+| Utility | `/solace-diagrams`, `/solace-help` | Diagram regeneration, skill catalog, workflow overview, active project status |
 
 Each skill directory follows the naming convention: `solace-<skill-name>/SKILL.md.tmpl`.
 
@@ -258,6 +263,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 
 dashboard/
   index.html            # Dashboard shell (sidebar nav, content area, right sidebar)

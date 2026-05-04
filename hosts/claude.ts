@@ -13,7 +13,7 @@ const claude: HostConfig = {
 
   frontmatter: {
     mode: 'denylist',
-    stripFields: ['sensitive'],
+    stripFields: ['sensitive', 'voice-triggers'],
     descriptionLimit: null,
   },
 

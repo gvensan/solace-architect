@@ -7,6 +7,7 @@ node_modules/
 dist/
 *.log
 *.bun-build
+*.docx
 
 # Generated host skill directories (one per external host)
 .agents/
@@ -32,4 +33,5 @@ projects/
 intake/
 
 /tmp/
+venv/
 solace-grounding/tracker/

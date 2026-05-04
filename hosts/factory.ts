@@ -4,7 +4,7 @@ const factory: HostConfig = {
   name: 'factory',
   displayName: 'Factory Droid',
   cliCommand: 'droid',
-  cliAliases: ['droid'],
+  cliAliases: [],
 
   globalRoot: '.factory/skills/solace-architect',
   localSkillRoot: '.factory/skills/solace-architect',

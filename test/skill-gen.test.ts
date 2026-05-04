@@ -33,6 +33,7 @@ describe('resolver registry', () => {
     'CO_AUTHOR_TRAILER',
     'CONFIDENCE_CALIBRATION',
     'INVOKE_SKILL',
+    'FINDING_RESOLUTION',
     'BIN_DIR',
     'GROUNDING_DIR',
   ];
@@ -43,10 +44,17 @@ describe('resolver registry', () => {
       expect(typeof RESOLVERS[name]).toBe('function');
     });
   }
+
+  test('no unexpected resolvers in registry', () => {
+    const registered = Object.keys(RESOLVERS).sort();
+    const expected = [...EXPECTED_RESOLVERS].sort();
+    expect(registered).toEqual(expected);
+  });
 });
 
 describe('template discovery', () => {
   test('discovers all 23 skill templates', () => {
+    // Update when adding/removing skills. Run discoverTemplates() to verify.
     const templates = discoverTemplates(ROOT);
     expect(templates.length).toBe(23);
   });

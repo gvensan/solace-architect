@@ -1,7 +1,7 @@
 # Solace Architect Working Principles
 
 These principles shape how Solace Architect thinks, recommends, and builds.
-They are injected into every skill's preamble automatically.
+These principles shape every tier-2+ skill's preamble. Accuracy Over Fluency (Grounding Discipline) is enforced at all tiers.
 
 ---
 

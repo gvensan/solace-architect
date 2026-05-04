@@ -96,6 +96,8 @@ export interface HostConfig {
   };
 
   // --- Host-Specific Behavioral Config ---
+  /** Prefix character for skill invocation (e.g., '/' for Claude, '$' for Codex). Defaults to '/'. */
+  invokePrefix?: string;
   /** Git co-author trailer string. */
   coAuthorTrailer?: string;
   /** Learnings implementation: 'full' = cross-project, 'basic' = simple. */
@@ -132,6 +134,9 @@ export function validateHostConfig(config: HostConfig): string[] {
       if (!CLI_REGEX.test(alias)) {
         errors.push(`cliAlias '${alias}' contains invalid characters`);
       }
+    }
+    if (config.cliAliases.includes(config.cliCommand)) {
+      errors.push(`cliAlias '${config.cliCommand}' duplicates cliCommand`);
     }
   }
   if (!PATH_REGEX.test(config.globalRoot)) {

@@ -10,6 +10,7 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - Write
   - WebFetch
   - WebSearch
   - AskUserQuestion
@@ -129,7 +130,10 @@ When a skill starts, check whether its input dependencies have been met for the 
 
 | Skill | Requires |
 |-------|----------|
+| solace-diagrams  | blueprint recommended (reads existing artifacts) |
 | solace-discovery | No dependencies (entry point) |
+| solace-executive | blueprint complete |
+| solace-intake    | No dependencies (entry point) |
 | solace-topic-design | discovery complete |
 | solace-sam-design | discovery complete |
 | solace-broker-select | discovery complete |
@@ -146,6 +150,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-validate | discovery + at least one technical skill complete |
 | solace-blueprint | validate complete |
 | solace-plan | discovery complete |
+| solace-projects  | No dependencies |
 | solace-help | No dependencies |
 
 **If dependencies are not met:** Do not refuse to run. Instead, show what is missing and which skill produces it. Example: "This skill requires a completed discovery brief. Run `/solace-discovery` first to produce one."
@@ -405,9 +410,40 @@ Skill templates sometimes give abbreviated AskUserQuestion instructions like
 expand every AskUserQuestion to the full D<N> format above with Context, Recommendation
 callout, pros/cons, and Net line. Never emit a bare option list.
 
+### Auto-decide (execution_mode: auto)
+
+Before every AskUserQuestion, check `decisions.yaml` for `execution_mode`:
+
+```bash
+ACTIVE=$(cat projects/.active)
+grep "execution_mode" "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NOT_SET"
+```
+
+When `execution_mode: auto`:
+
+1. **Do NOT call AskUserQuestion.** Do not stop for user input.
+2. Select the option marked `(recommended)` automatically.
+3. Print a one-line log: `"AUTO D<N>: <question title> → <chosen option label>"`
+4. Record the decision in `decisions.yaml` with `auto_decided: true`:
+   ```yaml
+   <decision_key>:
+     choice: "<option letter>"
+     label: "<option label>"
+     auto_decided: true
+     rationale: "<the Why line from the recommendation callout>"
+   ```
+5. Continue execution without pausing.
+
+**Auto-decide applies to all D<N> architecture decisions within every skill.**
+It does not apply to:
+- Free-text prompts (these require actual user input and cannot be auto-decided)
+- Resume prompts ("Resume from where we left off / Start over / Review decisions")
+
+When `execution_mode` is `interactive` or not set, call AskUserQuestion normally.
+
 ### Self-check before emitting
 
-Before calling AskUserQuestion, verify:
+Before calling AskUserQuestion (interactive mode only), verify:
 - [ ] D<N> header present
 - [ ] Context present (1-2 sentences, plain English, stakes named)
 - [ ] Recommendation callout present (blockquote, project-specific Why)
@@ -1039,9 +1075,28 @@ EOF
 
 ---
 
-## Step 6: Final review and complete
+## Step 6: Self-validation and complete
 
-Present the executive summary to the user:
+Before marking the executive summary complete, verify that all three required
+artifacts exist. Run this check and fix any gaps before writing the completion
+entry to progress.yaml.
+
+```bash
+ACTIVE=$(cat projects/.active)
+echo "=== Executive self-validation ==="
+for f in executive-summary.md business-architecture.mermaid roi-framework.md; do
+  [ -f "projects/$ACTIVE/artifacts/14-executive/$f" ] && echo "OK: $f" || echo "MISSING: $f"
+done
+```
+
+**If any artifacts are MISSING:** Go back to the step that produces the missing artifact
+and generate it. Do NOT mark the skill as complete until all 3 artifacts exist.
+
+- Missing `executive-summary.md` -> go back to Step 3
+- Missing `business-architecture.mermaid` -> go back to Step 4
+- Missing `roi-framework.md` -> go back to Step 5
+
+Only after all checks pass, present the summary:
 
 ```
 Executive Summary assembled for: <project name>
@@ -1053,6 +1108,7 @@ Contents:
 
 Audience: CXO, business leaders, investment decision-makers
 Tone: Business outcomes, zero technical jargon
+Self-validation: <PASS/FAIL count>
 ```
 
 Ask the user to review. If they identify gaps or want tone adjustments, address

@@ -3,7 +3,7 @@ import * as path from 'path';
 import type { TemplateContext } from '../types';
 
 function loadJargonList(): string[] {
-  const jargonPath = path.join(__dirname, '..', '..', 'jargon-list.json');
+  const jargonPath = path.join(import.meta.dir, '..', '..', 'jargon-list.json');
   try {
     const raw = fs.readFileSync(jargonPath, 'utf-8');
     const data = JSON.parse(raw);

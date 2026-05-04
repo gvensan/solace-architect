@@ -133,7 +133,10 @@ When a skill starts, check whether its input dependencies have been met for the 
 
 | Skill | Requires |
 |-------|----------|
+| solace-diagrams  | blueprint recommended (reads existing artifacts) |
 | solace-discovery | No dependencies (entry point) |
+| solace-executive | blueprint complete |
+| solace-intake    | No dependencies (entry point) |
 | solace-topic-design | discovery complete |
 | solace-sam-design | discovery complete |
 | solace-broker-select | discovery complete |
@@ -150,6 +153,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-validate | discovery + at least one technical skill complete |
 | solace-blueprint | validate complete |
 | solace-plan | discovery complete |
+| solace-projects  | No dependencies |
 | solace-help | No dependencies |
 
 **If dependencies are not met:** Do not refuse to run. Instead, show what is missing and which skill produces it. Example: "This skill requires a completed discovery brief. Run `/solace-discovery` first to produce one."
@@ -409,9 +413,40 @@ Skill templates sometimes give abbreviated AskUserQuestion instructions like
 expand every AskUserQuestion to the full D<N> format above with Context, Recommendation
 callout, pros/cons, and Net line. Never emit a bare option list.
 
+### Auto-decide (execution_mode: auto)
+
+Before every AskUserQuestion, check `decisions.yaml` for `execution_mode`:
+
+```bash
+ACTIVE=$(cat projects/.active)
+grep "execution_mode" "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NOT_SET"
+```
+
+When `execution_mode: auto`:
+
+1. **Do NOT call AskUserQuestion.** Do not stop for user input.
+2. Select the option marked `(recommended)` automatically.
+3. Print a one-line log: `"AUTO D<N>: <question title> → <chosen option label>"`
+4. Record the decision in `decisions.yaml` with `auto_decided: true`:
+   ```yaml
+   <decision_key>:
+     choice: "<option letter>"
+     label: "<option label>"
+     auto_decided: true
+     rationale: "<the Why line from the recommendation callout>"
+   ```
+5. Continue execution without pausing.
+
+**Auto-decide applies to all D<N> architecture decisions within every skill.**
+It does not apply to:
+- Free-text prompts (these require actual user input and cannot be auto-decided)
+- Resume prompts ("Resume from where we left off / Start over / Review decisions")
+
+When `execution_mode` is `interactive` or not set, call AskUserQuestion normally.
+
 ### Self-check before emitting
 
-Before calling AskUserQuestion, verify:
+Before calling AskUserQuestion (interactive mode only), verify:
 - [ ] D<N> header present
 - [ ] Context present (1-2 sentences, plain English, stakes named)
 - [ ] Recommendation callout present (blockquote, project-specific Why)
@@ -712,26 +747,31 @@ D) All formats — generate Word, YAML, and Markdown
 
 **If Word (A) or All (D) was selected:**
 
-The DOCX template is bundled with the skill. Locate and copy it to the `intake/` folder:
+Generate the DOCX template using the builder script:
 
 ```bash
 mkdir -p intake
-for TEMPLATE_DOCX in \
-  "~/.claude/skills/solace-architect/solace-grounding/../solace-intake-template.docx" \
-  "$HOME/.claude/skills/solace-architect/solace-intake-template.docx" \
-  "solace-intake-template.docx"; do
-  if [ -f "$TEMPLATE_DOCX" ]; then
-    cp "$TEMPLATE_DOCX" intake/solace-intake-template.docx
-    echo "Copied: intake/solace-intake-template.docx"
-    break
-  fi
+for BUILDER in \
+  "scripts/build-intake-docx.py" \
+  "$HOME/.claude/skills/solace-architect/scripts/build-intake-docx.py" \
+  "~/.claude/skills/solace-architect/bin/../scripts/build-intake-docx.py"; do
+  [ -f "$BUILDER" ] && break
 done
-[ -f "intake/solace-intake-template.docx" ] || echo "DOCX_NOT_FOUND"
+echo "BUILDER: $BUILDER"
+python3 "$BUILDER" --output intake/solace-intake-template.docx
 ```
 
-If `DOCX_NOT_FOUND`: tell the user the DOCX template was not found at any
-expected location. Generate YAML and Markdown instead, and suggest the user
-run `./setup` from the Solace Architect repo to install all assets.
+If `python-docx` is not installed, tell the user:
+
+> The Word document generator requires `python-docx`. Install with:
+> ```
+> pip install python-docx
+> ```
+> Then re-run `/solace-intake --template`.
+
+If the builder script is not found at any expected location, generate YAML and
+Markdown instead, and suggest the user run `./setup` from the Solace Architect
+repo to install all assets.
 
 **If YAML (B) or All (D) was selected:**
 
@@ -1262,15 +1302,11 @@ Use AskUserQuestion:
 ```
 Which format should the exported intake use?
 
-A) YAML (recommended) — machine-readable, can be imported directly into another project
-B) Markdown — human-readable, easy to share or archive
-C) Both — generate YAML and Markdown
+A) Word document (recommended) — professional DOCX with filled dropdowns and structured fields, best for stakeholder sharing
+B) YAML — machine-readable, can be imported directly into another project
+C) Markdown — human-readable, easy to share or archive
+D) All formats — generate Word, YAML, and Markdown
 ```
-
-Note: DOCX export is not currently supported. The Word template uses Structured
-Document Tags (SDTs) that require programmatic population. To share project data
-in Word format, export as YAML and paste the relevant sections into a copy of the
-blank DOCX template.
 
 ### Step E2: Read project data
 
@@ -1295,25 +1331,57 @@ Parse the discovery brief and decisions to extract:
 - Goals (driver, timeline, budget, team, constraints)
 - Domain-specific details if present
 
-### Step E3: Generate the filled intake file
+### Step E3: Generate the export data YAML
 
-**If YAML (A) or Both (C) was selected:**
+Before generating any output files, first synthesize a `intake/solace-intake-export.yaml`
+from the extracted project data. This YAML uses the same structure the parser produces
+and serves as the data source for the DOCX builder.
 
-Using the extracted data, generate a filled `intake/solace-intake-export.yaml` file.
-Use the same structure as the blank template but populate every field that has
-a known value from the project. Leave fields blank that were not captured.
+Map discovery brief and decisions data to the intake YAML schema:
+- `project.name` from context.yaml `name`
+- `project.type` from decisions (or infer from discovery brief)
+- `landscape.*` from the system landscape section of the brief
+- `landscape.systems` as an array with keys: `System Name`, `Role`, `Protocol`, `Owner`
+- `landscape.events` as an array with keys: `Event Name`, `Rate`, `Delivery`, `Payload Format`
+- `domain.*` from domain-specific sections
+- `requirements.*` from requirements section
+- `goals.*` from goals section
+- `preferences.execution_mode` from decisions.yaml
 
 ```bash
 ACTIVE=$(cat projects/.active)
 mkdir -p intake
-PROJECT_DISPLAY=$(grep '^display_name:' "projects/$ACTIVE/context.yaml" | sed 's/^display_name: *//')
 cat > "intake/solace-intake-export.yaml" << 'YAMLEOF'
 <paste the filled YAML intake with all known values populated>
 YAMLEOF
-echo "Exported: intake/solace-intake-export.yaml"
+echo "Generated: intake/solace-intake-export.yaml"
 ```
 
-**If Markdown (B) or Both (C) was selected:**
+### Step E4: Generate output files
+
+**If Word (A) or All (D) was selected:**
+
+Use the builder script with the export data:
+
+```bash
+for BUILDER in \
+  "scripts/build-intake-docx.py" \
+  "$HOME/.claude/skills/solace-architect/scripts/build-intake-docx.py" \
+  "~/.claude/skills/solace-architect/bin/../scripts/build-intake-docx.py"; do
+  [ -f "$BUILDER" ] && break
+done
+python3 "$BUILDER" --output intake/solace-intake-export.docx --data intake/solace-intake-export.yaml
+```
+
+If `python-docx` is not installed, tell the user:
+
+> Word export requires `python-docx`. Install with:
+> ```
+> pip install python-docx
+> ```
+> Then re-run the export.
+
+**If Markdown (C) or All (D) was selected:**
 
 Generate a filled `intake/solace-intake-export.md` using the same structure as the
 Markdown template but with all known values filled in. Use the same section
@@ -1341,7 +1409,7 @@ Present a summary:
 >
 > **How to use:**
 > - Share with another team to bootstrap a similar engagement
-> - Import into a new project: `/solace-intake intake/solace-intake-export.yaml`
+> - Import into a new project: `/solace-intake intake/solace-intake-export.yaml` (or `.docx` / `.md`)
 > - Archive as a record of the project's input assumptions
 
 Stop here. Do not proceed to import mode.
@@ -1538,7 +1606,7 @@ same format as `/solace-discovery` Step 4:
 - Protocols in play: <list>
 - Event types: <list with approximate rates>
 - Matched reference architecture: <Pattern N: name, or "None — custom architecture">
-- Micro-Integration availability: <for each backend, check ~/.claude/skills/solace-architect/solace-grounding/integration-hub-catalog.md>
+- Micro-Integration availability: <for each backend, check ~/.claude/skills/solace-architect/solace-grounding/integration-hub-catalog.md for both direct and indirect paths. See the "Common indirect paths" section of the catalog. If no direct Source MI exists for a backend, check whether that system can natively send events to another system that DOES have a Source MI. Document both cataloged and indirect paths. Only classify as "custom needed" after confirming no cataloged path — direct or indirect — exists.>
 
 ## Requirements
 - Delivery guarantee: <Direct / Guaranteed / Mixed>

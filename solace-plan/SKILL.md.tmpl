@@ -58,24 +58,25 @@ current state and offer to continue from where things left off.
 
 Based on the discovery brief, determine which skills this project needs:
 
-**Always include:**
+**Always include (design phase):**
 - `/solace-topic-design` — every project needs a topic taxonomy
 - `/solace-broker-select` — every project needs a broker type decision
 - `/solace-protocol-select` — every project needs protocol assignments
+- `/solace-event-portal` — every project needs Event Portal governance. Without it, the architecture exists only in documentation, not in a discoverable, enforceable catalog.
 
-**Conditional:**
+**Conditional (design phase):**
 - `/solace-sam-design` — include if SAM, AI assistant, chatbot, agent orchestration mentioned
 - `/solace-mesh-design` — include if multi-site, multi-region, multi-cloud, or edge
 - `/solace-ha-dr` — include if HA/DR requirements mentioned, regulated environment, or multi-site
 - `/solace-integration` — include if backend systems need Micro-Integrations
 - `/solace-migration` — include if migrating from another messaging system
-- `/solace-event-portal` — include if Event Portal governance is desired (recommend by default for all projects with 3+ systems or compliance requirements)
 
-**Always at the end:**
+**Always at the end (finalize phase):**
 - Review skills (architect, ops, security, dev) — all four by default, user can skip
 - `/solace-validate` — consistency and completeness check
-- `/solace-blueprint` — final assembly
-- `/solace-executive` — executive summary for business leaders
+- `/solace-blueprint` — final assembly (architecture document, diagrams, configs, runbook)
+- `/solace-diagrams` — diagram generation and refinement (splits large diagrams, applies consistent styling, generates companion detail files)
+- `/solace-executive` — executive summary, business architecture visual, and ROI framework
 
 ---
 
@@ -97,14 +98,15 @@ Based on discovery, here's the recommended skill sequence:
   7. → HA/DR design (/solace-ha-dr)                   [if applicable]
   8. → Micro-Integration design (/solace-integration)
   9. → Migration planning (/solace-migration)          [if applicable]
-  10. → Event Portal governance (/solace-event-portal)  [if applicable]
+  10. → Event Portal governance (/solace-event-portal)
   11. → Architecture review (/solace-architect-review)
   12. → Operations review (/solace-ops-review)
   13. → Security review (/solace-security-review)
   14. → Developer review (/solace-dev-review)
   15. → Validation (/solace-validate)
   16. → Blueprint assembly (/solace-blueprint)
-  17. → Executive summary (/solace-executive)
+  17. → Diagram generation (/solace-diagrams)
+  18. → Executive summary (/solace-executive)
 
 Estimated: <N> skills, <rough time estimate>
 ```
@@ -155,7 +157,15 @@ For each skill in the sequence, check `execution_mode` from `decisions.yaml`:
 
 **Auto mode:** Invoke the skill immediately via the Skill tool. Print a one-line
 transition before each: `"→ Running /solace-<skill> — <title>..."`. After the skill
-completes, read progress, confirm success, and move to the next. Auto mode stops
+completes, read progress, confirm success, and move to the next.
+
+If the skill's progress status is not "complete" after execution:
+1. Print: "STOPPED: /solace-<skill> did not complete (status: <actual status>)."
+2. Fall back to interactive mode for the remainder of the plan.
+3. Tell the user which artifact is missing and suggest re-running the skill.
+Do not advance to the next skill with an incomplete status.
+
+Auto mode also stops
 (falls back to interactive) if `/solace-validate` finds critical issues or a skill
 completes with BLOCKED or NEEDS_CONTEXT status.
 
@@ -181,6 +191,45 @@ not need to manually thread context — the project infrastructure handles it.
 **Handling interruptions:** If the user stops mid-plan, the plan's progress is saved.
 When the plan skill is re-invoked, it reads `progress.yaml`, identifies where things
 left off, and offers to continue.
+
+### Artifact validation (after each finalize-phase skill)
+
+After each finalize-phase skill completes (`/solace-blueprint`, `/solace-diagrams`,
+`/solace-executive`), verify the skill produced its minimum expected artifacts.
+These skills are context-intensive and can truncate under pressure.
+
+```bash
+ACTIVE=$(cat projects/.active)
+echo "=== Artifact validation ==="
+echo "--- Reviews ---"
+for r in architect-review ops-review security-review dev-review; do
+  [ -f "projects/$ACTIVE/artifacts/10-reviews/${r}.md" ] && echo "OK: ${r}.md" || echo "MISSING: ${r}.md"
+done
+echo "--- Validation ---"
+[ -f "projects/$ACTIVE/artifacts/11-validation/validation-report.md" ] && echo "OK: validation-report.md" || echo "MISSING: validation-report.md"
+echo "--- Blueprint ---"
+[ -f "projects/$ACTIVE/artifacts/12-blueprint/architecture.md" ] && echo "OK: architecture.md" || echo "MISSING: architecture.md"
+[ -f "projects/$ACTIVE/artifacts/12-blueprint/runbook.md" ] && echo "OK: runbook.md" || echo "MISSING: runbook.md"
+DIAGRAM_COUNT=$(find "projects/$ACTIVE/artifacts/12-blueprint/diagrams" -name "*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
+echo "DIAGRAMS: $DIAGRAM_COUNT (minimum 8 core expected)"
+echo "--- Executive ---"
+[ -f "projects/$ACTIVE/artifacts/14-executive/executive-summary.md" ] && echo "OK: executive-summary.md" || echo "MISSING: executive-summary.md"
+[ -f "projects/$ACTIVE/artifacts/14-executive/business-architecture.mermaid" ] && echo "OK: business-architecture.mermaid" || echo "MISSING: business-architecture.mermaid"
+[ -f "projects/$ACTIVE/artifacts/14-executive/roi-framework.md" ] && echo "OK: roi-framework.md" || echo "MISSING: roi-framework.md"
+```
+
+**If any MISSING artifacts are detected:** Re-run the skill that owns the missing
+artifact. Do not mark the plan as complete with missing deliverables.
+
+**Minimum artifact counts by skill:**
+
+| Skill | Minimum artifacts | Key files |
+|-------|-------------------|-----------|
+| `/solace-blueprint` | 12+ files | architecture.md, runbook.md, 8 core diagrams, provisioning params, copied taxonomy + validation |
+| `/solace-diagrams` | Varies by project | At least the 8 core diagrams regenerated with consistent styling |
+| `/solace-executive` | 3 files | executive-summary.md, business-architecture.mermaid, roi-framework.md |
+| `/solace-validate` | 1 file | validation-report.md |
+| Review skills | 4 files | architect-review.md, ops-review.md, security-review.md, dev-review.md |
 
 ---
 
@@ -210,13 +259,18 @@ with open('projects/$ACTIVE/progress.yaml', 'w') as f:
 
 When all skills in the sequence have been completed:
 
-1. Present a summary of the engagement:
+1. Run the artifact validation check from Step 3. If any finalize-phase artifacts
+   are missing, re-run the owning skill before marking the plan complete.
+
+2. Present a summary of the engagement:
    - Skills completed
-   - Total artifacts produced
+   - Total artifacts produced (count all files across all artifact directories)
    - Key decisions made
    - Any open questions or concerns from review skills
+   - Any artifacts that required re-generation
 
-2. Update the plan's progress to complete.
+3. Update the plan's progress to complete.
 
-3. The last skill in the sequence is `/solace-executive`, which produces the
-   business-focused summary after `/solace-blueprint` assembles the technical deliverable.
+4. The finalize sequence is: `/solace-blueprint` (technical deliverable) ->
+   `/solace-diagrams` (diagram refinement) -> `/solace-executive` (business case
+   with ROI framework). All three must produce their full artifact set.

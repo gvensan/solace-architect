@@ -41,12 +41,13 @@ Rules:
 - Do not propose solutions built on non-existent Solace features, invented APIs, or techniques borrowed from other messaging vendors.
 - When a capability is not in the sources, say so explicitly.
 
-## Getting started — three commands
+## Getting started — key commands
 
-Most users only need these three:
+Most users only need these:
 
 | Command | Purpose |
 |---------|---------|
+| `/solace-intake` | Skip the interview — fill out a template offline, then import |
 | `/solace-discovery` | Start a new project — describe systems and goals |
 | `/solace-plan` | Run the full engagement (picks skills, runs them in order) |
 | `/solace-projects` | Dashboard — status, timing, summary, switch projects |
@@ -137,11 +138,17 @@ solace-architect/
     gen-skill-docs.ts     # Template -> SKILL.md generator
     host-config.ts        # HostConfig interface + validator
     url-health-check.ts   # Grounding document URL health checker
+    dashboard.ts          # Project dashboard HTTP server
+    detect-bump.ts        # Version bump detection
+    host-config-export.ts # CLI for host config field extraction
+    parse-intake-docx.py  # DOCX intake parser (import: .docx -> YAML)
+    build-intake-docx.py  # DOCX intake builder (template + export: YAML -> .docx)
     resolvers/            # Template resolver modules
       index.ts            # Resolver registry (9 entries)
       types.ts            # TemplateContext, HostPaths, Host type
       composition.ts      # INVOKE_SKILL resolver
       utility.ts          # BASE_BRANCH_DETECT, CO_AUTHOR_TRAILER
+      confidence.ts       # CONFIDENCE_CALIBRATION resolver
       finding-resolution.ts # FINDING_RESOLUTION resolver (review skills)
       preamble/           # Preamble generators (per-tier)
     discover-skills.ts    # Shared .tmpl discovery
@@ -154,8 +161,10 @@ solace-architect/
     solace-canonical-sources.md
     solace-reference-architectures.md
     antipatterns.md
+    integration-hub-catalog.md
     claude-instructions.md
     gaps.md               # Grounding document gap tracker
+    MAINTENANCE.md        # Refresh manifest with cadence and version tracking
   solace-intake/          # /solace-intake
   solace-discovery/       # /solace-discovery
   solace-topic-design/    # /solace-topic-design
@@ -195,6 +204,10 @@ solace-architect/
   ARCHITECTURE.md         # How the template pipeline works
   GETTING-STARTED.md      # Full walkthrough of a complete engagement
   ETHOS.md                # Working principles
+  SAAS-ARCHITECTURE.md    # SaaS architecture overview
+  SLASH-COMMANDS.md       # Slash command reference
+  WHAT-IS-SA.md           # What is Solace Architect
+  conductor.json          # Conductor configuration
   package.json            # Build scripts
 ```
 

@@ -399,6 +399,10 @@ def main():
         output = json.dumps(cleaned, indent=2, ensure_ascii=False)
 
     if output_path:
+        output_dir = os.path.dirname(os.path.abspath(output_path))
+        if not os.path.isdir(output_dir):
+            print(f"ERROR: Output directory does not exist: {output_dir}")
+            sys.exit(1)
         with open(output_path, 'w') as f:
             f.write(output)
         print(f"Parsed intake written to: {output_path}")

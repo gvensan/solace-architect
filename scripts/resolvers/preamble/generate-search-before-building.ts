@@ -1,6 +1,6 @@
 import type { TemplateContext } from '../types';
 
-export function generateSearchBeforeBuildingSection(ctx: TemplateContext): string {
+export function generateSearchBeforeBuildingSection(_ctx: TemplateContext): string {
   return `## Search Before Building
 
 Before building anything unfamiliar, **search first.**
