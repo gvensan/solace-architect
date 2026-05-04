@@ -666,9 +666,9 @@ fi
 
 Parse the user's invocation to determine which mode to run:
 
-1. If the argument is `--template` → run **Template Generation Mode** (Step T1–T2)
-2. If the argument is a file path (e.g., `intake.yaml`, `./filled-intake.yaml`) → run **Import Mode** (Step I1–I7)
-3. If the argument is `--export` → run **Export Mode** (Step E1–E2)
+1. If the argument is `--template` → run **Template Generation Mode** (Step T1–T3)
+2. If the argument is a file path (e.g., `intake.docx`, `intake.yaml`, `./filled-intake.md`) → run **Import Mode** (Step I1–I7)
+3. If the argument is `--export` → run **Export Mode** (Step E1–E3)
 4. If no argument → ask the user:
 
 Use AskUserQuestion. If an active project with a completed discovery brief exists,
@@ -678,8 +678,8 @@ include option C. If no exportable project exists, show only options A and B.
 ```
 What would you like to do with the intake skill?
 
-A) Generate a blank intake template — creates YAML and Markdown files for a customer to fill out offline
-B) Import a completed intake file — provide a path to a filled-in YAML or Markdown intake file
+A) Generate a blank intake template — creates a Word, YAML, or Markdown template for offline collection
+B) Import a completed intake file — supports Word (.docx), YAML, or Markdown files
 C) Export intake from current project — generates a filled intake file from the active project's discovery data
 ```
 
@@ -687,22 +687,61 @@ C) Export intake from current project — generates a filled intake file from th
 ```
 What would you like to do with the intake skill?
 
-A) Generate a blank intake template — creates YAML and Markdown files for a customer to fill out offline
-B) Import a completed intake file — provide a path to a filled-in YAML or Markdown intake file
+A) Generate a blank intake template — creates a Word, YAML, or Markdown template for offline collection
+B) Import a completed intake file — supports Word (.docx), YAML, or Markdown files
 ```
 
 ---
 
 ## Template Generation Mode
 
-### Step T1: Generate the intake template files
+### Step T1: Choose format
 
-Generate two files in the current working directory:
+Use AskUserQuestion:
 
-**File 1: `solace-intake-template.yaml`**
+```
+Which format should the intake template use?
+
+A) Word document (recommended) — professional layout with dropdowns and structured fields, best for sharing with stakeholders
+B) YAML — machine-readable, can be imported directly back into /solace-intake
+C) Markdown — human-readable, easy to share via email or Confluence
+D) All formats — generate Word, YAML, and Markdown
+```
+
+### Step T2: Generate the intake template files
+
+**If Word (A) or All (D) was selected:**
+
+The DOCX template is bundled with the skill. Locate and copy it to the `intake/` folder:
 
 ```bash
-cat > solace-intake-template.yaml << 'YAMLEOF'
+mkdir -p intake
+for TEMPLATE_DOCX in \
+  "~/.claude/skills/solace-architect/solace-grounding/../solace-intake-template.docx" \
+  "$HOME/.claude/skills/solace-architect/solace-intake-template.docx" \
+  "solace-intake-template.docx"; do
+  if [ -f "$TEMPLATE_DOCX" ]; then
+    cp "$TEMPLATE_DOCX" intake/solace-intake-template.docx
+    echo "Copied: intake/solace-intake-template.docx"
+    break
+  fi
+done
+[ -f "intake/solace-intake-template.docx" ] || echo "DOCX_NOT_FOUND"
+```
+
+If `DOCX_NOT_FOUND`: tell the user the DOCX template was not found at any
+expected location. Generate YAML and Markdown instead, and suggest the user
+run `./setup` from the Solace Architect repo to install all assets.
+
+**If YAML (B) or All (D) was selected:**
+
+Generate `intake/solace-intake-template.yaml`:
+
+**File 1: `intake/solace-intake-template.yaml`**
+
+```bash
+mkdir -p intake
+cat > intake/solace-intake-template.yaml << 'YAMLEOF'
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  Solace Architect — Intake Template                                        ║
 # ║                                                                            ║
@@ -964,13 +1003,18 @@ preferences:
   #   auto        — Skills run back-to-back, pausing only for design decisions (recommended)
   #   interactive — Confirm each skill before it runs
 YAMLEOF
-echo "Generated: solace-intake-template.yaml"
+echo "Generated: intake/solace-intake-template.yaml"
 ```
 
-**File 2: `solace-intake-template.md`**
+**If Markdown (C) or All (D) was selected:**
+
+Generate `intake/solace-intake-template.md`:
+
+**File 2: `intake/solace-intake-template.md`**
 
 ```bash
-cat > solace-intake-template.md << 'MDEOF'
+mkdir -p intake
+cat > intake/solace-intake-template.md << 'MDEOF'
 # Solace Architect — Intake Form
 
 > **Instructions:** Fill in what you know. Leave blank what you don't know — we will follow up during the engagement. When complete, save this file and provide it to your Solace Architect.
@@ -1176,27 +1220,30 @@ cat > solace-intake-template.md << 'MDEOF'
 - [x] Auto — Skills run back-to-back, pausing only for design decisions *(recommended)*
 - [ ] Interactive — Confirm each skill before it runs
 MDEOF
-echo "Generated: solace-intake-template.md"
+echo "Generated: intake/solace-intake-template.md"
 ```
 
-### Step T2: Confirm and present
+### Step T3: Confirm and present
 
-After generating both files, tell the user:
+After generating files, tell the user which formats were produced:
 
-> **Two intake template files generated:**
+> **Intake template files generated in `intake/`:**
 >
 > | File | Format | Use for |
 > |------|--------|---------|
-> | `solace-intake-template.yaml` | YAML | Machine-readable — feed directly back into `/solace-intake` |
-> | `solace-intake-template.md` | Markdown | Human-friendly — share via email, Confluence, Google Docs, or print |
+> | `intake/solace-intake-template.docx` | Word | Professional layout with dropdowns — best for stakeholder sharing |
+> | `intake/solace-intake-template.yaml` | YAML | Machine-readable — feed directly back into `/solace-intake` |
+> | `intake/solace-intake-template.md` | Markdown | Human-friendly — share via email, Confluence, Google Docs |
+>
+> Only list the files that were actually generated.
 >
 > **How to use:**
-> 1. Share the Markdown version with your customer or stakeholder
+> 1. Share the Word document (or Markdown) with your customer or stakeholder
 > 2. Have them fill in what they know (blanks are fine — we follow up)
-> 3. Transfer their answers into the YAML file (or they can fill YAML directly)
-> 4. Run: `/solace-intake path/to/filled-template.yaml`
+> 3. Place the completed file in the `intake/` folder
+> 4. Run: `/solace-intake intake/filled-intake.docx` (or `.yaml` / `.md`)
 >
-> The YAML file is the canonical input. The Markdown file is for human convenience.
+> All three formats are accepted for import.
 
 Stop here. Do not proceed to import or export mode.
 
@@ -1208,7 +1255,24 @@ Export a filled intake file from the active project's discovery data. This is us
 for sharing project context with other teams, archiving a project's inputs, or
 bootstrapping a similar project.
 
-### Step E1: Read project data
+### Step E1: Choose format
+
+Use AskUserQuestion:
+
+```
+Which format should the exported intake use?
+
+A) YAML (recommended) — machine-readable, can be imported directly into another project
+B) Markdown — human-readable, easy to share or archive
+C) Both — generate YAML and Markdown
+```
+
+Note: DOCX export is not currently supported. The Word template uses Structured
+Document Tags (SDTs) that require programmatic population. To share project data
+in Word format, export as YAML and paste the relevant sections into a copy of the
+blank DOCX template.
+
+### Step E2: Read project data
 
 ```bash
 ACTIVE=$(cat projects/.active)
@@ -1231,19 +1295,36 @@ Parse the discovery brief and decisions to extract:
 - Goals (driver, timeline, budget, team, constraints)
 - Domain-specific details if present
 
-### Step E2: Generate the filled intake file
+### Step E3: Generate the filled intake file
 
-Using the extracted data, generate a filled `solace-intake-export.yaml` file.
+**If YAML (A) or Both (C) was selected:**
+
+Using the extracted data, generate a filled `intake/solace-intake-export.yaml` file.
 Use the same structure as the blank template but populate every field that has
 a known value from the project. Leave fields blank that were not captured.
 
 ```bash
 ACTIVE=$(cat projects/.active)
-DISPLAY=$(grep 'display_name' "projects/$ACTIVE/context.yaml" | sed 's/display_name: *//')
-cat > "solace-intake-export.yaml" << 'YAMLEOF'
+mkdir -p intake
+PROJECT_DISPLAY=$(grep '^display_name:' "projects/$ACTIVE/context.yaml" | sed 's/^display_name: *//')
+cat > "intake/solace-intake-export.yaml" << 'YAMLEOF'
 <paste the filled YAML intake with all known values populated>
 YAMLEOF
-echo "Exported: solace-intake-export.yaml"
+echo "Exported: intake/solace-intake-export.yaml"
+```
+
+**If Markdown (B) or Both (C) was selected:**
+
+Generate a filled `intake/solace-intake-export.md` using the same structure as the
+Markdown template but with all known values filled in. Use the same section
+headings and field labels as the blank Markdown template.
+
+```bash
+mkdir -p intake
+cat > "intake/solace-intake-export.md" << 'MDEOF'
+<paste the filled Markdown intake with all known values populated>
+MDEOF
+echo "Exported: intake/solace-intake-export.md"
 ```
 
 Present a summary:
@@ -1256,11 +1337,11 @@ Present a summary:
 > | Fields populated | N |
 > | Fields left blank | N |
 >
-> File saved: `solace-intake-export.yaml`
+> Files saved in `intake/` — list the files that were generated.
 >
 > **How to use:**
 > - Share with another team to bootstrap a similar engagement
-> - Import into a new project: `/solace-intake solace-intake-export.yaml`
+> - Import into a new project: `/solace-intake intake/solace-intake-export.yaml`
 > - Archive as a record of the project's input assumptions
 
 Stop here. Do not proceed to import mode.
@@ -1271,17 +1352,61 @@ Stop here. Do not proceed to import mode.
 
 ### Step I1: Read and parse the intake file
 
-Read the file provided by the user:
+Determine the file format by extension:
+
+**If `.docx` → Word document (use the DOCX parser):**
+
+Locate the parser and run it:
+
+```bash
+for PARSER in \
+  "scripts/parse-intake-docx.py" \
+  "~/.claude/skills/solace-architect/solace-grounding/../scripts/parse-intake-docx.py" \
+  "$HOME/.claude/skills/solace-architect/scripts/parse-intake-docx.py"; do
+  [ -f "$PARSER" ] && break
+done
+echo "PARSER: $PARSER"
+mkdir -p intake
+python3 "$PARSER" "<file-path>" intake/intake-parsed.yaml
+```
+
+If `python-docx` is not installed, tell the user:
+
+> The Word document parser requires `python-docx`. Install it with:
+> ```
+> pip install python-docx
+> ```
+> Then re-run `/solace-intake <file-path>`.
+
+If the parser succeeds, read the generated YAML and proceed as if the user
+provided a YAML file:
+
+```bash
+cat intake/intake-parsed.yaml
+```
+
+The parser output includes a `_meta` section with completeness information.
+Use `_meta.missing_required` and `_meta.missing_important` to skip Step I2
+field counting (the parser already did it). Proceed directly to Step I3
+if `_meta.ready` is true, or ask for missing required fields if not.
+
+**If `.yaml` or `.yml` → parse as YAML:**
 
 ```bash
 cat "<file-path>"
 ```
 
-Determine the file format:
-- If `.yaml` or `.yml` → parse as YAML
-- If `.md` → parse as Markdown (extract values from the structured sections)
+**If `.md` → parse as Markdown:**
 
-Extract all fields into a structured understanding. Track which fields are:
+```bash
+cat "<file-path>"
+```
+
+Extract values from the structured sections.
+
+---
+
+For all formats, extract all fields into a structured understanding. Track which fields are:
 - **Populated** — has a meaningful value
 - **Empty** — blank, empty string, or placeholder
 - **Invalid** — value doesn't match expected options (e.g., `delivery_mode: "fast"`)
@@ -1336,7 +1461,7 @@ DISPLAY_NAME="<project.name>"
 mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint,13-event-portal,14-executive}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
-display_name: $DISPLAY_NAME
+display_name: "$DISPLAY_NAME"
 created: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 status: active
 source: intake

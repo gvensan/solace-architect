@@ -136,6 +136,7 @@ Save the broker recommendation artifact:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/03-broker-select"
 cat > "projects/$ACTIVE/artifacts/03-broker-select/broker-recommendation.md" << 'EOF'
 <paste the full recommendation with rationale, comparison table, sizing notes>
 EOF

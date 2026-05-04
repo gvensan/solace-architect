@@ -272,6 +272,7 @@ Save the report:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/11-validation"
 cat > "projects/$ACTIVE/artifacts/11-validation/validation-report.md" << 'EOF'
 <paste the full validation report>
 EOF

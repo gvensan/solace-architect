@@ -186,6 +186,7 @@ Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/08-integration"
 cat > "projects/$ACTIVE/artifacts/08-integration/micro-integration-map.md" << 'EOF'
 <paste the full Micro-Integration inventory>
 EOF

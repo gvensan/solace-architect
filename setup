@@ -27,7 +27,7 @@ mkdir -p "$SA_LINK"
 ln -snf "$SA_DIR/SKILL.md" "$SA_LINK/SKILL.md"
 
 # Symlink runtime assets into root skill directory (grounding docs, etc.)
-for asset in solace-grounding ETHOS.md; do
+for asset in solace-grounding ETHOS.md solace-intake-template.docx scripts; do
   [ -e "$SA_DIR/$asset" ] && ln -snf "$SA_DIR/$asset" "$SA_LINK/$asset"
 done
 

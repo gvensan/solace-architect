@@ -52,9 +52,9 @@ This is the most common path. Discovery takes 15–20 minutes of conversation. P
 You want to collect requirements offline — from a customer, a stakeholder, or yourself — before starting.
 
 ```
-/solace-intake --template     → generates blank YAML and Markdown intake forms
+/solace-intake --template     → generates blank intake forms in the intake/ folder
   ... customer fills them out offline ...
-/solace-intake path/to/filled-intake.yaml     → validates, asks follow-ups, creates project
+/solace-intake intake/filled-intake.docx     → validates, asks follow-ups, creates project
   → automatically chains to /solace-plan
 ```
 
@@ -226,26 +226,26 @@ Does not cover: architecture design. Intake gathers and validates facts, then de
 
 ### Inputs
 
-- **Template mode:** No project state needed. Generates files in the current directory.
-- **Import mode:** A completed YAML or Markdown intake file. Creates a new project from the intake data.
+- **Template mode:** No project state needed. Generates files in the `intake/` folder.
+- **Import mode:** A completed Word (.docx), YAML, or Markdown intake file. Creates a new project from the intake data.
 - **User input requested:** Follow-up questions for missing required fields, domain-specific clarifications, ambiguity resolution.
 
 ### Steps
 
 1. **Determine mode.** Parse the invocation: `--template` for template generation, a file path for import, or ask the user which mode.
-2. **Template mode (T1–T2).** Generate `solace-intake-template.yaml` (machine-readable) and `solace-intake-template.md` (human-friendly). Present both files with usage instructions. Stop.
+2. **Template mode (T1–T3).** Ask the user for format (Word, YAML, Markdown, or all). Generate the chosen template files in the `intake/` folder. Present with usage instructions. Stop.
 3. **Import mode (I1–I7).** Read and parse the intake file. Validate completeness across five categories (project, landscape, domain, requirements, goals). Create the project directory structure. Ask domain-specific follow-up questions for empty fields. Resolve ambiguities and contradictions. Synthesize the discovery brief (same format as `/solace-discovery` output). Record decisions and mark both intake and discovery as complete.
 4. **Hand off to `/solace-plan`.** Import mode automatically chains to the plan orchestrator.
 
 ### Outputs
 
-- **Template mode:** `solace-intake-template.yaml`, `solace-intake-template.md` in the current directory
+- **Template mode:** `intake/solace-intake-template.{docx,yaml,md}` (whichever formats were selected)
 - **Import mode:** `artifacts/01-discovery/discovery-brief.md`, `decisions.yaml`, `progress.yaml` with intake and discovery marked complete
 - **Chains to:** `/solace-plan` (from import mode) or `/solace-discovery` (if intake was too sparse)
 
 ### Example
 
-An SA sends the Markdown template to a banking customer. The customer fills in their systems (core banking, Salesforce, knowledge base), selects "SAM integration" as project type, checks "Mixed" delivery mode, and notes PCI-DSS requirements. The SA runs `/solace-intake path/to/filled-intake.yaml`. Intake validates 80% completeness, asks three banking-specific follow-ups about authorization model and data classification, resolves that "mixed delivery" means transfers are Guaranteed and balance checks are Direct, and produces the discovery brief. The engagement starts running automatically.
+An SA sends the Word template to a banking customer. The customer fills in their systems (core banking, Salesforce, knowledge base), selects "SAM integration" as project type, checks "Mixed" delivery mode, and notes PCI-DSS requirements. The SA runs `/solace-intake intake/filled-intake.docx`. Intake validates 80% completeness, asks three banking-specific follow-ups about authorization model and data classification, resolves that "mixed delivery" means transfers are Guaranteed and balance checks are Direct, and produces the discovery brief. The engagement starts running automatically.
 
 ---
 
