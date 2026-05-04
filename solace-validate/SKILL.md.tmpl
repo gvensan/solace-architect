@@ -100,6 +100,9 @@ Check every artifact against every relevant antipattern:
 - [ ] No custom client library when a Solace API exists
 - [ ] No skipping Schema Registry for OT data
 - [ ] No SAM deployed without event mesh foundation
+- [ ] No cataloged MI selected without behavioral fitness check (MI behavior verified
+  against stated requirements, not just matched by name and direction)
+- [ ] No custom MI designed when a cataloged path exists (direct or indirect)
 
 ---
 
@@ -159,6 +162,60 @@ Verify that the architecture is complete for the stated requirements:
 
 ---
 
+## Step 3b: Requirement satisfaction tracing
+
+This step traces each stated requirement from the discovery brief through the
+full architecture to verify it has a complete delivery path. Internal consistency
+(Step 2) checks that components agree with each other. This step checks that the
+assembled system actually delivers what was asked for.
+
+**Process:**
+
+1. Re-read the discovery brief (`artifacts/01-discovery/discovery-brief.md`).
+   Extract every stated requirement and every open question.
+
+2. **For each requirement**, trace the path from trigger to outcome:
+   - Name the trigger event (what starts the flow)
+   - Name each component the event passes through, in order
+   - Name the terminal action (what the user expects to happen at the end)
+   - Verify that the terminal action satisfies the requirement as stated
+
+   If any step in the path is missing, under-specified, or depends on a component
+   that has no design artifact, flag it as a **fail**.
+
+   Example trace: "Requirement: every file change in GCS must appear in S3.
+   Path: GCS notification → Pub/Sub → Source MI → broker → ??? → file in S3.
+   The notification reaches the broker. No component copies the file to S3.
+   The S3 Producer MI writes notification metadata, not file content. FAIL:
+   no complete path from GCS file to S3 file."
+
+3. **For each open question from discovery**, check whether it was resolved in a
+   downstream skill's decisions. If an open question was never resolved but the
+   architecture implicitly assumes an answer (e.g., a delete topic exists but no
+   delete handling is designed), flag it as a **fail**: "Unresolved open question
+   silently assumed away."
+
+4. **For each custom or non-Solace component** the architecture depends on (byte
+   transfer services, custom consumers, external orchestrators), verify it has a
+   design section that covers: inputs, outputs, error handling, and failure
+   recovery. If it is mentioned in a one-liner but not designed, flag it as a
+   **warning**: "Architecture depends on [component] but no design exists."
+
+**Output format:**
+
+| Requirement | Path | Verdict | Notes |
+|-------------|------|---------|-------|
+| <from brief> | <component chain> | PASS / FAIL / WARN | <what's missing> |
+
+| Open Question | Resolved? | Where | Notes |
+|---------------|-----------|-------|-------|
+| <from brief> | Yes / No | <skill + decision ID> | <if no: what was silently assumed> |
+
+If any requirement traces to FAIL, the architecture is **not ready for blueprint**.
+Flag it as a critical issue in the validation report.
+
+---
+
 ## Step 4: Decision conflict analysis
 
 Read `decisions.yaml` and check for contradictions:
@@ -193,6 +250,10 @@ Structure the report:
 
 ## Cross-Component Consistency
 <pass/fail for each check with details on inconsistencies>
+
+## Requirement Satisfaction
+<requirement trace table — every requirement from discovery brief traced to outcome>
+<open question resolution table — every open question checked for resolution>
 
 ## Completeness
 <pass/fail for each check with details on gaps>

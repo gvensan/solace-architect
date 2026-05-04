@@ -1,0 +1,901 @@
+---
+name: solace-intake
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Generate a pre-engagement intake template for customers, or import a completed
+  intake file to bootstrap discovery and run the full Solace Architect engagement
+  with minimal interactive prompts. Two modes: (1) --template generates blank
+  YAML and Markdown intake forms for offline collection; (2) import reads a
+  completed intake file, validates it, asks only about gaps and domain-specific
+  follow-ups, then hands off to /solace-plan for end-to-end execution.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-intake — Intake Template & Kickstart
+
+You are running the intake skill. Your job is to either generate a blank intake
+template for offline customer collection, or import a completed intake file and
+bootstrap the entire Solace Architect engagement.
+
+---
+
+## Determine mode
+
+Check for an active project:
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -n "$ACTIVE" ] && [ -f "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" ]; then
+  echo "HAS_PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/context.yaml" 2>/dev/null | head -3
+else
+  echo "NO_EXPORTABLE_PROJECT"
+fi
+```
+
+Parse the user's invocation to determine which mode to run:
+
+1. If the argument is `--template` → run **Template Generation Mode** (Step T1–T2)
+2. If the argument is a file path (e.g., `intake.yaml`, `./filled-intake.yaml`) → run **Import Mode** (Step I1–I7)
+3. If the argument is `--export` → run **Export Mode** (Step E1–E2)
+4. If no argument → ask the user:
+
+Use AskUserQuestion. If an active project with a completed discovery brief exists,
+include option C. If no exportable project exists, show only options A and B.
+
+**With active project:**
+```
+What would you like to do with the intake skill?
+
+A) Generate a blank intake template — creates YAML and Markdown files for a customer to fill out offline
+B) Import a completed intake file — provide a path to a filled-in YAML or Markdown intake file
+C) Export intake from current project — generates a filled intake file from the active project's discovery data
+```
+
+**Without active project:**
+```
+What would you like to do with the intake skill?
+
+A) Generate a blank intake template — creates YAML and Markdown files for a customer to fill out offline
+B) Import a completed intake file — provide a path to a filled-in YAML or Markdown intake file
+```
+
+---
+
+## Template Generation Mode
+
+### Step T1: Generate the intake template files
+
+Generate two files in the current working directory:
+
+**File 1: `solace-intake-template.yaml`**
+
+```bash
+cat > solace-intake-template.yaml << 'YAMLEOF'
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  Solace Architect — Intake Template                                        ║
+# ║                                                                            ║
+# ║  Fill in what you know. Leave blank what you don't — we will follow up.    ║
+# ║  When complete, save this file and provide it to your Solace Architect.    ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+# ── Project ──────────────────────────────────────────────────────────────────
+
+project:
+  name: ""
+  # Short identifier for the project.
+  # Examples: "acme-bank-chat", "global-market-data", "factory-telemetry"
+
+  type: ""
+  # Pick one: new_build | migration | extension | sam
+  #   new_build  — Greenfield event-driven system on Solace
+  #   migration  — Moving from an existing messaging platform to Solace
+  #   extension  — Adding capabilities to an existing Solace deployment
+  #   sam        — Building an AI agent system on Solace Agent Mesh
+
+# ── System Landscape ─────────────────────────────────────────────────────────
+
+landscape:
+  systems:
+    # List every system that needs to communicate through the event mesh.
+    # For each system, describe: name, role (producer/consumer/both),
+    # protocol it speaks, and owner/team.
+    #
+    # Examples:
+    # - name: "Core Banking Platform"
+    #   role: producer_consumer
+    #   protocol: REST
+    #   owner: "Core Banking Team"
+    #
+    # - name: "Transaction Database"
+    #   role: consumer
+    #   protocol: JDBC
+    #   owner: "Data Team"
+    - name: ""
+      role: ""          # producer | consumer | producer_consumer
+      protocol: ""      # REST, MQTT, AMQP, JMS, SMF, WebSocket, gRPC, FIX, etc.
+      owner: ""
+
+  existing_messaging: ""
+  # What messaging systems are in place today?
+  # Examples: "IBM MQ for order processing", "Kafka for analytics", "None"
+
+  protocols_in_use: []
+  # What protocols do these systems currently speak?
+  # Examples: [REST, MQTT, JMS, WebSocket]
+
+  events:
+    # What events flow between systems?
+    # For each event, describe: name, approximate rate, delivery mode, payload format.
+    #
+    # Examples:
+    # - name: "order-created"
+    #   rate: "500/sec peak"
+    #   delivery: guaranteed     # direct | guaranteed
+    #   payload: JSON
+    #
+    # - name: "sensor-reading"
+    #   rate: "100/sec per device"
+    #   delivery: direct
+    #   payload: binary
+    - name: ""
+      rate: ""
+      delivery: ""       # direct | guaranteed
+      payload: ""         # JSON, Avro, Protobuf, XML, binary
+
+  volumes: ""
+  # Approximate aggregate event rates.
+  # Example: "~50K events/sec peak, ~2B events/day"
+
+  schemas: ""
+  # Are there existing schemas or an AsyncAPI spec?
+  # Example: "Avro schemas in Confluent Schema Registry", "AsyncAPI 3.0 spec", "None"
+
+  vertical: ""
+  # What industry is this for?
+  # Pick one: banking | capital_markets | manufacturing | healthcare | retail |
+  #           telecom | logistics | energy | government | other
+
+# ── Domain-Specific Details ──────────────────────────────────────────────────
+# Fill ONLY the section that matches your vertical. Leave the others blank.
+
+domain:
+
+  banking:
+    regulatory_constraints: ""
+    # PCI-DSS requirements? Data residency rules (which jurisdiction)?
+    # Audit trail requirements (which events, how long)?
+    # Encryption requirements at rest and in transit?
+
+    existing_messaging_infrastructure: ""
+    # Does the bank run IBM MQ, TIBCO, or Kafka today?
+    # This drives Micro-Integration strategy.
+
+    authorization_model: ""
+    # How do customer permission scopes flow from channel
+    # (web, Slack, mobile) through to backends? Existing IAM (OIDC, SAML)?
+
+    data_classification: ""
+    # Which data classes need Guaranteed messaging for audit compliance
+    # (transactions, fund transfers) versus Direct messaging for
+    # latency-sensitive lookups (balance checks, FAQ)?
+
+    internal_vs_customer_facing: ""
+    # Is this for customers, internal staff, or both?
+
+  capital_markets:
+    latency_budget: ""
+    # What is the latency budget for the hot path (market data to trader screen)?
+    # What about the audit path?
+
+    global_topology: ""
+    # Which trading hubs? (NY, London, Singapore, Tokyo, Hong Kong, Chicago)
+    # Which asset classes at which hubs?
+
+    feed_infrastructure: ""
+    # What feed handlers and market data providers are in use?
+    # (Bloomberg, Refinitiv, direct exchange feeds, etc.)
+    # What protocols do they publish on? (FIX, proprietary binary, TCP multicast)
+
+    existing_messaging: ""
+    # Any existing middleware?
+    # (Kafka, TIBCO, IBM MQ, 29West/Informatica, Solace already)
+
+    compliance_and_replay: ""
+    # Which event streams must be replayable for regulatory audit?
+    # What retention period?
+
+  manufacturing:
+    ot_protocol_inventory: ""
+    # What protocols do machines and sensors speak?
+    # (OPC UA, Modbus, MQTT, DDS, proprietary)
+
+    edge_constraints: ""
+    # What compute is available at the plant floor?
+    # Can a Solace Software Event Broker run there?
+    # WAN connectivity to regional/cloud — how reliable?
+
+    telemetry_vs_command: ""
+    # Does data flow only plant-to-cloud (telemetry), or do commands
+    # flow back (config changes, predictive maintenance)?
+
+    existing_historians_mes: ""
+    # What systems of record exist at the plant?
+    # (OSIsoft PI, Siemens MindSphere, Rockwell FactoryTalk)
+
+  healthcare:
+    hipaa_phi: ""
+    # Which events contain protected health information?
+    # Encryption, access control, audit requirements?
+
+    interoperability_standards: ""
+    # HL7v2, FHIR, or both? What EHR system? (Epic, Cerner, Meditech)
+
+    realtime_vs_batch: ""
+    # Which clinical events need real-time distribution
+    # (alerts, orders, results) versus batch (billing, reporting)?
+
+# ── Requirements ─────────────────────────────────────────────────────────────
+
+requirements:
+  delivery_mode: ""
+  # Pick one: direct | guaranteed | mixed
+  #   direct      — Fire-and-forget, lowest latency
+  #   guaranteed  — Persistent, acknowledged delivery
+  #   mixed       — Some flows direct, some guaranteed (most common)
+
+  ordering: ""
+  # Pick one: none | per_key | global
+  #   none     — No ordering guarantees needed
+  #   per_key  — Ordered within a partition key (e.g., per customer, per device)
+  #   global   — Strict global ordering (rare, significant throughput cost)
+
+  processing_guarantee: ""
+  # Pick one: at_least_once | at_most_once
+  #   at_least_once — Messages never lost; consumers must be idempotent
+  #   at_most_once  — Messages may be lost; no redelivery
+
+  latency_tier: ""
+  # Pick one: sub_millisecond | sub_second | seconds | minutes
+  #   sub_millisecond — Market data, HFT (<1ms)
+  #   sub_second      — Interactive apps, real-time dashboards (<1s)
+  #   seconds         — Business events, notifications (1-10s)
+  #   minutes         — Batch-adjacent, analytics pipelines
+
+  topology: ""
+  # Pick one: single_site | multi_region | hybrid_cloud | edge
+  #   single_site   — One data center or cloud region
+  #   multi_region  — Multiple cloud regions or data centers
+  #   hybrid_cloud  — Mix of on-premise and cloud
+  #   edge          — Edge locations + regional/cloud (IoT, manufacturing)
+
+  sites_and_regions: ""
+  # How many sites, regions, or clouds? Name them if known.
+  # Example: "US-East (AWS), EU-West (Azure), 3 plant floor edge sites"
+
+  it_ot_boundary: ""
+  # Is there an IT/OT boundary? (Manufacturing, utilities, transportation)
+  # Describe the boundary and any constraints.
+
+  growth_expectations: ""
+  # Expected growth over the next 1-3 years?
+  # Example: "2x event volume in 12 months, adding 5 new plants"
+
+  data_residency: ""
+  # Any regulatory constraints on where data can live or move?
+  # Example: "EU data must stay in EU, PCI data cannot leave US"
+
+  operations_team: ""
+  # Who operates the messaging infrastructure?
+  # Example: "Central platform team (3 people)", "App team self-service"
+
+  solace_experience: ""
+  # What is the team's experience with event-driven systems and Solace?
+  # Example: "New to Solace, experienced with Kafka", "Existing Solace customer"
+
+  observability: ""
+  # What observability is in place?
+  # Example: "Datadog for metrics, Jaeger for tracing", "None yet"
+
+  cicd: ""
+  # Is there an existing CI/CD pipeline for infrastructure?
+  # Example: "Terraform + GitHub Actions", "Manual deployment"
+
+# ── Goals ────────────────────────────────────────────────────────────────────
+
+goals:
+  driver: ""
+  # What triggered this project? What problem is being solved?
+  # Example: "IBM MQ end-of-support in 18 months", "Need real-time customer experience"
+
+  timeline: ""
+  # When does this need to be in production?
+  # Example: "MVP in 6 months, full rollout in 12 months"
+
+  budget: ""
+  # Any constraints that affect broker selection?
+  # Example: "Prefer cloud-managed to minimize ops cost", "Must self-host for compliance"
+
+  team_size: ""
+  # How many people will build and operate this?
+  # Example: "8 developers, 2 architects, 1 SRE"
+
+  organizational_constraints: ""
+  # Approval processes, vendor relationships, procurement timelines?
+  # Example: "Vendor approval takes 3 months", "Existing Solace contract"
+
+# ── Preferences ──────────────────────────────────────────────────────────────
+
+preferences:
+  execution_mode: auto
+  # How should the engagement run after intake?
+  # Pick one: auto | interactive
+  #   auto        — Skills run back-to-back, pausing only for design decisions (recommended)
+  #   interactive — Confirm each skill before it runs
+YAMLEOF
+echo "Generated: solace-intake-template.yaml"
+```
+
+**File 2: `solace-intake-template.md`**
+
+```bash
+cat > solace-intake-template.md << 'MDEOF'
+# Solace Architect — Intake Form
+
+> **Instructions:** Fill in what you know. Leave blank what you don't know — we will follow up during the engagement. When complete, save this file and provide it to your Solace Architect.
+
+---
+
+## 1. Project
+
+**Project Name:**
+<!-- Short identifier, e.g., "acme-bank-chat", "global-market-data" -->
+
+
+**Project Type:** *(pick one)*
+- [ ] New build — Greenfield event-driven system on Solace
+- [ ] Migration — Moving from an existing messaging platform to Solace
+- [ ] Extension — Adding capabilities to an existing Solace deployment
+- [ ] SAM integration — Building an AI agent system on Solace Agent Mesh
+
+---
+
+## 2. System Landscape
+
+### Systems
+<!-- List every system that needs to communicate. For each, note: name, role (producer/consumer/both), protocol, and owning team. -->
+
+| System | Role | Protocol | Owner |
+|--------|------|----------|-------|
+|        |      |          |       |
+|        |      |          |       |
+|        |      |          |       |
+
+### Existing Messaging
+<!-- What messaging systems are in place today? (IBM MQ, Kafka, RabbitMQ, TIBCO, none, etc.) -->
+
+
+### Protocols in Use
+<!-- What protocols do these systems currently speak? (REST, MQTT, AMQP, JMS, SMF, WebSocket, gRPC, FIX, etc.) -->
+
+
+### Events
+<!-- What events flow between systems? For each, note: name, approximate rate, delivery mode (direct/guaranteed), and payload format. -->
+
+| Event | Rate | Delivery | Payload Format |
+|-------|------|----------|---------------|
+|       |      |          |               |
+|       |      |          |               |
+|       |      |          |               |
+
+### Aggregate Volumes
+<!-- Approximate total event rates. Example: "~50K events/sec peak, ~2B events/day" -->
+
+
+### Schemas
+<!-- Are there existing schemas or an AsyncAPI spec? -->
+
+
+### Industry Vertical
+<!-- What industry is this for? (Banking, capital markets, manufacturing, healthcare, retail, telecom, logistics, etc.) -->
+
+
+---
+
+## 3. Domain-Specific Details
+<!-- Fill ONLY the section that matches your industry. Delete or leave the others blank. -->
+
+### Banking / Financial Services
+
+**Regulatory constraints:**
+<!-- PCI-DSS? Data residency? Audit trail requirements? Encryption requirements? -->
+
+**Existing messaging infrastructure:**
+<!-- IBM MQ, TIBCO, Kafka? This drives migration/integration strategy. -->
+
+**Authorization model:**
+<!-- How do permission scopes flow from channel to backends? IAM (OIDC, SAML)? -->
+
+**Data classification:**
+<!-- Which data classes need guaranteed delivery for compliance vs. direct for speed? -->
+
+**Internal vs customer-facing:**
+<!-- Is this for customers, internal staff, or both? -->
+
+### Capital Markets
+
+**Latency budget:**
+<!-- Hot path latency (market data to trader screen)? Audit path? -->
+
+**Global topology:**
+<!-- Which trading hubs? Which asset classes at which hubs? -->
+
+**Feed infrastructure:**
+<!-- Feed handlers and market data providers? Protocols they publish on? -->
+
+**Existing messaging:**
+<!-- Existing middleware? (Kafka, TIBCO, 29West, Solace already?) -->
+
+**Compliance and replay:**
+<!-- Which streams need regulatory replay? Retention period? -->
+
+### Manufacturing / IoT
+
+**OT protocol inventory:**
+<!-- Machine/sensor protocols? (OPC UA, Modbus, MQTT, DDS, proprietary) -->
+
+**Edge constraints:**
+<!-- Plant floor compute? Can Solace Software Event Broker run there? WAN reliability? -->
+
+**Telemetry vs command:**
+<!-- One-way telemetry only, or bidirectional with commands? -->
+
+**Existing historians and MES:**
+<!-- OSIsoft PI, Siemens MindSphere, Rockwell FactoryTalk, etc.? -->
+
+### Healthcare
+
+**HIPAA / PHI:**
+<!-- Which events contain PHI? Encryption, access control, audit requirements? -->
+
+**Interoperability standards:**
+<!-- HL7v2, FHIR, or both? What EHR system? -->
+
+**Real-time vs batch:**
+<!-- Which clinical events need real-time vs. batch processing? -->
+
+---
+
+## 4. Requirements
+
+**Delivery mode:** *(pick one)*
+- [ ] Direct — Fire-and-forget, lowest latency
+- [ ] Guaranteed — Persistent, acknowledged delivery
+- [ ] Mixed — Some flows direct, some guaranteed
+
+**Ordering:** *(pick one)*
+- [ ] None — No ordering guarantees needed
+- [ ] Per-key — Ordered within a partition key (per customer, per device)
+- [ ] Global — Strict global ordering
+
+**Processing guarantee:** *(pick one)*
+- [ ] At-least-once — Messages never lost; consumers must be idempotent
+- [ ] At-most-once — Messages may be lost; no redelivery
+
+**Latency tier:** *(pick one)*
+- [ ] Sub-millisecond (<1ms)
+- [ ] Sub-second (<1s)
+- [ ] Seconds (1-10s)
+- [ ] Minutes
+
+**Topology:** *(pick one)*
+- [ ] Single site — One data center or cloud region
+- [ ] Multi-region — Multiple cloud regions or data centers
+- [ ] Hybrid cloud — Mix of on-premise and cloud
+- [ ] Edge — Edge locations + regional/cloud
+
+**Sites and regions:**
+<!-- How many sites/regions/clouds? Name them if known. -->
+
+**IT/OT boundary:**
+<!-- Is there an IT/OT boundary? Describe constraints. -->
+
+**Growth expectations:**
+<!-- Expected growth over the next 1-3 years? -->
+
+**Data residency:**
+<!-- Regulatory constraints on where data can live or move? -->
+
+**Operations team:**
+<!-- Who operates the messaging infrastructure? -->
+
+**Solace/EDA experience:**
+<!-- Team's experience with event-driven systems and Solace? -->
+
+**Observability:**
+<!-- What observability is in place? (Metrics, tracing, logging) -->
+
+**CI/CD:**
+<!-- Existing CI/CD pipeline for infrastructure? -->
+
+---
+
+## 5. Goals
+
+**Driver:**
+<!-- What triggered this project? What problem is being solved? -->
+
+**Timeline:**
+<!-- When does this need to be in production? -->
+
+**Budget:**
+<!-- Constraints that affect broker selection? Cloud-managed vs self-hosted? -->
+
+**Team size:**
+<!-- How many people will build and operate this? -->
+
+**Organizational constraints:**
+<!-- Approval processes, vendor relationships, procurement timelines? -->
+
+---
+
+## 6. Preferences
+
+**Execution mode:** *(pick one)*
+- [x] Auto — Skills run back-to-back, pausing only for design decisions *(recommended)*
+- [ ] Interactive — Confirm each skill before it runs
+MDEOF
+echo "Generated: solace-intake-template.md"
+```
+
+### Step T2: Confirm and present
+
+After generating both files, tell the user:
+
+> **Two intake template files generated:**
+>
+> | File | Format | Use for |
+> |------|--------|---------|
+> | `solace-intake-template.yaml` | YAML | Machine-readable — feed directly back into `/solace-intake` |
+> | `solace-intake-template.md` | Markdown | Human-friendly — share via email, Confluence, Google Docs, or print |
+>
+> **How to use:**
+> 1. Share the Markdown version with your customer or stakeholder
+> 2. Have them fill in what they know (blanks are fine — we follow up)
+> 3. Transfer their answers into the YAML file (or they can fill YAML directly)
+> 4. Run: `/solace-intake path/to/filled-template.yaml`
+>
+> The YAML file is the canonical input. The Markdown file is for human convenience.
+
+Stop here. Do not proceed to import or export mode.
+
+---
+
+## Export Mode
+
+Export a filled intake file from the active project's discovery data. This is useful
+for sharing project context with other teams, archiving a project's inputs, or
+bootstrapping a similar project.
+
+### Step E1: Read project data
+
+```bash
+ACTIVE=$(cat projects/.active)
+echo "=== CONTEXT ==="
+cat "projects/$ACTIVE/context.yaml" 2>/dev/null
+echo ""
+echo "=== DECISIONS ==="
+cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
+echo ""
+echo "=== DISCOVERY BRIEF ==="
+cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
+```
+
+Parse the discovery brief and decisions to extract:
+- Project name and type
+- Systems list with roles and protocols
+- Existing messaging and protocols in play
+- Event types with rates and delivery modes
+- Requirements (delivery mode, ordering, latency, topology, etc.)
+- Goals (driver, timeline, budget, team, constraints)
+- Domain-specific details if present
+
+### Step E2: Generate the filled intake file
+
+Using the extracted data, generate a filled `solace-intake-export.yaml` file.
+Use the same structure as the blank template but populate every field that has
+a known value from the project. Leave fields blank that were not captured.
+
+```bash
+ACTIVE=$(cat projects/.active)
+DISPLAY=$(grep 'display_name' "projects/$ACTIVE/context.yaml" | sed 's/display_name: *//')
+cat > "solace-intake-export.yaml" << 'YAMLEOF'
+<paste the filled YAML intake with all known values populated>
+YAMLEOF
+echo "Exported: solace-intake-export.yaml"
+```
+
+Present a summary:
+
+> **Intake export complete.**
+>
+> | Metric | Value |
+> |--------|-------|
+> | Source project | <project name> |
+> | Fields populated | N |
+> | Fields left blank | N |
+>
+> File saved: `solace-intake-export.yaml`
+>
+> **How to use:**
+> - Share with another team to bootstrap a similar engagement
+> - Import into a new project: `/solace-intake solace-intake-export.yaml`
+> - Archive as a record of the project's input assumptions
+
+Stop here. Do not proceed to import mode.
+
+---
+
+## Import Mode
+
+### Step I1: Read and parse the intake file
+
+Read the file provided by the user:
+
+```bash
+cat "<file-path>"
+```
+
+Determine the file format:
+- If `.yaml` or `.yml` → parse as YAML
+- If `.md` → parse as Markdown (extract values from the structured sections)
+
+Extract all fields into a structured understanding. Track which fields are:
+- **Populated** — has a meaningful value
+- **Empty** — blank, empty string, or placeholder
+- **Invalid** — value doesn't match expected options (e.g., `delivery_mode: "fast"`)
+
+### Step I2: Validate completeness
+
+Classify fields into three tiers:
+
+**Required** (cannot proceed without):
+- `project.name`
+- `project.type`
+- At least 1 system in `landscape.systems`
+- `landscape.vertical`
+
+**Important** (should have, will ask if missing):
+- `requirements.delivery_mode`
+- `requirements.topology`
+- `requirements.latency_tier`
+- `goals.driver`
+- `goals.timeline`
+
+**Optional** (nice to have, won't block):
+- Everything else
+
+Present a completeness report:
+
+> **Intake Validation Report**
+>
+> | Category | Populated | Empty | Invalid |
+> |----------|-----------|-------|---------|
+> | Project | N/M | N/M | N/M |
+> | Landscape | N/M | N/M | N/M |
+> | Domain | N/M | N/M | N/M |
+> | Requirements | N/M | N/M | N/M |
+> | Goals | N/M | N/M | N/M |
+>
+> **Status:** ✅ Ready to proceed / ⚠ Missing required fields / ❌ Cannot proceed
+
+If there are invalid values, list them and ask the user to correct.
+
+If required fields are missing, ask the user to provide them before proceeding.
+Use AskUserQuestion for multiple-choice fields, free-text prompt format for open fields.
+Batch the missing fields into as few prompts as possible.
+
+### Step I3: Create the project
+
+Once validation passes, create the project using the same structure as the root skill:
+
+```bash
+PROJECT_SLUG="<slugified project.name>"
+DISPLAY_NAME="<project.name>"
+mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint,13-event-portal,14-executive}
+cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
+name: $PROJECT_SLUG
+display_name: $DISPLAY_NAME
+created: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+status: active
+source: intake
+CTXEOF
+cat > "projects/$PROJECT_SLUG/decisions.yaml" << DECEOF
+execution_mode: <auto or interactive from preferences.execution_mode, default auto>
+decisions: []
+DECEOF
+cat > "projects/$PROJECT_SLUG/progress.yaml" << PROGEOF
+progress: []
+PROGEOF
+cat > "projects/$PROJECT_SLUG/feedback.yaml" << FBEOF
+feedback: []
+FBEOF
+echo "$PROJECT_SLUG" > projects/.active
+```
+
+### Step I4: Domain-specific follow-up questions
+
+Based on the `landscape.vertical` field, check whether the domain-specific section
+was filled in the intake. If domain fields are mostly empty, ask the domain-specific
+questions interactively using the **free-text prompt format**.
+
+**Banking / Financial Services** (if `vertical` is `banking`):
+
+Check if `domain.banking.*` fields are populated. For each empty field, include it
+in a consolidated follow-up prompt:
+
+> A few banking-specific questions that weren't covered in the intake form.
+> Answer in your own words — these are open questions, not options to pick from:
+>
+> • **<field label>:** <question text>
+> • ...
+>
+> Type your answers below — as much or as little as you have.
+
+Apply the same pattern for **Capital Markets**, **Manufacturing / IoT**, and **Healthcare**.
+
+If domain fields are already populated from the intake, skip this step entirely.
+
+### Step I5: Resolve ambiguities and contradictions
+
+Review the complete intake data for:
+
+1. **Contradictions** — e.g., `topology: single_site` but `sites_and_regions` lists
+   3 regions. Ask the user to clarify.
+
+2. **Ambiguous "mixed" selections** — if `delivery_mode: mixed`, check whether the
+   events list specifies which events are direct vs guaranteed. If not, ask:
+
+   > You selected "mixed" delivery mode. Looking at your events, which flows
+   > need guaranteed delivery and which can use direct?
+   >
+   > | Event | Suggested delivery | Reason |
+   > |-------|-------------------|--------|
+   > | <event> | <direct/guaranteed> | <why> |
+   >
+   > Does this look right, or would you change any?
+
+3. **Missing event details** — if events are listed but rates or delivery modes
+   are blank, suggest reasonable defaults based on the vertical and ask for confirmation.
+
+### Step I6: Synthesize the discovery brief
+
+Using all collected data (intake + follow-ups), produce the discovery brief in the
+same format as `/solace-discovery` Step 4:
+
+```markdown
+# Discovery Brief: <Project Name>
+
+## System landscape
+- Systems: <list with roles (producer/consumer/both)>
+- Existing messaging: <current systems, if any>
+- Protocols in play: <list>
+- Event types: <list with approximate rates>
+- Matched reference architecture: <Pattern N: name, or "None — custom architecture">
+- Micro-Integration availability: <for each backend, check {{GROUNDING_DIR}}/integration-hub-catalog.md>
+
+## Requirements
+- Delivery guarantee: <Direct / Guaranteed / Mixed>
+- Ordering: <none / partition / global>
+- Latency target: <value>
+- Scale: <sites, regions, growth trajectory>
+- Topology: <single-site / multi-region / hybrid / edge>
+
+## Goals
+- Project type: <new build / migration / extension / SAM>
+- Driver: <what triggered this>
+- Timeline: <when>
+- Constraints: <budget, team, regulatory>
+
+## Open questions
+- **[Blocking]** <question> — Affects: <which skills depend on answer>
+- **[Advisory]** <question> — Default assumption: <what will be assumed>
+
+## Recommended next steps
+- <skills to run next>
+```
+
+Before generating the brief, read the reference architectures and integration hub catalog
+to match patterns and check Micro-Integration availability:
+
+```bash
+cat {{GROUNDING_DIR}}/solace-reference-architectures.md
+```
+
+```bash
+cat {{GROUNDING_DIR}}/integration-hub-catalog.md
+```
+
+Save the brief:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" << 'BRIEFEOF'
+<paste the full discovery brief content here>
+BRIEFEOF
+```
+
+Record decisions from the intake in `decisions.yaml`. Map each selection to a decision
+entry with the format:
+
+```
+- id: D<N>
+  skill: solace-intake
+  question: "<field label>"
+  choice: "<selected value>"
+  reason: "Provided via intake template"
+```
+
+Update progress:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 -c "
+import yaml, datetime
+data = {'progress': [{
+    'skill': 'solace-intake',
+    'status': 'complete',
+    'started': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'completed': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'summary': '<one-line summary>',
+    'step_reached': 'intake complete',
+    'artifacts': [{'path': 'artifacts/01-discovery/discovery-brief.md', 'type': 'document', 'description': 'Discovery brief (from intake)'}]
+}, {
+    'skill': 'solace-discovery',
+    'status': 'complete',
+    'started': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'completed': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'summary': 'Bootstrapped from intake template',
+    'step_reached': '5/5 — synthesis complete',
+    'artifacts': [{'path': 'artifacts/01-discovery/discovery-brief.md', 'type': 'document', 'description': 'Discovery brief'}]
+}]}
+with open('projects/$ACTIVE/progress.yaml', 'w') as f:
+    yaml.dump(data, f, default_flow_style=False)
+" 2>/dev/null || echo "Progress update requires PyYAML — update manually if needed"
+```
+
+If the python/yaml approach fails, use the Edit tool to write progress.yaml directly.
+
+### Step I7: Present brief and hand off to /solace-plan
+
+Present the discovery brief to the user. Summarize:
+
+> **Intake import complete.**
+>
+> | Metric | Value |
+> |--------|-------|
+> | Fields populated from template | N |
+> | Follow-up questions asked | N |
+> | Open questions remaining | N (M blocking, K advisory) |
+> | Execution mode | auto / interactive |
+>
+> Discovery brief saved. The engagement is ready to run.
+
+Then immediately invoke `/solace-plan` to start the full engagement.
+Do not wait for user confirmation — the intake was the confirmation.
+The plan skill will pick up the discovery brief and orchestrate all remaining skills.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: {{INVOKE_SKILL:solace-plan}} — Run the full engagement based on the intake
+- Alternate: {{INVOKE_SKILL:solace-discovery}} — Run full interactive discovery instead (if intake was too sparse)

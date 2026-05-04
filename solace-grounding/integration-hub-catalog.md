@@ -102,7 +102,7 @@ If a system is not in this catalog, it does not mean no Micro-Integration exists
 | Micro-Integration | Direction | Platform | Notes |
 |---|---|---|---|
 | Apigee | Source, Target | Cloud-Managed, Self-Managed | API management integration |
-| Boomi Integration | Source, Target | Self-Managed | Boomi iPaaS connector; certified by MuleSoft |
+| Boomi Integration | Source, Target | Self-Managed | Boomi iPaaS connector (Dell Technologies) |
 | MuleSoft Anypoint Platform | Source, Target | Self-Managed | Certified MuleSoft connector; available in Anypoint Exchange |
 | SAP Integration Suite | Source, Target | Self-Managed | SAP IS connects to Solace queues and topics |
 

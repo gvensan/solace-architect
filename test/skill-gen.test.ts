@@ -46,9 +46,9 @@ describe('resolver registry', () => {
 });
 
 describe('template discovery', () => {
-  test('discovers all 19 skill templates', () => {
+  test('discovers all 23 skill templates', () => {
     const templates = discoverTemplates(ROOT);
-    expect(templates.length).toBe(19);
+    expect(templates.length).toBe(23);
   });
 
   test('all templates produce output files', () => {

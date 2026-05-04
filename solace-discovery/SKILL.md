@@ -139,6 +139,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -174,6 +175,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -662,11 +665,12 @@ ACTIVE=$(cat projects/.active 2>/dev/null)
 [ -n "$ACTIVE" ] && cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A2 "solace-discovery" | grep "status:" || echo "NO_DISCOVERY"
 ```
 
-If the active project already has `status: complete` for solace-discovery, warn the user:
-"This project already has a completed discovery brief. Running discovery again will
-overwrite it." Use AskUserQuestion with the full D<N> format. Default recommendation:
-B (Create new project). Options: A) Overwrite and start fresh, B) Create a new project
-instead, C) Cancel.
+If the active project already has `status: complete` for solace-discovery, **remember
+the active project slug as the source project** — you will need it if the user picks
+option B. Then warn the user: "This project already has a completed discovery brief.
+Running discovery again will overwrite it." Use AskUserQuestion with the full D<N>
+format. Default recommendation: B (Create new project). Options: A) Overwrite and
+start fresh, B) Create a new project instead, C) Cancel.
 
 **If an active project has `status: in-progress` for solace-discovery:** This is a
 resume scenario. Follow the resume behavior from the Progress Tracking section in the
@@ -690,7 +694,7 @@ input:
 ```bash
 PROJECT_SLUG="<slugified-name>"
 DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint}
+mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint,13-event-portal,14-executive}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
 display_name: $DISPLAY_NAME
@@ -717,6 +721,63 @@ echo "$PROJECT_SLUG" > projects/.active
 ```
 
 Confirm the project was created and proceed with discovery.
+
+### Source context import (option B only)
+
+**If the new project was created because the user chose option B above**, the source
+project has a completed discovery brief with system landscape, requirements, and goals
+already documented. Before asking the landscape questions from scratch, offer to reuse
+that context. Read the source brief:
+
+```bash
+cat "projects/<source-project-slug>/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
+```
+
+Use AskUserQuestion with the full D<N> format. Default recommendation: A (use source
+context).
+
+D<N> -- Source context
+Context: The source project <source-slug> has a completed discovery brief. Importing
+it saves you from re-entering system landscape, requirements, and goals. You can still
+refine or update anything that has changed.
+
+Options:
+A) Use context from <source-slug> (recommended) — import the discovery findings and
+   refine from there
+B) Start fresh — enter all system details from scratch
+
+**If the user selects A:**
+
+1. Copy the source discovery brief to the new project:
+
+```bash
+ACTIVE=$(cat projects/.active)
+cp "projects/<source-project-slug>/artifacts/01-discovery/discovery-brief.md" \
+   "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md"
+```
+
+2. Summarize what was imported (system landscape, key requirements, goals — keep it
+   to 3-5 bullet points so the user can quickly confirm).
+
+3. Ask the user as plain prose (not AskUserQuestion):
+
+> The discovery brief from <source-slug> has been imported. Review the summary above.
+> Answer in your own words — these are open questions, not options to pick from:
+>
+> • **What has changed?** Any systems added, removed, or modified since the original project?
+> • **New requirements?** Different delivery, latency, ordering, or topology needs?
+> • **Updated goals?** Changed timeline, team, or constraints?
+>
+> Type your answers below — or say "no changes" to keep everything as-is.
+
+4. If the user indicates changes, update the discovery brief accordingly and save it.
+   If no changes, proceed as-is.
+
+5. Skip directly to Step 5 (execution mode and next steps) — the landscape,
+   requirements, and goals are already captured from the source project.
+
+**If the user selects B:** Proceed normally with Step 1 (landscape questions from
+scratch). Do not read or reference the source project's discovery brief.
 
 ---
 
@@ -900,9 +961,11 @@ need the user to describe their situation in their own words.
 **Reliability — use AskUserQuestion (full D<N> format) for each of these:**
 - Delivery mode: Direct messaging / Guaranteed messaging / Mixed — recommend based on
   the data classification from Step 1 (transactions → Guaranteed, telemetry → Direct)
-- Ordering: none / per-partition / global — recommend based on the event types identified
-- Processing guarantee: exactly-once / at-least-once with idempotent consumers — recommend
-  based on the compliance requirements from domain questions
+- Ordering: none / per-key (partitioned queue) / global — recommend based on the event types identified
+- Processing guarantee: at-least-once with idempotent consumers / at-most-once — recommend
+  based on the compliance requirements from domain questions. Solace provides at-least-once
+  via Guaranteed messaging. Exactly-once requires application-level idempotency (not a
+  broker-native feature).
 - Latency tier: sub-millisecond / sub-second / seconds / minutes — recommend based on
   the use case (market data → sub-ms, audit trail → seconds)
 
@@ -983,7 +1046,20 @@ produce a **Discovery Brief** in this structure:
 - Constraints: <budget, team, regulatory>
 
 ## Open questions
-- <things that still need answers before architecture can proceed>
+
+Classify each open question as **Blocking** or **Advisory**.
+
+- **Blocking:** Must be resolved before downstream skills can finalize design.
+  The architecture cannot be validated or blueprinted with this question open.
+  Examples: delete propagation strategy, file transfer mechanism, data residency
+  constraints that affect broker placement.
+- **Advisory:** Good to resolve but the architecture can proceed with a stated
+  assumption. The assumption must be documented. Examples: exact monitoring tool
+  choice, CI/CD pipeline details, team onboarding sequence.
+
+Format:
+- **[Blocking]** <question> — Affects: <which skills/components depend on the answer>
+- **[Advisory]** <question> — Default assumption: <what the architecture will assume if not resolved>
 
 ## Recommended next steps
 - <what to do next — typically a specific architecture skill>

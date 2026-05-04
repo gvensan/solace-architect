@@ -32,6 +32,22 @@ Solace event brokers are middleware that mediate event message communication bet
 
 Brokers of all three types can participate in a single event mesh. Solace event brokers can also coexist with non-Solace event brokers (Kafka is named in Solace docs as a supported third-party event broker type within an EDA).
 
+### Message VPNs
+
+A message VPN (Virtual Private Network) is a virtual partition within a Solace event broker that provides network-level separation for messaging. Each message VPN is an isolated messaging domain with its own:
+
+1. **Client usernames, client profiles, and ACL profiles** — authentication and authorization are scoped per VPN.
+2. **Queues, topic endpoints, and subscriptions** — messaging objects are VPN-local.
+3. **REST delivery points** — webhook-style outbound delivery configured per VPN.
+4. **Replication** — DR replication operates at the VPN level. The active VPN handles traffic; the standby VPN on the backup broker takes over on failover.
+5. **DMR participation** — a message VPN can participate in DMR. Replication mates appear as a single node to DMR, with data channels active only on the active VPN.
+
+Message VPNs are the unit of multi-tenancy on a single broker. Multiple applications or teams can share a broker with full isolation. VPN-level quotas control maximum connections, subscriptions, spool usage, and egress/ingress rates.
+
+Every client connection is to a specific message VPN. Broker-level HA (primary/backup/monitoring) fails over all VPNs on the broker together — VPN-level failover granularity is not supported.
+
+Solace Cloud event broker services include a default message VPN. Self-managed brokers can host multiple VPNs on a single broker instance.
+
 ### Smart Topic Architecture
 
 Topics are hierarchical strings (`a/b/c/.../n`) attached to messages as metadata, used for both event description and routing. Solace topics support:
@@ -65,7 +81,53 @@ Solace's own documentation names these anti-patterns explicitly. The validation 
 
 ### Endpoints: Queues and Topic Endpoints
 
-Subscriptions can be associated with endpoints on the broker, which retain messages for consumers that may not be continuously connected. Two endpoint types exist (queues and topic endpoints); detailed choice criteria live in the canonical sources.
+Endpoints are broker-managed objects that persist messages for Guaranteed messaging consumers. Two types:
+
+1. **Queues** — durable message stores that decouple producers from consumers. Support multiple topic subscriptions per queue. Two consumer binding modes:
+   - **Exclusive queue** — one consumer owns the queue at a time. Guarantees strict message ordering. If the consumer disconnects, another can bind and take over.
+   - **Non-exclusive queue** — multiple consumers bind concurrently. Broker distributes messages round-robin across consumers. Enables horizontal scaling but does not guarantee per-message ordering across consumers.
+
+2. **Topic endpoints** — similar to queues but bound to exactly one topic subscription. Used when a single subscription defines the message stream. Less common than queues in practice.
+
+#### Partitioned queues
+
+Partitioned queues combine the ordering guarantees of exclusive queues with the scaling benefits of non-exclusive queues. Messages with the same partition key always route to the same consumer, preserving per-key ordering while allowing different keys to be processed in parallel by different consumers.
+
+- **Partition key** — set by the publisher in the message header. Common keys: customer ID, order ID, file path, device ID.
+- **Rebalancing** — when consumers join or leave, the broker rebalances partitions across active consumers.
+- **Use case** — per-entity ordering at scale: "all events for the same customer in order, different customers in parallel."
+
+#### Dead Message Queue (DMQ)
+
+A DMQ is a special queue where the broker moves messages that cannot be successfully consumed. Messages land in the DMQ when:
+
+1. **Max redelivery exceeded** — the message was nacked or not acknowledged more than the configured max redelivery count.
+2. **TTL expired** — the message's time-to-live elapsed before it was consumed.
+3. **Max message size exceeded** — the message exceeds the queue's max message size.
+
+Each queue can designate a DMQ. Without a DMQ, messages that exceed redelivery or TTL limits are silently discarded. Production queues should always have a DMQ configured with alerting on depth > 0.
+
+#### Queue configuration parameters
+
+Key per-queue settings that affect architectural decisions:
+
+- **Max spool usage** — maximum message spool quota for the queue (MB). Prevents one queue from consuming all broker spool.
+- **Max redelivery count** — how many times a nacked message is redelivered before moving to DMQ.
+- **Max TTL** — time-to-live for messages on the queue.
+- **Reject-on-max-spool** — whether the broker rejects new messages when the queue reaches its spool limit, or discards oldest messages.
+- **Access type** — exclusive or non-exclusive.
+- **Partition count and rebalance delay** — for partitioned queues.
+
+### Message Replay
+
+Message replay allows consumers to replay previously consumed Guaranteed messages from a queue or topic endpoint. Two replay modes:
+
+1. **Time-based replay** — replay all messages from a specific timestamp forward. Useful for recovery scenarios, reprocessing after a bug fix, or onboarding new consumers.
+2. **Replication-group-message-ID-based replay** — replay from a specific message ID. More precise than time-based.
+
+Replay requires replay log to be enabled on the broker. Messages are retained in the replay log according to the configured retention policy (time-based or spool-based). Replay does not remove messages from the original queue; it re-delivers copies.
+
+Not all consumers need replay. It is a design decision per endpoint based on recovery requirements.
 
 ### Message Delivery Modes
 
@@ -75,6 +137,66 @@ Solace event brokers support two delivery modes:
 2. **Guaranteed messaging** — persistent, acknowledged, lossless once acknowledged by the broker. Subscriptions bind to endpoints, not clients.
 
 Transactions are a separate feature applied within Guaranteed messaging.
+
+### Transactions
+
+Solace supports two transaction models for Guaranteed messaging:
+
+1. **Local transactions** — group multiple Guaranteed messages into a single atomic commit within one session. All messages in the transaction are published (or consumed) as a unit; either all succeed or all roll back.
+2. **XA transactions** — distributed transactions across Solace and external resource managers (databases, JMS providers). Coordinated by an external transaction manager using the XA two-phase commit protocol.
+
+Local-transaction messages do not generate trace messages for Distributed Tracing. Use case: financial flows, order processing, and other scenarios requiring atomic multi-queue operations.
+
+### Message Eliding
+
+A Direct messaging feature where the broker discards older undelivered messages when a consumer cannot keep up, delivering only the latest message per topic. This ensures slow consumers always receive the most recent value rather than queuing stale data.
+
+Use cases: market data tickers, IoT sensor telemetry, status dashboards where the latest value wins. Not applicable to Guaranteed messaging.
+
+### Solace Cache / CacheInstance
+
+Last-value caching for Direct messaging topics. A CacheInstance stores the most recent message published on each topic matching its configured topic subscriptions. Late-joining subscribers request the last cached message rather than waiting for the next publish.
+
+Configured per CacheInstance with topic subscriptions that define which topics are cached. Use cases: market data last-value lookup, device status caches, reference data distribution.
+
+### Shared Subscriptions
+
+A load-balancing mechanism for Direct messaging. Multiple consumers share a subscription and the broker distributes messages across them, enabling horizontal scaling for Direct messaging workloads.
+
+Semantics differ across protocols: MQTT uses `$share` groups, SMF uses shared subscriptions. Provides consumer scaling for Direct messaging similar to how non-exclusive queues scale Guaranteed messaging.
+
+### Message Priority
+
+Messages carry a priority level (0-255 in the native SMF API, mapped to 0-9 for JMS clients, where 0 is lowest) as a message header property. The broker delivers higher-priority messages before lower-priority messages within a queue.
+
+Use cases: control messages before data messages, premium customers before standard. Priority is per-message, not per-topic — set by the publisher in the message header.
+
+### Message VPN Bridges
+
+Bridges connect message VPNs on the same or different brokers. A bridge forwards messages matching configured subscriptions from one VPN to another, enabling controlled cross-VPN event sharing.
+
+Use cases: cross-team event sharing, staged environments, VPN consolidation. Distinct from DMR — bridges are point-to-point VPN connections, DMR is mesh-level routing.
+
+### REST Delivery Points (RDPs)
+
+A REST delivery point is a broker-managed outbound webhook mechanism. It delivers Guaranteed messages from a queue to an external HTTP/HTTPS endpoint. RDPs are the mechanism by which Broker Integrated Micro-Integrations (e.g., Amazon S3 Producer, Google Cloud Storage Producer, AWS Lambda Producer) deliver messages to external services.
+
+Components of an RDP:
+
+1. **REST delivery point** — the container object. Configured per message VPN.
+2. **Queue binding** — binds a queue to the RDP. Messages arriving on the queue are delivered via the RDP.
+3. **REST consumer** — the HTTP endpoint configuration (URL, authentication, TLS settings).
+
+RDP behavior:
+
+- Messages are delivered as HTTP POST requests to the configured endpoint.
+- The broker expects an HTTP 2xx response as acknowledgment. Non-2xx responses trigger retry.
+- Built-in retry with configurable backoff (including exponential backoff).
+- Messages that exhaust retries follow the queue's DMQ configuration.
+- Multiple REST consumers can be configured for load distribution.
+- TLS is supported and recommended for production.
+
+RDPs are distinct from REST messaging (where clients publish/subscribe via REST). RDPs are broker-initiated outbound delivery; REST messaging is client-initiated inbound/outbound.
 
 ### Multi-broker mesh and Dynamic Message Routing (DMR)
 
@@ -91,9 +213,39 @@ In Solace Cloud, DMR is enabled automatically for service classes other than Dev
 
 ### High Availability and Disaster Recovery
 
-Brokers support HA configurations within a site and DR via replication across sites. Replication interoperates with DMR (replication mates appear as a single node to DMR). HA is enabled by default for Solace Cloud event broker services.
+#### HA within a site
 
-(Note: Detailed HA topologies, failover behavior, replication semantics, and Config-Sync mechanisms have not been deep-fetched into this reference. Skills addressing HA/DR depth should consult the dedicated DR/Replication documentation directly.)
+Solace HA uses a **three-node redundancy group**: primary, backup, and monitoring.
+
+1. **Primary broker** — handles all client connections and message traffic.
+2. **Backup broker** — maintains synchronized state via a **mate link** to the primary. Ready to take over on failover.
+3. **Monitoring broker** — provides quorum for failover decisions. Prevents split-brain when network partitions occur between primary and backup.
+
+HA operates at the broker level. All message VPNs on a broker fail over together. VPN-level failover granularity is not supported.
+
+**Config-Sync** keeps configuration consistent across the primary and backup brokers. When configuration changes are made on the active broker, Config-Sync propagates them to the standby. This ensures the standby broker is ready to serve clients with identical configuration after failover.
+
+**Client reconnection:** Solace messaging APIs support automatic reconnect to the backup broker on failover. Applications using the Solace API do not need custom failover logic — the API handles reconnection, session recovery, and message redelivery.
+
+For **Solace Cloud event broker services**, HA is enabled by default for Enterprise and higher service classes. The three-node model is managed by Solace. Developer class does not include HA.
+
+#### DR across sites
+
+DR uses **replication** to copy messages from a primary site to a DR site:
+
+1. **Replication groups** — pairs of message VPNs (one active, one standby) across sites.
+2. **Replication modes** — synchronous (zero RPO, higher latency) or asynchronous (near-zero RPO, lower latency).
+3. **DMR interaction** — replication mates appear to DMR as a single node. The active VPN handles DMR data channels. On failover, the standby VPN takes over DMR participation.
+4. **Active/standby** is the standard DR topology. Solace does not natively support active/active DR with automatic conflict resolution.
+
+#### DMR link configuration
+
+DMR links come in two forms:
+
+1. **Internal links** — within a DMR cluster. Form a full mesh automatically. Carry both Direct and Guaranteed messages.
+2. **External links** — between DMR clusters. Configured selectively. Support **compressed** and **uncompressed** modes — compressed links reduce bandwidth for WAN transport at the cost of CPU.
+
+Guaranteed messaging across DMR external links requires explicit queue-to-queue bridging configuration. Direct messaging propagates automatically via subscription propagation. This distinction is architecturally significant: Guaranteed cross-site delivery requires more configuration than Direct.
 
 ### Distributed Tracing
 
@@ -201,7 +353,16 @@ Solace publishes messaging APIs for the following languages, designed as the bas
 10. Node.js
 11. Python
 
-SEMP (Solace Element Management Protocol) is the management API for broker administration. SDKPerf is the official performance testing tool.
+#### SEMP (Solace Element Management Protocol)
+
+SEMP v2 is the RESTful management API for broker administration and monitoring. Two sub-APIs:
+
+1. **SEMP Config API** — create, read, update, delete broker configuration objects (message VPNs, queues, client profiles, ACL profiles, REST delivery points, etc.). Used for infrastructure-as-code, CI/CD automation, and programmatic provisioning.
+2. **SEMP Monitor API** — read-only access to broker statistics, client connections, queue depths, spool usage, and operational state. Used for custom monitoring dashboards, alerting integrations, and operational scripts.
+
+SEMP is available on all broker types (Cloud, Software, Appliance). Solace Cloud exposes SEMP endpoints for each event broker service. Access is controlled by SEMP authentication (username/password or OAuth) and can be restricted by management ACLs.
+
+**SDKPerf** is the official Solace performance testing tool for benchmarking message throughput, latency, and broker capacity under load.
 
 ### Protocols
 
@@ -268,17 +429,42 @@ These concerns are not exclusive to one layer; they shape every architectural de
 6. DMR cluster (full-mesh internal links) for horizontal scaling within a site or cloud region.
 7. DMR external links between clusters for multi-site scaling and selective propagation.
 
+**Solace PubSub+ Kubernetes Operator:** For Kubernetes deployments of Software Event Brokers, the Kubernetes Operator automates broker lifecycle management including deployment, scaling, HA configuration, and upgrades. The Operator manages broker pods as StatefulSets, persistent volumes for message spool, and ConfigMaps for broker configuration. It supports rolling upgrades, automated HA configuration, and integration with Kubernetes-native monitoring. Helm charts are the primary installation mechanism.
+
 (Note: Detailed sizing tables, broker SKU selection, and production HA topology templates have not been pulled into this reference. Skills addressing those depths should consult Solace Admin and Cloud documentation directly.)
 
 ### Security and access control
 
-Confirmed surface from documentation reviewed:
+#### Authentication
 
-1. **Client profiles and ACL profiles** assigned to client usernames, controlling connection properties and topic publish/subscribe permissions. ACLs support topic-level wildcards and substitution expressions for fine-grained, per-client entitlements.
+Solace brokers support multiple client authentication methods:
+
+1. **Client username/password** — basic authentication per message VPN. Simplest model.
+2. **Client certificate authentication** — mutual TLS. Clients present X.509 certificates. Broker validates against a trusted CA chain. Supports CRL (Certificate Revocation List) and OCSP (Online Certificate Status Protocol) for revocation checking.
+3. **OAuth 2.0** — token-based authentication. Clients present JWT or opaque tokens. Broker validates tokens against a configured authorization server (JWKS endpoint or introspection endpoint). Supports token scope extraction for authorization decisions.
+4. **Kerberos** — GSSAPI/SPNEGO authentication for enterprise environments with existing Kerberos infrastructure.
+5. **LDAP** — broker delegates authentication to an LDAP directory server.
+6. **RADIUS** — remote authentication against a RADIUS server.
+
+Authentication is configured per message VPN. Different VPNs can use different authentication methods.
+
+#### Authorization
+
+1. **Client profiles** — control connection-level properties: max connections, max subscriptions, Guaranteed messaging permissions (publish, subscribe, consume, or combinations), max ingress/egress rates, and connection throttling.
+2. **ACL profiles** — control topic-level publish and subscribe permissions. Support wildcards and **substitution expressions** for dynamic, per-client entitlements (e.g., `${clientUsername}` in topic patterns).
+3. **Message VPN isolation** — each VPN is a fully isolated messaging domain. Clients in one VPN cannot access queues, topics, or subscriptions in another VPN. VPN isolation is a security boundary.
+
+#### Encryption
+
+1. **In transit** — TLS on all client-to-broker connections. Configurable per message VPN. Cipher suite selection available.
+2. **At rest** — message spool encryption for Software Event Brokers (configurable). Solace Cloud manages encryption transparently.
+3. **SEMP security** — SEMP management API access controlled by management username/password or OAuth. Management ACLs restrict which SEMP operations each administrator can perform.
+
+#### SAM-specific security
+
+1. **AuthorizationService** — pluggable component on SAM Gateways that retrieves user permission scopes. Scopes propagate through agent delegation chains via PeerAgentTool.
 2. **Schema Registry authentication** via Basic or OIDC.
-3. **SAM authorization** via pluggable AuthorizationService that retrieves user permission scopes; scopes propagate through delegation chains.
-4. **Distributed Tracing** requires production keys for production use; demo mode is time-limited.
-5. **TLS, OAuth, RBAC** are referenced across Solace documentation. (Note: Detailed security architecture, regulatory contexts, encryption configuration, and credential management have not been deeply verified in this build. Skills addressing security depth must consult Admin and Cloud security documentation rather than reasoning from analogous platforms.)
+3. **Distributed Tracing** requires production keys for production use; demo mode is time-limited.
 
 ### Observability
 
@@ -292,7 +478,23 @@ Skills generating observability blueprints should select the right primitive(s) 
 
 ### Performance and sizing
 
-Throughput, latency, capacity planning, and broker sizing are first-class architectural concerns. (Note: Specific performance numbers, sizing tables, and capacity calculation methods have not been included in this reference. Performance claims that go to external audiences require verification before publication, per the project's accuracy discipline.)
+Throughput, latency, capacity planning, and broker sizing are first-class architectural concerns.
+
+**Sizing methodology:**
+1. **Connection count** — sum all producer, consumer, MI, and management connections per broker
+2. **Message rate** — peak events/second from discovery, factored by message size
+3. **Spool calculation** — message size x retention period x message rate for Guaranteed messaging queues
+4. **Service class mapping** — Developer (dev/test), Enterprise (production), Enterprise Kilo (high-scale production). Verify current service class names at `docs.solace.com/Cloud/cloud-service-class-comparison.htm`.
+
+**Performance tuning areas:**
+- Publisher flow control — broker backpressure when spool or queue limits are reached
+- Consumer prefetch — number of messages pre-delivered to consumers before acknowledgment
+- Connection pooling — session reuse patterns per SDK
+- Batching — grouping multiple small messages for throughput efficiency
+
+SDKPerf is the official Solace performance testing tool for establishing throughput and latency baselines.
+
+(Note: Specific performance numbers, sizing tables, and capacity calculation methods have not been included in this reference. Performance claims that go to external audiences require verification before publication, per the project's accuracy discipline.)
 
 ### Migration and lifecycle
 
@@ -307,6 +509,20 @@ Throughput, latency, capacity planning, and broker sizing are first-class archit
 ### Governance
 
 Primarily delivered through Event Portal: event modeling, schema management, catalog, runtime configuration handoff between integration teams and developers, KPI tracking, and runtime discovery. ACLs at the broker level provide enforcement. Topic taxonomy itself is a governance instrument — domain prefixes establish event ownership across business units.
+
+### Integration patterns
+
+These application-level patterns are commonly implemented on the Solace platform:
+
+1. **Request-reply** — publisher sends a request message with a reply-to topic (typically a temporary topic). Consumer processes the request and publishes the response to the reply-to topic. Correlation IDs in message properties (not in topic hierarchy) link requests to responses. REST protocol supports direct request-reply natively.
+
+2. **Event sourcing** — Guaranteed messaging with message replay provides the foundation. Events are published to versioned topics, persisted in broker spool, and replayable from any point in the replay window. Not a native Solace feature but a pattern well-supported by the platform's delivery guarantees and replay capability.
+
+3. **CQRS** — separate topic namespaces for command and query paths. Command events flow through Guaranteed messaging to the write model. Query events (potentially using Direct messaging for read-model updates) fan out to multiple read models via wildcard subscriptions.
+
+4. **Saga / Choreography** — distributed coordination via compensating events on topics. Each service publishes success/failure events. Compensating actions subscribe to failure topics. DMQ handles poison messages in saga steps. Choreography uses topic subscriptions for coordination without a central orchestrator.
+
+5. **Fan-out** — single publish, multiple subscribers. Direct messaging for high-rate fan-out (market data). Guaranteed messaging with multiple queue subscriptions for reliable fan-out. Wildcard subscriptions enable dynamic fan-out without publisher changes.
 
 ---
 
@@ -384,14 +600,26 @@ These pages were directly fetched and reviewed during the original build of this
 14. `solacelabs.github.io/solace-agent-mesh/docs/documentation/components/orchestrator` — SAM OrchestratorAgent (cited at v1.18.29 at original build). **Verified: original build, pending re-verification.**
 15. Search results for `solace.com/integration-hub` content. **Verified: original build, pending re-verification.**
 
+### Sections added from canonical source URLs — 2026-05-03
+
+These sections were added based on canonical source URLs. Content was written from documented Solace capabilities at the listed URLs. Not yet independently re-verified against live pages.
+
+1. `docs.solace.com/Features/Transactions/Transactions-Overview.htm` — Transactions (local, XA). **Added: 2026-05-03, pending re-verification.**
+2. `docs.solace.com/Messaging/Direct-Msg/Direct-Msg-Eliding.htm` — Message Eliding. **Added: 2026-05-03, pending re-verification.**
+3. `docs.solace.com/Features/Cache/cache-lp.htm` — Solace Cache / CacheInstance. **Added: 2026-05-03, pending re-verification.**
+4. `docs.solace.com/Messaging/Direct-Msg/Direct-Msg-Shared-Subscriptions.htm` — Shared Subscriptions. **Added: 2026-05-03, pending re-verification.**
+5. `docs.solace.com/Messaging/Guaranteed-Msg/Message-Priority.htm` — Message Priority. **Added: 2026-05-03, pending re-verification.**
+6. `docs.solace.com/Features/VPN/VPN-Bridges.htm` — Message VPN Bridges. **Added: 2026-05-03, pending re-verification.**
+7. `docs.solace.com/Cloud/cloud-service-class-comparison.htm` — Performance and sizing (service classes). **Added: 2026-05-03, pending re-verification.**
+8. `docs.solace.com/Software-Broker/sw-broker-sys-reqs.htm` — Performance and sizing (SW broker requirements). **Added: 2026-05-03, pending re-verification.**
+9. `docs.solace.com/Software-Broker/sw-broker-kubernetes-operator.htm` — Kubernetes Operator (expanded). **Added: 2026-05-03, pending re-verification.**
+10. Integration patterns section — written from first principles grounded in platform primitives (Message Replay, Guaranteed messaging, topics). **Added: 2026-05-03. Architectural inference, not from a single source page.**
+
 ### Pages explicitly not fetched, should be added in subsequent revisions
 
-1. Dedicated HA/DR replication reference (`docs.solace.com/Features/DR-Replication/`) — referenced but not fetched.
-2. Dedicated security and authentication references.
-3. Sizing and capacity planning references.
-4. SAM Workflows, Proxies, Platform Service, Plugins, Projects component pages.
-5. Event Portal Designer, Runtime Event Manager, and KPI Dashboard detail pages.
-6. Self-Managed and Cloud-Managed Micro-Integration deep-dive pages (specifically `Managed/managed-micro-integrations-overview.htm`, needed to resolve the direction-types finding above).
+1. SAM Workflows, Proxies, Platform Service, Plugins, Projects component pages.
+2. Event Portal Designer, Runtime Event Manager, and KPI Dashboard detail pages.
+3. Self-Managed and Cloud-Managed Micro-Integration deep-dive pages (specifically `Managed/managed-micro-integrations-overview.htm`, needed to resolve the direction-types finding above).
 
 ### Maintenance discipline
 

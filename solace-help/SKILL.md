@@ -134,6 +134,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -169,6 +170,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -353,6 +356,10 @@ Solace Architect — Getting Started
   one at a time (you choose).
 
   Start with: /solace-discovery
+
+  Optional shortcut:
+    /solace-intake        Generate a template for offline collection, or import a
+                          completed intake file to bootstrap discovery automatically
 ```
 
 ---
@@ -402,6 +409,7 @@ Print:
     /solace-ha-dr              HA/DR: replication, failover, DMR resilience
     /solace-migration          Migration from Kafka, RabbitMQ, TIBCO, IBM MQ
     /solace-integration        Micro-Integration design for backend connectivity
+    /solace-event-portal       Event Portal governance: domains, events, schemas, catalog
 
   Review:
     /solace-architect-review   Architecture trade-offs and component choices
@@ -412,23 +420,9 @@ Print:
   Finalize:
     /solace-validate           Consistency checks and antipattern detection
     /solace-blueprint          Final blueprint assembly
+    /solace-executive          Executive summary for business leaders
+
+  Utility:
+    /solace-diagrams           Regenerate Mermaid diagrams (all or by name)
 ```
 
----
-
-## Step 4: Reference grounding documents
-
-Print:
-
-```
-  Grounding
-  ─────────────────────────────────────────────────────────────────
-
-  All recommendations are grounded in Solace documentation.
-  When a capability is not documented, Solace Architect says so.
-
-    solace-platform-reference.md       Coverage map — what Solace Architect knows
-    solace-canonical-sources.md        URL-by-topic index for depth fetches
-    solace-reference-architectures.md  3 worked patterns: AI assistant, market data, IT/OT
-    antipatterns.md                    Known mistakes by category
-```

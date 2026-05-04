@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -728,6 +731,46 @@ does not mean no Micro-Integration exists. The catalog is a periodic snapshot. F
 **Critical distinction:** The Kafka bridge is **Broker Integrated** — it runs inside the
 broker, not as a separate Spring Boot Micro-Integration. Get this right. Other
 Micro-Integrations run as external processes.
+
+---
+
+## Step 2b: Behavioral fitness check
+
+For every cataloged MI selected in Step 2, answer these three questions before
+proceeding. This applies to direct and indirect MI matches equally.
+
+**For each MI:**
+
+1. **What does this MI actually do?** State in one sentence what happens when a
+   message reaches it (for Target MIs) or what it produces (for Source MIs).
+   Be specific about the data transformation: does it write message payloads as
+   objects? Bridge protocol-level events? Stream file content? Trigger a function?
+   Base this on the MI's catalog entry and deployment model, not on the backend
+   system's general capabilities.
+
+2. **Does that behavior satisfy the discovery requirement for this integration point?**
+   Re-read the discovery brief's requirements for this backend. Compare the MI's
+   actual behavior to what the requirement asks for. A MI that writes notification
+   metadata to S3 does not satisfy a requirement to sync files to S3. A MI that
+   bridges Kafka topics does not satisfy a requirement to replay historical data
+   if replay is not part of the bridge.
+
+3. **If there is a gap, what fills it?** When the MI's behavior is necessary but
+   not sufficient (e.g., it handles the notification path but not the data path),
+   name the additional component explicitly. Document it as a dependency. Do not
+   claim "zero custom code" or "fully cataloged" when the architecture depends on
+   a custom service to meet requirements.
+
+**Output:** For each MI, write a one-line fitness verdict:
+- **Fit:** MI behavior directly satisfies the requirement. No additional components needed.
+- **Partial fit:** MI handles part of the requirement (name which part). Additional
+  component required (name it and what it must do).
+- **Misfit:** MI targets the correct backend but its behavior does not advance the
+  stated requirement. Do not select it. Design an alternative.
+
+If any MI is a **partial fit**, the additional component must appear in the
+integration map with its own design section (inputs, outputs, error handling,
+dependencies). It is not sufficient to mention it in a one-liner and move on.
 
 ---
 

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solace Architect</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav id="sidebar">
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="#00C895"/>
+        <text x="6" y="20" font-family="Figtree,sans-serif" font-weight="700" font-size="16" fill="#03213B">SA</text>
+      </svg>
+      <span class="logo-text">Solace Architect</span>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">&#9788;</button>
+    </div>
+    <div class="project-selector" id="projectSelector"></div>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#overview" class="nav-link active" data-view="overview">Overview</a></li>
+      <li><a href="#timeline" class="nav-link" data-view="timeline">Timeline</a></li>
+      <li><a href="#decisions" class="nav-link" data-view="decisions">Decisions</a></li>
+      <li><a href="#openitems" class="nav-link" data-view="openitems">Open Items</a></li>
+      <li><a href="#artifacts" class="nav-link" data-view="artifacts">Artifacts</a></li>
+      <li><a href="#stats" class="nav-link" data-view="stats">Stats</a></li>
+      <li><a href="#export" class="nav-link" data-view="export">Export</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <span class="overline">SOLACE ARCHITECT v0.1.0</span>
+    </div>
+  </nav>
+  <main id="content">
+    <div id="view" class="view-container"></div>
+    <aside id="rightSidebar" class="right-sidebar hidden"></aside>
+  </main>
+  <div id="statusBar" class="status-bar hidden"></div>
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

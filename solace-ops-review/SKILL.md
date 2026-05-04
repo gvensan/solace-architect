@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -676,7 +679,7 @@ Evaluate the monitoring posture:
 **Broker-level monitoring:**
 - Are Solace Insights or equivalent metrics configured?
 - What metrics are critical? (Message rate, spool usage, connection count, queue depth,
-  replication lag, DMR link health)
+  replication/mate status, DMR link health)
 - What alert thresholds should be set?
 
 **Application-level monitoring:**

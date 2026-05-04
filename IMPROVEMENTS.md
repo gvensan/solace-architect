@@ -21,6 +21,10 @@ Format:
   - Impact: Skills would auto-populate gaps.md when they can't find a grounding source
   - Template: Preamble generator (generate-grounding-loading.ts)
 
+## /solace-intake
+
+No patterns yet.
+
 ## /solace-discovery
 
 No patterns yet. Awaiting first user feedback.
@@ -57,6 +61,10 @@ No patterns yet.
 
 No patterns yet.
 
+## /solace-event-portal
+
+No patterns yet.
+
 ## /solace-plan
 
 No patterns yet.
@@ -82,5 +90,21 @@ No patterns yet.
 No patterns yet.
 
 ## /solace-blueprint
+
+No patterns yet.
+
+## /solace-projects
+
+No patterns yet.
+
+## /solace-executive
+
+No patterns yet.
+
+## /solace-diagrams
+
+No patterns yet.
+
+## /solace-help
 
 No patterns yet.

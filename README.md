@@ -12,7 +12,7 @@ Solace Architect gives AI coding agents structured, grounded expertise in Solace
 
 ## What it does
 
-Solace Architect is a set of skills (prompt templates) that AI coding agents read at invocation time. Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and producing concrete architectural artifacts.
+Solace Architect is a toolkit of 21 skills (prompt templates) that AI coding agents read at invocation time. Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and producing concrete architectural artifacts.
 
 The skills enforce:
 - **Strict Solace grounding.** Every claim backed by `docs.solace.com`, SAM project docs, or SolaceLabs GitHub. When a capability is not documented, the agent says so.
@@ -35,6 +35,7 @@ The setup script installs dependencies, generates SKILL.md files for all support
 
 | Category | Skill | Command | Description |
 |----------|-------|---------|-------------|
+| Start here | Intake | `/solace-intake` | Generate intake templates for offline collection, or import a completed intake to bootstrap the full engagement. |
 | Discovery | Discovery | `/solace-discovery` | Structured elicitation. Asks about systems, boundaries, events, protocols, requirements, and goals. Matches against reference architectures. Produces a discovery brief. |
 | Technical | Topic Design | `/solace-topic-design` | Maps data flows to `Domain/Noun/Verb/Version/Properties` taxonomy, assigns delivery modes, designs wildcard subscriptions, validates against antipatterns. |
 | Technical | Broker Selection | `/solace-broker-select` | Selects broker deployment model (Cloud, Software, Appliance) based on constraints. |
@@ -44,6 +45,7 @@ The setup script installs dependencies, generates SKILL.md files for all support
 | Technical | HA/DR | `/solace-ha-dr` | Designs HA within sites and DR across sites. Replication groups, failover, RPO/RTO mapping. |
 | Technical | Migration | `/solace-migration` | Plans phased migration from Kafka, RabbitMQ, TIBCO, or IBM MQ to Solace. |
 | Technical | Integration | `/solace-integration` | Designs Micro-Integration strategy: Integration Hub, custom MIs, Kafka bridge. |
+| Technical | Event Portal | `/solace-event-portal` | Maps architecture into Event Portal objects: application domains, events, schemas, applications, runtime connections. |
 | Review | Architecture | `/solace-architect-review` | Reviews trade-offs, component choices, topology decisions. |
 | Review | Operations | `/solace-ops-review` | Reviews monitoring, failure modes, capacity, runbook completeness. |
 | Review | Security | `/solace-security-review` | Reviews ACL model, TLS, auth propagation, regulatory compliance. |
@@ -51,6 +53,9 @@ The setup script installs dependencies, generates SKILL.md files for all support
 | Orchestration | Plan | `/solace-plan` | Orchestrates skills in sequence for a complete engagement. |
 | Validation | Validate | `/solace-validate` | Consistency checks, antipattern detection, completeness verification. |
 | Assembly | Blueprint | `/solace-blueprint` | Final assembly into an engineering handoff package. |
+| Finalize | Executive | `/solace-executive` | Executive summary for CXO and business leaders: ROI, risk reduction, strategic value. |
+| Utility | Projects | `/solace-projects` | Project dashboard: status, timing, summary, compare, switch projects. |
+| Utility | Diagrams | `/solace-diagrams` | Regenerate Mermaid diagrams for the current project (all or by name). |
 | Utility | Help | `/solace-help` | Lists available skills, shows recommended workflow, displays active project status. |
 
 ## Supported hosts
@@ -71,6 +76,15 @@ Solace Architect generates adapted SKILL.md files for 10 AI coding agent hosts:
 | GBrain | `.gbrain/skills/solace-architect/` |
 
 Each host gets adapted SKILL.md files with appropriate frontmatter, path rewrites, and tool name translations.
+
+External host directories (`.agents/`, `.cursor/`, `.kiro/`, etc.) are **gitignored** — they are build artifacts generated from the `.tmpl` source templates. After cloning, run `bun run build` to generate skill files for all hosts:
+
+```bash
+bun run build                          # generate for all 10 hosts
+bun run gen:skill-docs --host codex    # generate for a single host
+```
+
+For Claude Code, `./setup` handles generation and symlinks in one step.
 
 ## Grounding documents
 
@@ -99,6 +113,20 @@ SKILL.md               Committed, auto-generated, ready for the agent to read
 
 Skills use a preamble tier system (T1–T4) that controls which shared sections are included. Every skill gets grounding rules and naming conventions. Interactive skills (T2+) also get the AskUserQuestion format, writing style, and completeness principle. Code-modifying skills (T3+) add search-before-building and repo ownership.
 
+## Dashboard
+
+Solace Architect includes a project dashboard for visualizing engagement progress.
+
+```bash
+bun run dashboard    # opens at localhost:3000
+```
+
+The dashboard shows:
+- **Overview** — Skill groups (Discovery, Design, Review, Finalize) with per-skill status tiles
+- **Decisions** — Design decisions and review findings with severity and resolution status
+- **Artifacts** — File browser for all generated outputs
+- **HTML Report** — Self-contained report with Executive Summary, architecture diagrams, and full engagement history. Print to PDF from the browser.
+
 ## Working principles
 
 1. **Boil the Lake.** AI makes completeness cheap. Do the complete thing.
@@ -116,6 +144,7 @@ bun run build        # regenerate all SKILL.md files
 bun run skill:check  # health dashboard
 bun run dev:skill    # watch mode: auto-regen on change
 bun run url:check    # check grounding document URLs for health
+bun run dashboard    # project dashboard at localhost:3000
 ./uninstall          # remove all skill symlinks
 ```
 

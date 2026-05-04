@@ -1,7 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Skill(solace-*)"
+      "Skill(solace-intake)",
+      "Skill(solace-discovery)",
+      "Skill(solace-plan)",
+      "Skill(solace-projects)",
+      "Skill(solace-topic-design)",
+      "Skill(solace-broker-select)",
+      "Skill(solace-sam-design)",
+      "Skill(solace-protocol-select)",
+      "Skill(solace-mesh-design)",
+      "Skill(solace-ha-dr)",
+      "Skill(solace-migration)",
+      "Skill(solace-integration)",
+      "Skill(solace-architect-review)",
+      "Skill(solace-ops-review)",
+      "Skill(solace-security-review)",
+      "Skill(solace-dev-review)",
+      "Skill(solace-validate)",
+      "Skill(solace-blueprint)",
+      "Skill(solace-event-portal)",
+      "Skill(solace-executive)",
+      "Skill(solace-diagrams)",
+      "Skill(solace-help)"
     ]
   }
 }

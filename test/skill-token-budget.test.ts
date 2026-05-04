@@ -14,7 +14,7 @@ const SKILL_FILES = discoverSkillFiles(ROOT).map(f => path.join(ROOT, f));
 
 const PER_SKILL_BYTE_CEILING = 160_000;
 const PER_SKILL_TOKEN_CEILING = 40_000;
-const TOTAL_TOKEN_WARNING = 200_000;
+const TOTAL_TOKEN_WARNING = 220_000;
 
 function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);

@@ -112,3 +112,29 @@ skill and technical domain skill should check output against these patterns.
 **What's wrong:** Designing a custom Micro-Integration (Cloud Function, Lambda, Spring Boot app) for a backend system when a cataloged Micro-Integration already covers the path — either directly or through a well-known intermediate system. Example: building a custom GCS-to-Solace Cloud Function bridge when GCS natively sends events to Google Pub/Sub, and a Google Pub/Sub Source Micro-Integration exists in the Integration Hub.
 **What to do instead:** Before designing any custom Micro-Integration, check the Integration Hub catalog for both direct and indirect paths. Many cloud services natively publish events to an intermediate system (Pub/Sub, SNS/SQS, Event Grid/Service Bus) that already has a cataloged Source Micro-Integration. Use the cataloged path. It is tested, maintained, and operationally simpler than custom code.
 **Source:** Integration Hub catalog, "Common indirect paths" section.
+
+### Cataloged Micro-Integration selected without behavioral fitness check
+**What's wrong:** Matching a backend system to a cataloged Micro-Integration by name and direction, then treating the integration as solved without verifying that the MI's actual behavior satisfies the stated requirement. Example: selecting the Amazon S3 Producer MI for a file sync use case because it targets S3. The MI writes message payloads (notification metadata) as S3 objects via REST delivery points. It does not transfer file content. The catalog match ("Amazon S3" + "Target") is correct, but the behavior does not deliver file sync.
+**What to do instead:** After matching a backend to a cataloged MI, state explicitly what the MI does with messages it processes: what it reads, writes, transforms, or delivers. Compare that behavior to the discovery brief's requirements for that integration point. If the MI's behavior does not satisfy the requirement, the MI is not the right integration even though it names the correct backend system. Either a different MI, a custom service, or additional components are needed. A catalog match is necessary but not sufficient.
+**Source:** Audit finding, generalized. Applies to any MI selection where catalog name match does not imply behavioral fit.
+
+## Operational antipatterns
+
+### Queue depth explosion from slow consumers
+**What's wrong:** Guaranteed messaging consumers that fall behind their production rate cause queue depth to grow unbounded. Broker message spool fills, triggering reject mode where new publishes are rejected across the entire message VPN.
+**What to do instead:** Set max message spool quota per queue. Configure queue depth alerts in Solace Insights (warning at 50%, critical at 80%). Design horizontal consumer scaling (non-exclusive queues or partitioned queues) before production load. Monitor queue depth as a first-class operational metric.
+**Source:** Operational best practice. Spool exhaustion is the most common production incident with Guaranteed messaging.
+
+### Missing DMQ on production queues
+**What's wrong:** Queues without a configured dead message queue (DMQ) silently discard messages that exceed max redelivery count or TTL. No alert, no recovery path. The message is gone.
+**What to do instead:** Configure a DMQ for every production queue. Set a Solace Insights alert on DMQ depth > 0. Document a runbook for DMQ review: inspect failed messages, fix root cause, re-publish to original topic. DMQ is the safety net for poison messages.
+**Source:** Operational best practice.
+
+### Oversized messages without claim check pattern
+**What's wrong:** Publishing messages with payloads near or above the broker's max message size (configurable, default 10 MB). Large payloads consume spool disproportionately and increase end-to-end latency.
+**What to do instead:** Use the claim check pattern: store the large payload in external storage (S3, GCS, blob store), publish a lightweight notification message with a reference (URL, key) to the stored object. Consumers retrieve the payload from storage using the reference. Keep broker messages small (< 1 MB for best throughput).
+**Source:** Architectural best practice. Applies to file transfer, media processing, and large document workflows.
+
+### Direct messaging chosen where Guaranteed is required
+**What's wrong:** Choosing Direct messaging for cost or simplicity when the use case requires lossless delivery. Direct messaging drops messages when there are no matching subscribers, when consumers are slow, or during brief disconnections. No spool, no retry, no recovery.
+**What to do instead:** Use Guaranteed messaging when the business requires every message to arrive. Direct messaging is appropriate only when message loss is acceptable (telemetry sampling, real-time display updates, market data where the next tick replaces the previous). The delivery mode decision should trace to a stated business requirement, not a cost optimization.

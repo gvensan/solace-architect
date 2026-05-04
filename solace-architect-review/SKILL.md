@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -685,11 +688,12 @@ Evaluate the architecture's structural soundness:
 - Are the selected protocols the simplest that meet requirements? Over-engineered
   protocol choices add operational complexity.
 - Is the DMR topology the simplest that serves the deployment? A single broker is
-  simpler than a cluster. A cluster is simpler than federation.
+  simpler than a DMR cluster. A DMR cluster is simpler than multi-site with external links.
 
 **Topic taxonomy:**
 - Does the taxonomy follow `Domain/Noun/Verb/Version/Properties` consistently?
-- Are delivery modes assigned correctly? Direct for lossy/fast, Guaranteed for lossless.
+- Are delivery modes assigned correctly? Direct for non-persistent best-effort paths,
+  Guaranteed for lossless delivery where every message must arrive.
 - Are there topics that could be consolidated without losing routing precision?
 
 **SAM topology (if applicable):**
@@ -846,6 +850,7 @@ Save the review document with resolution status on each finding:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/10-reviews"
 cat > "projects/$ACTIVE/artifacts/10-reviews/architect-review.md" << 'EOF'
 <paste the structured review findings with APPLIED/DEFERRED status>
 EOF

@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -704,7 +707,7 @@ The root skill handles project lifecycle. Respond to these requests:
 ```bash
 PROJECT_SLUG="<slugified-name>"
 DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint}
+mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint,13-event-portal,14-executive}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
 display_name: $DISPLAY_NAME
@@ -765,6 +768,7 @@ fi
 When the user's request matches an available skill, invoke it.
 
 **Primary (suggest these first):**
+- Intake template, import filled intake, kickstart from template -> `/solace-intake`
 - Architecture discovery, new project scoping -> `/solace-discovery`
 - Orchestrate a full engagement, plan the skill sequence -> `/solace-plan`
 - Project list, project status, switch project, compare projects, archive -> `/solace-projects`
@@ -779,9 +783,12 @@ When the user's request matches an available skill, invoke it.
 - HA, DR, replication, failover, RPO/RTO -> `/solace-ha-dr`
 - Migration from Kafka, RabbitMQ, TIBCO, IBM MQ -> `/solace-migration`
 - Micro-Integration strategy, backend connectivity, Integration Hub -> `/solace-integration`
+- Event Portal governance, application domains, event catalog, schema registry -> `/solace-event-portal`
 - Architecture review, trade-off analysis -> `/solace-architect-review`
 - Operations review, monitoring, runbooks, capacity -> `/solace-ops-review`
 - Security review, ACL, TLS, compliance -> `/solace-security-review`
 - Developer experience review, SDK, onboarding -> `/solace-dev-review`
 - Validation, consistency checks, antipattern detection -> `/solace-validate`
 - Blueprint assembly, final deliverable -> `/solace-blueprint`
+- Executive summary, business case, ROI, CXO report -> `/solace-executive`
+- Regenerate diagrams, update diagrams, preview diagrams -> `/solace-diagrams`

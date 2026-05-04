@@ -58,6 +58,7 @@ and blueprint skills automatically.
 
 | Category | Skill | Slash command |
 |----------|-------|--------------|
+| Start here | Intake | `/solace-intake` |
 | Start here | Discovery | `/solace-discovery` |
 | Start here | Plan | `/solace-plan` |
 | Start here | Projects | `/solace-projects` |
@@ -69,12 +70,15 @@ and blueprint skills automatically.
 | Design | HA/DR Design | `/solace-ha-dr` |
 | Design | Migration Planning | `/solace-migration` |
 | Design | Integration Design | `/solace-integration` |
+| Design | Event Portal | `/solace-event-portal` |
 | Review | Architecture Review | `/solace-architect-review` |
 | Review | Operations Review | `/solace-ops-review` |
 | Review | Security Review | `/solace-security-review` |
 | Review | Developer Review | `/solace-dev-review` |
 | Finalize | Validate | `/solace-validate` |
 | Finalize | Blueprint | `/solace-blueprint` |
+| Finalize | Executive Summary | `/solace-executive` |
+| Utility | Diagrams | `/solace-diagrams` |
 | Utility | Help | `/solace-help` |
 
 ## Skill routing
@@ -82,6 +86,7 @@ and blueprint skills automatically.
 When the user's request matches an available skill, invoke it via the Skill tool.
 
 Primary (suggest these first):
+- Intake template generation, import filled intake, kickstart from template -> invoke /solace-intake
 - Architecture discovery, new project scoping -> invoke /solace-discovery
 - Plan a full engagement, orchestrate skills, "run everything" -> invoke /solace-plan
 - Project list, project status, switch project, compare projects -> invoke /solace-projects
@@ -96,12 +101,15 @@ Individual skills (for re-running specific steps or skipping the orchestrator):
 - HA, DR, replication, failover -> invoke /solace-ha-dr
 - Migration from Kafka, RabbitMQ, TIBCO, IBM MQ -> invoke /solace-migration
 - Micro-Integration strategy -> invoke /solace-integration
+- Event Portal governance, application domains, event catalog, schema registry -> invoke /solace-event-portal
 - Architecture review -> invoke /solace-architect-review
 - Operations review -> invoke /solace-ops-review
 - Security review -> invoke /solace-security-review
 - Developer experience review -> invoke /solace-dev-review
 - Validation, consistency checks -> invoke /solace-validate
 - Blueprint assembly -> invoke /solace-blueprint
+- Executive summary, business case, ROI -> invoke /solace-executive
+- Regenerate diagrams, update diagrams, preview diagrams -> invoke /solace-diagrams
 
 ## Naming conventions
 
@@ -148,6 +156,7 @@ solace-architect/
     antipatterns.md
     claude-instructions.md
     gaps.md               # Grounding document gap tracker
+  solace-intake/          # /solace-intake
   solace-discovery/       # /solace-discovery
   solace-topic-design/    # /solace-topic-design
   solace-broker-select/   # /solace-broker-select
@@ -164,6 +173,9 @@ solace-architect/
   solace-plan/            # /solace-plan
   solace-validate/        # /solace-validate
   solace-blueprint/       # /solace-blueprint
+  solace-event-portal/    # /solace-event-portal
+  solace-executive/       # /solace-executive
+  solace-diagrams/        # /solace-diagrams
   solace-projects/        # /solace-projects
   solace-help/            # /solace-help
   test/                   # Test suite
@@ -241,8 +253,10 @@ Solace Architect generates SKILL.md files for 10 AI coding agent hosts:
 | Hermes | `hosts/hermes.ts` | `.hermes/skills/solace-architect` |
 | GBrain | `hosts/gbrain.ts` | `.gbrain/skills/solace-architect` |
 
-Run `bun run build` to regenerate for all hosts. Run `bun run gen:skill-docs`
-for Claude host only.
+External host directories (`.agents/`, `.cursor/`, `.kiro/`, etc.) are **gitignored** —
+they are build artifacts generated from `.tmpl` source templates. After cloning, run
+`bun run build` to generate for all hosts. Run `bun run gen:skill-docs` for Claude
+host only.
 
 ## Commit style
 
