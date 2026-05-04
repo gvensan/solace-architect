@@ -7,8 +7,8 @@ description: |
   workflow, displays active project status, and explains how to get started.
   Use when asked about available skills, workflow order, or project status.
 allowed-tools:
-  - Read
   - Bash
+  - Read
 interactive: false
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
@@ -125,7 +125,10 @@ When a skill starts, check whether its input dependencies have been met for the 
 
 | Skill | Requires |
 |-------|----------|
+| solace-diagrams  | blueprint recommended (reads existing artifacts) |
 | solace-discovery | No dependencies (entry point) |
+| solace-executive | blueprint complete |
+| solace-intake    | No dependencies (entry point) |
 | solace-topic-design | discovery complete |
 | solace-sam-design | discovery complete |
 | solace-broker-select | discovery complete |
@@ -142,6 +145,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-validate | discovery + at least one technical skill complete |
 | solace-blueprint | validate complete |
 | solace-plan | discovery complete |
+| solace-projects  | No dependencies |
 | solace-help | No dependencies |
 
 **If dependencies are not met:** Do not refuse to run. Instead, show what is missing and which skill produces it. Example: "This skill requires a completed discovery brief. Run `/solace-discovery` first to produce one."

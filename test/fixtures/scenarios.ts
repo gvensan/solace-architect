@@ -1,6 +1,7 @@
 /**
- * C1: Pre-recorded discovery inputs for the three reference architecture scenarios.
- * Used by eval tests and manual testing.
+ * Pre-recorded discovery inputs for the three reference architecture scenarios.
+ * Reserved for future LLM evaluation tests that verify discovery skill output
+ * against known-good scenario inputs. Not currently consumed by any test.
  */
 
 export interface ScenarioInput {

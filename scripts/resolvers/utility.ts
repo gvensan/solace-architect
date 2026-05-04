@@ -1,4 +1,5 @@
 import type { TemplateContext } from './types';
+import { getHostConfig } from '../../hosts/index';
 
 export function generateBaseBranchDetect(_ctx: TemplateContext): string {
   return `## Step 0: Detect platform and base branch
@@ -42,7 +43,6 @@ branch name wherever the instructions say "the base branch" or \`<default>\`.
 }
 
 export function generateCoAuthorTrailer(ctx: TemplateContext): string {
-  const { getHostConfig } = require('../../hosts/index');
   const hostConfig = getHostConfig(ctx.host);
   return hostConfig.coAuthorTrailer || 'Co-Authored-By: Claude <noreply@anthropic.com>';
 }

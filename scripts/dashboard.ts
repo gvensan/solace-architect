@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { readdir, readFile, stat } from "fs/promises";
-import { join, extname, relative } from "path";
+import { join, extname, resolve } from "path";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const ROOT = process.cwd();
@@ -74,10 +74,11 @@ async function getProjects() {
   return { projects, active: active?.trim() || null };
 }
 
-async function getArtifact(slug: string, path: string) {
-  const safePath = path.replace(/\.\./g, "");
-  const full = join(PROJECTS_DIR, slug, "artifacts", safePath);
-  return readSafe(full);
+async function getArtifact(slug: string, artifactPath: string) {
+  const baseDir = join(PROJECTS_DIR, slug, "artifacts");
+  const resolved = resolve(baseDir, artifactPath);
+  if (!resolved.startsWith(baseDir)) return null; // path traversal attempt
+  return readSafe(resolved);
 }
 
 function json(data: unknown, status = 200) {

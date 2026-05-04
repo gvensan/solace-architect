@@ -12,6 +12,7 @@ interface SkillCommand {
   raw: string;
 }
 
+// TODO: Implement snapshot flag validation logic that populates this array
 interface SnapshotFlagError {
   command: SkillCommand;
   error: string;
@@ -142,6 +143,7 @@ export function parseFrontmatter(filePath: string): SkillFrontmatter | null {
   };
 }
 
+// Utility for future test use — extracts bash code blocks from skill content
 export function extractBashBlocks(filePath: string): string[] {
   if (!fs.existsSync(filePath)) return [];
   const content = fs.readFileSync(filePath, 'utf-8');

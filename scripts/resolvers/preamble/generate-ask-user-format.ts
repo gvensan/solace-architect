@@ -70,9 +70,40 @@ Skill templates sometimes give abbreviated AskUserQuestion instructions like
 expand every AskUserQuestion to the full D<N> format above with Context, Recommendation
 callout, pros/cons, and Net line. Never emit a bare option list.
 
+### Auto-decide (execution_mode: auto)
+
+Before every AskUserQuestion, check \`decisions.yaml\` for \`execution_mode\`:
+
+\`\`\`bash
+ACTIVE=$(cat projects/.active)
+grep "execution_mode" "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NOT_SET"
+\`\`\`
+
+When \`execution_mode: auto\`:
+
+1. **Do NOT call AskUserQuestion.** Do not stop for user input.
+2. Select the option marked \`(recommended)\` automatically.
+3. Print a one-line log: \`"AUTO D<N>: <question title> → <chosen option label>"\`
+4. Record the decision in \`decisions.yaml\` with \`auto_decided: true\`:
+   \`\`\`yaml
+   <decision_key>:
+     choice: "<option letter>"
+     label: "<option label>"
+     auto_decided: true
+     rationale: "<the Why line from the recommendation callout>"
+   \`\`\`
+5. Continue execution without pausing.
+
+**Auto-decide applies to all D<N> architecture decisions within every skill.**
+It does not apply to:
+- Free-text prompts (these require actual user input and cannot be auto-decided)
+- Resume prompts ("Resume from where we left off / Start over / Review decisions")
+
+When \`execution_mode\` is \`interactive\` or not set, call AskUserQuestion normally.
+
 ### Self-check before emitting
 
-Before calling AskUserQuestion, verify:
+Before calling AskUserQuestion (interactive mode only), verify:
 - [ ] D<N> header present
 - [ ] Context present (1-2 sentences, plain English, stakes named)
 - [ ] Recommendation callout present (blockquote, project-specific Why)

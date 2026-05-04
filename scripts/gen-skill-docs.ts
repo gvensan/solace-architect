@@ -17,6 +17,7 @@ import { HOST_PATHS } from './resolvers/types';
 import { RESOLVERS } from './resolvers/index';
 import { ALL_HOST_CONFIGS, ALL_HOST_NAMES, resolveHostArg, getHostConfig } from '../hosts/index';
 import type { HostConfig } from './host-config';
+import { validateAllConfigs } from './host-config';
 
 const ROOT = path.resolve(import.meta.dir, '..');
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -28,6 +29,7 @@ type HostArg = Host | 'all';
 const HOST_ARG_VAL: HostArg = (() => {
   if (!HOST_ARG) return 'claude';
   const val = HOST_ARG.includes('=') ? HOST_ARG.split('=')[1] : process.argv[process.argv.indexOf(HOST_ARG) + 1];
+  if (!val) throw new Error('--host requires a value');
   if (val === 'all') return 'all';
   try {
     return resolveHostArg(val) as Host;
@@ -44,6 +46,7 @@ const MODEL_ARG = process.argv.find(a => a.startsWith('--model'));
 const MODEL_ARG_VAL: Model = (() => {
   if (!MODEL_ARG) return 'claude';
   const val = MODEL_ARG.includes('=') ? MODEL_ARG.split('=')[1] : process.argv[process.argv.indexOf(MODEL_ARG) + 1];
+  if (!val) throw new Error('--model requires a value');
   const resolved = resolveModel(val);
   if (!resolved) {
     throw new Error(`Unknown model: ${val}. Use ${ALL_MODEL_NAMES.join(', ')}.`);
@@ -198,6 +201,15 @@ function transformFrontmatter(content: string, host: Host): string {
           `${hostConfig.displayName} description for "${name}" is ${description.length} chars (max ${fm.descriptionLimit}). ` +
           `Compress the description in the .tmpl file.`
         );
+      } else if (behavior === 'truncate') {
+        const limit = fm.descriptionLimit!;
+        const truncated = description.slice(0, limit - 3);
+        const lastSpace = truncated.lastIndexOf(' ');
+        const safe = lastSpace > Math.floor(limit / 3) ? truncated.slice(0, lastSpace) : truncated;
+        const newDesc = `${safe}...`;
+        const oldIndented = description.split('\n').map(l => `  ${l}`).join('\n');
+        const newIndented = newDesc.split('\n').map(l => `  ${l}`).join('\n');
+        content = content.replace(oldIndented, newIndented);
       } else if (behavior === 'warn') {
         console.warn(`WARNING: ${hostConfig.displayName} description for "${name}" exceeds ${fm.descriptionLimit} chars`);
       }
@@ -329,6 +341,13 @@ function processExternalHost(
     }
   }
 
+  const invokePrefix = hostConfig.invokePrefix || '/';
+  if (invokePrefix !== '/') {
+    // Rewrite /solace-<skill> command references to use the host's invoke prefix.
+    // Negative lookbehind excludes file paths and URLs (preceded by word chars, dots, or slashes).
+    result = result.replace(/(?<![.\w/])\/solace-/g, `${invokePrefix}solace-`);
+  }
+
   if (hostConfig.generation.generateMetadata && !symlinkLoop) {
     const agentsDir = path.join(outputDir, 'agents');
     fs.mkdirSync(agentsDir, { recursive: true });
@@ -349,18 +368,13 @@ function processTemplate(tmplPath: string, host: Host = 'claude'): { outputPath:
   const { name: extractedName, description: extractedDescription } = extractNameAndDescription(tmplContent);
   const skillName = extractedName || path.basename(path.dirname(tmplPath));
 
-  const benefitsMatch = tmplContent.match(/^benefits-from:\s*\[([^\]]*)\]/m);
-  const benefitsFrom = benefitsMatch
-    ? benefitsMatch[1].split(',').map(s => s.trim()).filter(Boolean)
-    : undefined;
-
   const tierMatch = tmplContent.match(/^preamble-tier:\s*(\d+)$/m);
   const preambleTier = tierMatch ? parseInt(tierMatch[1], 10) : undefined;
 
   const interactiveMatch = tmplContent.match(/^interactive:\s*(true|false)\s*$/m);
   const interactive = interactiveMatch ? interactiveMatch[1] === 'true' : undefined;
 
-  const ctx: TemplateContext = { skillName, tmplPath, benefitsFrom, host, paths: HOST_PATHS[host], preambleTier, model: MODEL_ARG_VAL, interactive };
+  const ctx: TemplateContext = { skillName, tmplPath, host, paths: HOST_PATHS[host], preambleTier, interactive };
 
   const currentHostConfig = getHostConfig(host);
   const suppressed = new Set(currentHostConfig.suppressedResolvers || []);
@@ -411,6 +425,13 @@ function findTemplates(): string[] {
   return discoverTemplates(ROOT).map(t => path.join(ROOT, t.tmpl));
 }
 
+const configErrors = validateAllConfigs(ALL_HOST_CONFIGS);
+if (configErrors.length > 0) {
+  console.error('Host config validation errors:');
+  for (const e of configErrors) console.error(`  ${e}`);
+  process.exit(1);
+}
+
 const ALL_HOSTS: Host[] = ALL_HOST_NAMES as Host[];
 const hostsToRun: Host[] = HOST_ARG_VAL === 'all' ? ALL_HOSTS : [HOST];
 const failures: { host: string; error: Error }[] = [];
@@ -426,14 +447,22 @@ for (const currentHost of hostsToRun) {
     for (const tmplPath of findTemplates()) {
       const dir = path.basename(path.dirname(tmplPath));
 
-      if (currentHostConfig.generation.includeSkills?.length) {
+      if (currentHostConfig.generation.includeSkills !== undefined) {
         if (!currentHostConfig.generation.includeSkills.includes(dir)) continue;
       }
       if (currentHostConfig.generation.skipSkills?.length) {
         if (currentHostConfig.generation.skipSkills.includes(dir)) continue;
       }
 
-      const { outputPath, content, symlinkLoop } = processTemplate(tmplPath, currentHost);
+      let result: { outputPath: string; content: string; symlinkLoop?: boolean };
+      try {
+        result = processTemplate(tmplPath, currentHost);
+      } catch (tmplErr) {
+        console.error(`ERROR: Template ${path.relative(ROOT, tmplPath)} failed for ${currentHost}: ${(tmplErr as Error).message}`);
+        hasChanges = true;
+        continue;
+      }
+      const { outputPath, content, symlinkLoop } = result;
       const relOutput = path.relative(ROOT, outputPath);
 
       if (symlinkLoop) {
@@ -455,8 +484,8 @@ for (const currentHost of hostsToRun) {
       const tokens = Math.round(content.length / 4);
       tokenBudget.push({ skill: relOutput, lines, tokens });
 
-      const TOKEN_CEILING_BYTES = 160_000;
-      if (content.length > TOKEN_CEILING_BYTES) {
+      const BYTE_CEILING = 160_000;
+      if (content.length > BYTE_CEILING) {
         console.warn(`WARNING: ${relOutput} is ${content.length} bytes (~${tokens} tokens), exceeds ceiling`);
       }
     }
@@ -476,7 +505,7 @@ for (const currentHost of hostsToRun) {
       console.log(`Token Budget (${currentHost} host)`);
       console.log('═'.repeat(60));
       for (const t of tokenBudget) {
-        const hostSubdirs = ALL_HOST_CONFIGS.map(c => c.hostSubdir.replace('.', '\\.')).join('|');
+        const hostSubdirs = ALL_HOST_CONFIGS.map(c => c.hostSubdir.replace(/\./g, '\\.')).join('|');
         const name = t.skill.replace(/\/SKILL\.md$/, '').replace(new RegExp(`^\\.(${hostSubdirs})\\/skills\\/`), '');
         console.log(`  ${name.padEnd(30)} ${String(t.lines).padStart(5)} lines  ~${String(t.tokens).padStart(6)} tokens`);
       }
@@ -490,7 +519,7 @@ for (const currentHost of hostsToRun) {
   }
 }
 
-if (failures.length > 0 && HOST_ARG_VAL === 'all') {
+if (failures.length > 0) {
   console.error(`\n${failures.length} host(s) failed: ${failures.map(f => f.host).join(', ')}`);
-  if (failures.some(f => f.host === 'claude')) process.exit(1);
+  process.exit(1);
 }

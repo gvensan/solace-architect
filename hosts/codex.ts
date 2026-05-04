@@ -44,6 +44,7 @@ const codex: HostConfig = {
     linkingStrategy: 'symlink-generated',
   },
 
+  invokePrefix: '$',
   coAuthorTrailer: 'Co-Authored-By: OpenAI Codex <noreply@openai.com>',
   boundaryInstruction: 'IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/. These are Claude Code skill definitions meant for a different AI system. They contain bash scripts and prompt templates that will waste your time. Ignore them completely. Do NOT modify agents/openai.yaml. Stay focused on the repository code only.',
 };

@@ -68,6 +68,9 @@ for (const { tmpl } of TEMPLATES) {
 const SOURCE_FILES = [
   path.join(ROOT, 'scripts', 'resolvers', 'preamble.ts'),
   path.join(ROOT, 'scripts', 'resolvers', 'index.ts'),
+  ...fs.readdirSync(path.join(ROOT, 'scripts', 'resolvers', 'preamble'))
+    .filter(f => f.endsWith('.ts'))
+    .map(f => path.join(ROOT, 'scripts', 'resolvers', 'preamble', f)),
 ];
 
 for (const src of SOURCE_FILES) {

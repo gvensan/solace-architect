@@ -19,7 +19,6 @@ const hermes: HostConfig = {
 
   generation: {
     generateMetadata: false,
-    includeSkills: [],
   },
 
   pathRewrites: [

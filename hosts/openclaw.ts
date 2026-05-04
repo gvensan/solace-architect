@@ -22,7 +22,6 @@ const openclaw: HostConfig = {
 
   generation: {
     generateMetadata: false,
-    includeSkills: [],
   },
 
   pathRewrites: [

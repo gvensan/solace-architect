@@ -19,7 +19,6 @@ const gbrain: HostConfig = {
 
   generation: {
     generateMetadata: false,
-    includeSkills: [],
   },
 
   pathRewrites: [

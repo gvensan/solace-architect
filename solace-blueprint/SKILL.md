@@ -10,6 +10,8 @@ description: |
 allowed-tools:
   - Bash
   - Read
+  - Write
+  - Edit
   - WebFetch
   - WebSearch
   - AskUserQuestion
@@ -129,7 +131,10 @@ When a skill starts, check whether its input dependencies have been met for the 
 
 | Skill | Requires |
 |-------|----------|
+| solace-diagrams  | blueprint recommended (reads existing artifacts) |
 | solace-discovery | No dependencies (entry point) |
+| solace-executive | blueprint complete |
+| solace-intake    | No dependencies (entry point) |
 | solace-topic-design | discovery complete |
 | solace-sam-design | discovery complete |
 | solace-broker-select | discovery complete |
@@ -146,6 +151,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-validate | discovery + at least one technical skill complete |
 | solace-blueprint | validate complete |
 | solace-plan | discovery complete |
+| solace-projects  | No dependencies |
 | solace-help | No dependencies |
 
 **If dependencies are not met:** Do not refuse to run. Instead, show what is missing and which skill produces it. Example: "This skill requires a completed discovery brief. Run `/solace-discovery` first to produce one."
@@ -405,9 +411,40 @@ Skill templates sometimes give abbreviated AskUserQuestion instructions like
 expand every AskUserQuestion to the full D<N> format above with Context, Recommendation
 callout, pros/cons, and Net line. Never emit a bare option list.
 
+### Auto-decide (execution_mode: auto)
+
+Before every AskUserQuestion, check `decisions.yaml` for `execution_mode`:
+
+```bash
+ACTIVE=$(cat projects/.active)
+grep "execution_mode" "projects/$ACTIVE/decisions.yaml" 2>/dev/null || echo "NOT_SET"
+```
+
+When `execution_mode: auto`:
+
+1. **Do NOT call AskUserQuestion.** Do not stop for user input.
+2. Select the option marked `(recommended)` automatically.
+3. Print a one-line log: `"AUTO D<N>: <question title> → <chosen option label>"`
+4. Record the decision in `decisions.yaml` with `auto_decided: true`:
+   ```yaml
+   <decision_key>:
+     choice: "<option letter>"
+     label: "<option label>"
+     auto_decided: true
+     rationale: "<the Why line from the recommendation callout>"
+   ```
+5. Continue execution without pausing.
+
+**Auto-decide applies to all D<N> architecture decisions within every skill.**
+It does not apply to:
+- Free-text prompts (these require actual user input and cannot be auto-decided)
+- Resume prompts ("Resume from where we left off / Start over / Review decisions")
+
+When `execution_mode` is `interactive` or not set, call AskUserQuestion normally.
+
 ### Self-check before emitting
 
-Before calling AskUserQuestion, verify:
+Before calling AskUserQuestion (interactive mode only), verify:
 - [ ] D<N> header present
 - [ ] Context present (1-2 sentences, plain English, stakes named)
 - [ ] Recommendation callout present (blockquote, project-specific Why)
@@ -658,7 +695,9 @@ else
 fi
 ```
 
-Requires validation complete. If validation has not run, warn: "Validation should
+If progress.yaml shows solace-validate with status: complete, skip the validation warning and proceed directly to reading all project state. No AskUserQuestion needed.
+
+Otherwise, if validation has not run, warn: "Validation should
 pass before assembling the blueprint. Run `/solace-validate` first."
 
 Use AskUserQuestion with the full D<N> format. Default recommendation: A (Run validation).
@@ -1058,9 +1097,47 @@ cp "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" "projects/$ACT
 
 ---
 
-## Step 7: Final review and complete
+## Step 7: Self-validation and complete
 
-Present the blueprint to the user:
+Before marking the blueprint complete, verify that all required artifacts exist.
+Run this check and fix any gaps before writing the completion entry to progress.yaml.
+
+```bash
+ACTIVE=$(cat projects/.active)
+echo "=== Blueprint self-validation ==="
+
+for f in architecture.md runbook.md topic-taxonomy.md validation-report.md; do
+  [ -f "projects/$ACTIVE/artifacts/12-blueprint/$f" ] && echo "OK: $f" || echo "MISSING: $f"
+done
+
+# Check broker provisioning params
+if find "projects/$ACTIVE/artifacts/12-blueprint/config/broker" -name "*.md" 2>/dev/null | grep -q .; then
+  echo "OK: config/broker/ has provisioning parameters"
+else
+  echo "MISSING: config/broker/provisioning-parameters.md"
+fi
+
+# Check core diagrams (8 required)
+for d in data-flow broker-topology topic-hierarchy queue-subscriptions protocol-stack security-boundaries failure-modes dlq-flow; do
+  MATCHES=$(find "projects/$ACTIVE/artifacts/12-blueprint/diagrams" -name "${d}*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$MATCHES" -gt 0 ]; then
+    echo "OK: $d diagram ($MATCHES files)"
+  else
+    echo "MISSING: $d diagram"
+  fi
+done
+```
+
+**If any artifacts are MISSING:** Go back to the step that produces the missing artifact
+and generate it. Do NOT mark the skill as complete until all required artifacts exist.
+
+- Missing `architecture.md` -> go back to Step 2
+- Missing `runbook.md` -> go back to Step 5
+- Missing diagrams -> go back to Step 3
+- Missing config -> go back to Step 4
+- Missing copies -> go back to Step 6
+
+Only after all checks pass, present the blueprint summary:
 
 ```
 Blueprint assembled for: <project name>
@@ -1096,6 +1173,7 @@ Contents:
 
 Diagrams: <N core> + <M conditional> = <total> diagrams
 Total artifacts: <N> files
+Self-validation: <PASS/FAIL count>
 ```
 
 Ask the user to review. If they identify gaps, address them before marking complete.

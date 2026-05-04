@@ -38,7 +38,7 @@ for (const file of SKILL_FILES) {
   const result = validateSkill(fullPath);
 
   if (result.warnings.length > 0) {
-    console.log(`  \u26a0\ufe0f  ${file.padEnd(30)} — ${result.warnings.join(', ')}`);
+    console.log(`  ⚠️  ${file.padEnd(30)} — ${result.warnings.join(', ')}`);
     continue;
   }
 
@@ -48,7 +48,7 @@ for (const file of SKILL_FILES) {
 
   if (totalInvalid > 0 || totalSnapErrors > 0) {
     hasErrors = true;
-    console.log(`  \u274c ${file.padEnd(30)} — ${totalValid} valid, ${totalInvalid} invalid, ${totalSnapErrors} snapshot errors`);
+    console.log(`  ❌ ${file.padEnd(30)} — ${totalValid} valid, ${totalInvalid} invalid, ${totalSnapErrors} snapshot errors`);
     for (const inv of result.invalid) {
       console.log(`      line ${inv.line}: unknown command '${inv.command}'`);
     }
@@ -56,7 +56,7 @@ for (const file of SKILL_FILES) {
       console.log(`      line ${se.command.line}: ${se.error}`);
     }
   } else {
-    console.log(`  \u2705 ${file.padEnd(30)} — ${totalValid} commands, all valid`);
+    console.log(`  ✅ ${file.padEnd(30)} — ${totalValid} commands, all valid`);
   }
 }
 
@@ -66,25 +66,20 @@ console.log('\n  Templates:');
 const TEMPLATES = discoverTemplates(ROOT);
 
 for (const { tmpl, output } of TEMPLATES) {
-  const tmplPath = path.join(ROOT, tmpl);
   const outPath = path.join(ROOT, output);
-  if (!fs.existsSync(tmplPath)) {
-    console.log(`  \u26a0\ufe0f  ${output.padEnd(30)} — no template`);
-    continue;
-  }
   if (!fs.existsSync(outPath)) {
     hasErrors = true;
-    console.log(`  \u274c ${output.padEnd(30)} — generated file missing! Run: bun run gen:skill-docs`);
+    console.log(`  ❌ ${output.padEnd(30)} — generated file missing! Run: bun run gen:skill-docs`);
     continue;
   }
-  console.log(`  \u2705 ${tmpl.padEnd(30)} \u2192 ${output}`);
+  console.log(`  ✅ ${tmpl.padEnd(30)} → ${output}`);
 }
 
 // Skills without templates
 for (const file of SKILL_FILES) {
   const tmplPath = path.join(ROOT, file + '.tmpl');
   if (!fs.existsSync(tmplPath) && !TEMPLATES.some(t => t.output === file)) {
-    console.log(`  \u26a0\ufe0f  ${file.padEnd(30)} — no template (OK if no $B commands)`);
+    console.log(`  ⚠️  ${file.padEnd(30)} — no template (OK if no $B commands)`);
   }
 }
 
@@ -112,14 +107,14 @@ for (const hostConfig of getExternalHosts()) {
         const hasClaude = content.includes('.claude/skills');
         if (hasClaude) {
           hasErrors = true;
-          console.log(`  \u274c ${dir.padEnd(30)} — contains .claude/skills reference`);
+          console.log(`  ❌ ${dir.padEnd(30)} — contains .claude/skills reference`);
         } else {
-          console.log(`  \u2705 ${dir.padEnd(30)} — OK`);
+          console.log(`  ✅ ${dir.padEnd(30)} — OK`);
         }
       } else {
         missing++;
         hasErrors = true;
-        console.log(`  \u274c ${dir.padEnd(30)} — SKILL.md missing`);
+        console.log(`  ❌ ${dir.padEnd(30)} — SKILL.md missing`);
       }
     }
     console.log(`  Total: ${count} skills, ${missing} missing`);
@@ -137,11 +132,11 @@ for (const hostConfig of ALL_HOST_CONFIGS) {
   console.log(`\n  Freshness (${hostConfig.displayName}):`);
   try {
     execSync(`bun run scripts/gen-skill-docs.ts${hostFlag} --dry-run`, { cwd: ROOT, stdio: 'pipe' });
-    console.log(`  \u2705 All ${hostConfig.displayName} generated files are fresh`);
+    console.log(`  ✅ All ${hostConfig.displayName} generated files are fresh`);
   } catch (err: any) {
     hasErrors = true;
     const output = err.stdout?.toString() || '';
-    console.log(`  \u274c ${hostConfig.displayName} generated files are stale:`);
+    console.log(`  ❌ ${hostConfig.displayName} generated files are stale:`);
     for (const line of output.split('\n').filter((l: string) => l.startsWith('STALE'))) {
       console.log(`      ${line}`);
     }

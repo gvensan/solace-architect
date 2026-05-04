@@ -12,7 +12,7 @@ Solace Architect gives AI coding agents structured, grounded expertise in Solace
 
 ## What it does
 
-Solace Architect is a toolkit of 21 skills (prompt templates) that AI coding agents read at invocation time. Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and producing concrete architectural artifacts.
+Solace Architect is a toolkit of 22 skills (prompt templates) that AI coding agents read at invocation time. Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and producing concrete architectural artifacts.
 
 The skills enforce:
 - **Strict Solace grounding.** Every claim backed by `docs.solace.com`, SAM project docs, or SolaceLabs GitHub. When a capability is not documented, the agent says so.
