@@ -11,7 +11,8 @@
     "skill:check": "bun run scripts/skill-check.ts",
     "dev:skill": "bun run scripts/dev-skill.ts",
     "url:check": "bun run scripts/url-health-check.ts",
-    "url:check:verbose": "bun run scripts/url-health-check.ts --verbose"
+    "url:check:verbose": "bun run scripts/url-health-check.ts --verbose",
+    "dashboard": "bun run scripts/dashboard.ts"
   },
   "engines": {
     "bun": ">=1.0.0"

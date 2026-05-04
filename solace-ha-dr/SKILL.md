@@ -137,6 +137,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -172,6 +173,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -709,11 +712,14 @@ over-design. The user does not need to configure HA pairs. State what's built-in
 and what the user gets automatically (redundancy, automatic failover).
 
 **For Software Event Broker (self-managed):**
-Design the HA pair configuration:
-- Active/standby pair per message VPN
-- Shared storage or replication-based HA
+Design the HA redundancy group configuration:
+- Three-node model: primary, backup, and monitoring node (quorum-based failover)
+- HA operates at the broker level, not per message VPN. All VPNs on a broker fail over together.
+- Mate link between primary and backup for state synchronization
+- Monitoring node provides quorum to prevent split-brain during network partitions
+- Config-Sync for configuration consistency across the HA group
 - Failover behavior and detection timing
-- Config-Sync for configuration consistency
+- Client reconnection: Solace APIs support automatic reconnect to the backup broker
 
 **For Appliance Event Broker:**
 Similar to Software but with hardware-specific considerations (redundant power,
@@ -728,25 +734,45 @@ Use AskUserQuestion if there is a genuine choice between HA approaches.
 If the project requires cross-site DR:
 
 - **Replication groups** — which brokers replicate to which DR site?
-- **Active/standby vs active/active** — typically active/standby for DR. Active/active
-  is complex and requires careful conflict resolution design.
+- **Active/standby vs active/active** — typically active/standby for DR. Solace does not
+  natively support active/active DR with automatic conflict resolution. Active/active
+  requires application-level coordination and is not a standard Solace topology.
 - **Interaction with DMR** — replication groups appear to DMR as a single node. The
   active VPN handles DMR data channels. On failover, the standby VPN takes over DMR
   participation.
 - **Replication mode** — synchronous (zero RPO, higher latency) vs asynchronous
   (near-zero RPO, lower latency impact)
 
-Generate a Mermaid diagram showing replication groups within the DMR topology:
+Generate a Mermaid diagram showing replication groups within the DMR topology.
+
+Use `flowchart LR` — geography maps naturally to left-right layout. Apply the
+standard style system:
+
+```
+classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
+classDef failure fill:#ffcdd2,stroke:#c62828,color:#b71c1c
+```
+
+- One subgraph per site, with `direction TB` inside each.
+- Apply `:::broker` to active broker nodes.
+- Solid lines for replication within a site, dashed for DR replication across sites.
+- Label DR links with replication mode (sync/async) and RPO target.
+- Max 25 nodes. If more than 2 sites, split into overview + per-site detail diagrams.
+
+Example structure:
 
 ```mermaid
-graph TB
-    subgraph "Primary Site"
-        P_Active[Active Broker] ---|replication| P_Standby[Standby Broker]
+flowchart LR
+    subgraph PRIMARY["Primary Site"]
+        direction TB
+        P_Active["Active Broker"]:::broker ---|"replication"| P_Standby["Standby Broker"]
     end
-    subgraph "DR Site"
-        DR_Active[Active Broker] ---|replication| DR_Standby[Standby Broker]
+    subgraph DR["DR Site"]
+        direction TB
+        DR_Active["Active Broker"]:::broker ---|"replication"| DR_Standby["Standby Broker"]
     end
-    P_Active -.->|"DR replication"| DR_Active
+    P_Active -.->|"DR replication (async)\nRPO < 1 min"| DR_Active
+    classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
 ```
 
 ---

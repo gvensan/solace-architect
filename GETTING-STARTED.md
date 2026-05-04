@@ -1,6 +1,6 @@
 # Getting Started with Solace Architect
 
-This guide walks you through a complete architecture engagement using Solace Architect. You will start with a business problem, run every skill in the toolkit, and end with a finished engineering blueprint. The scenario is a retail banking AI assistant, the kind of project where event-driven architecture, Solace Agent Mesh (SAM), and strict compliance requirements all intersect.
+This guide walks you through a complete architecture engagement using Solace Architect. You will start with a business problem, run every skill in the toolkit, and end with a finished engineering blueprint and a browsable HTML report. The scenario is a retail banking AI assistant, the kind of project where event-driven architecture, Solace Agent Mesh (SAM), and strict compliance requirements all intersect.
 
 By the end, you will understand what each skill does, when to use it, what it asks, and what it produces. You can follow along step by step or skip ahead to the skills that interest you.
 
@@ -31,6 +31,31 @@ You should see all tests passing. Now open Claude Code in any directory:
 ```bash
 claude
 ```
+
+### Using with other AI coding agents
+
+Solace Architect supports 10 AI coding agent hosts. External host skill files (`.agents/`, `.cursor/`, `.kiro/`, etc.) are **not checked into the repo** — they are build artifacts generated from the same `.tmpl` templates. To generate them:
+
+```bash
+bun run build                          # generate for all 10 hosts
+bun run gen:skill-docs --host codex    # generate for a single host (e.g., Codex)
+```
+
+Then launch the agent from the project root. It will discover its skills in the host-specific directory (e.g., `.agents/skills/` for Codex).
+
+---
+
+## Three commands
+
+Most users only need three commands:
+
+| Command | Purpose |
+|---------|---------|
+| `/solace-discovery` | Start a new project. Describe systems and goals. |
+| `/solace-plan` | Run the full engagement. Picks skills, runs them in order, threads context between them. |
+| `/solace-projects` | Dashboard. Status, timing, summary, switch projects, launch the web UI. |
+
+Everything else is available as individual slash commands if you want to re-run a specific step or skip the orchestrator entirely. There are 18 slash commands in total: 4 for getting started and project management, 8 design skills, 4 review skills, and 2 finalize skills.
 
 ---
 
@@ -78,7 +103,7 @@ Solace Architect prints:
 
 ### What you learn
 
-You only need three commands. `/solace-discovery` starts a project. `/solace-plan` orchestrates the full engagement — it picks the right skills, runs them in order, and threads context between them. `/solace-projects` is your dashboard for status, timing, and project switching.
+You only need three commands. `/solace-discovery` starts a project. `/solace-plan` orchestrates the full engagement, picking the right skills, running them in order, and threading context between them. `/solace-projects` is your dashboard for status, timing, project switching, and launching the web UI.
 
 ### Key concept: Skills are modular
 
@@ -169,7 +194,7 @@ D) SAM integration (recommended)
 Solace Architect uses two interaction modes:
 
 - **AskUserQuestion** — for multiple-choice selections. Presents structured decision briefs with a recommendation callout (blockquote with project-specific rationale), per-option pros/cons with completeness scoring, and clickable options. Used when the answer is one of a known set.
-- **Free-text (plain prose)** — for questions that need descriptive answers. Prints bullet points (•) with an explicit hint ("Type your answers below") so you know free-text input is expected. Used when the answer requires specifics about your systems, constraints, or goals.
+- **Free-text (plain prose)** — for questions that need descriptive answers. Prints bullet points with an explicit hint ("Type your answers below") so you know free-text input is expected. Used when the answer requires specifics about your systems, constraints, or goals.
 
 Discovery uses both extensively.
 
@@ -179,13 +204,13 @@ Discovery presents questions with bullet points and a clear input hint. This is 
 
 > **Answer in your own words — describe your system landscape:**
 >
-> • **Systems:** What systems need to communicate?
-> • **Existing messaging:** Are there messaging systems in place today?
-> • **Protocols:** What protocols do these systems speak?
-> • **Events:** What events flow between systems?
-> • **Volume:** What are the approximate event rates?
-> • **Schemas:** Are there existing schemas or an AsyncAPI spec?
-> • **Vertical:** What industry is this for?
+> * **Systems:** What systems need to communicate?
+> * **Existing messaging:** Are there messaging systems in place today?
+> * **Protocols:** What protocols do these systems speak?
+> * **Events:** What events flow between systems?
+> * **Volume:** What are the approximate event rates?
+> * **Schemas:** Are there existing schemas or an AsyncAPI spec?
+> * **Vertical:** What industry is this for?
 >
 > Type your answers below.
 
@@ -268,16 +293,19 @@ Before synthesizing, discovery asks one final question: how do you want the enga
 ```
 D6 — How should skills run after each step?
 
-> **Recommended: A) Auto-pilot**
-> Why: 14 remaining skills — auto-pilot runs them in sequence,
-> pausing only when critical issues arise or your input is needed.
+> **Recommended: A) Auto**
+> Why: 14 remaining skills — auto runs them in sequence,
+> pausing only on critical review findings or validation failures.
 
-A) Auto-pilot
+A) Auto
   After each skill, automatically run the next recommended skill.
   Pauses on: critical review findings, validation failures, blocked status.
 
 B) Interactive
-  After each skill, ask what to do next (Continue / Skip / Pick different).
+  After each skill, present three options:
+    Continue — run the next recommended skill
+    Skip — skip the next skill, move to the one after
+    Pick different — choose a specific skill from the remaining list
   Full control at every transition.
 ```
 
@@ -367,14 +395,15 @@ Based on discovery, here's the recommended skill sequence:
   8. → HA/DR design (/solace-ha-dr)
   9. → Micro-Integration design (/solace-integration)
   10. → Migration planning (/solace-migration)
-  11. → Architecture review (/solace-architect-review)
-  12. → Operations review (/solace-ops-review)
-  13. → Security review (/solace-security-review)
-  14. → Developer review (/solace-dev-review)
-  15. → Validation (/solace-validate)
-  16. → Blueprint assembly (/solace-blueprint)
+  11. → Event Portal governance (/solace-event-portal)
+  12. → Architecture review (/solace-architect-review)
+  13. → Operations review (/solace-ops-review)
+  14. → Security review (/solace-security-review)
+  15. → Developer review (/solace-dev-review)
+  16. → Validation (/solace-validate)
+  17. → Blueprint assembly (/solace-blueprint)
 
-Estimated: 14 remaining skills
+Estimated: 15 remaining skills
 ```
 
 **Why every skill is included:**
@@ -394,6 +423,18 @@ Plan uses AskUserQuestion to ask if you want to proceed, skip skills, reorder, o
 ### Key concept: Context threading
 
 Each skill writes its decisions to `decisions.yaml`. The next skill reads those decisions. This is how context flows across the engagement without you repeating yourself. Plan tracks which skills have run in `progress.yaml`, so if you close Claude Code and come back later, the plan knows where you left off.
+
+### Key concept: Execution mode governs transitions
+
+If you chose **auto** execution mode during discovery, the plan chains skills automatically after each one completes. It pauses only when it hits a critical review finding or a validation failure that needs your input. This is the fastest path through a full engagement.
+
+If you chose **interactive** mode, you see three options after each skill completes:
+
+1. **Continue** — run the next recommended skill
+2. **Skip** — skip the next skill, move to the one after it
+3. **Pick different** — choose a specific skill from the remaining list
+
+Interactive mode gives you full control at every transition. You can change course mid-engagement based on what you are seeing in the results.
 
 ### What you produced
 
@@ -620,7 +661,7 @@ The skill inventories every system-to-broker connection from the discovery brief
 | Knowledge Base | REST | Simple query/response pattern |
 | IBM MQ (batch) | JMS | JMS bridge for MQ coexistence |
 
-The skill also documents cross-protocol mediation. A message published via MQTT from the mobile app can reach a consumer subscribed via WebSocket on the web chat, because the Solace broker handles protocol mediation transparently. This is an important architectural property — the topic taxonomy works across protocols.
+The skill also documents cross-protocol mediation. A message published via MQTT from the mobile app can reach a consumer subscribed via WebSocket on the web chat, because the Solace broker handles protocol mediation transparently. This is an important architectural property: the topic taxonomy works across protocols.
 
 ### What you produced
 
@@ -832,7 +873,37 @@ The skill produces a coexistence topology diagram and a topic mapping table (IBM
 
 ---
 
-## Step 12: Architecture review — `/solace-architect-review`
+## Step 12: Event Portal governance — `/solace-event-portal`
+
+With the architecture designed, Event Portal governance maps everything into Solace's design-time governance layer: application domains, event objects with schema bindings, applications, and runtime broker connections.
+
+### What you type
+
+```
+/solace-event-portal
+```
+
+### What happens
+
+1. Maps topic taxonomy domain prefixes to Event Portal application domains
+2. Defines event objects for each topic pattern (name, address, version, schema reference)
+3. Determines schema format (JSON Schema, Avro, or Protobuf) and evolution policy
+4. Maps each system from discovery to an Event Portal application (publisher/consumer/both)
+5. Designs runtime broker connections for drift detection
+6. Establishes catalog organization, tagging conventions, and governance workflow
+7. Produces a REST API provisioning outline
+
+### Artifacts produced
+
+| Artifact | Location |
+|----------|----------|
+| Event Portal design | `artifacts/13-event-portal/event-portal-design.md` |
+| Provisioning plan | `artifacts/13-event-portal/provisioning-plan.md` |
+| Updated decisions | `decisions.yaml` (domains, schema format, evolution policy, environments) |
+
+---
+
+## Step 13: Architecture review — `/solace-architect-review`
 
 Now the four review skills examine the accumulated design from different perspectives. Each review reads all prior artifacts, generates findings, and then walks through each finding interactively.
 
@@ -859,10 +930,10 @@ After running all checks, the review presents results in two groups:
 **Confirmations** — areas with no issues are displayed as a grouped block:
 
 ```
-✓ Confirmed — No Issues
-  • Broker selection: Event broker service matches team size and cloud preference
-  • Protocol assignments: simplest protocols selected for each integration point
-  • Topic taxonomy: consistent Domain/Noun/Verb/Version/Properties structure
+Confirmed — No Issues
+  * Broker selection: Event broker service matches team size and cloud preference
+  * Protocol assignments: simplest protocols selected for each integration point
+  * Topic taxonomy: consistent Domain/Noun/Verb/Version/Properties structure
 ```
 
 **Issues** — each actual finding is presented one at a time with Apply/Defer/Discuss:
@@ -894,7 +965,7 @@ In auto execution mode, Advisory and Important findings are auto-applied; only C
 
 ---
 
-## Step 13: Operations review — `/solace-ops-review`
+## Step 14: Operations review — `/solace-ops-review`
 
 ### What you type
 
@@ -906,7 +977,7 @@ In auto execution mode, Advisory and Important findings are auto-applied; only C
 
 The ops review evaluates production readiness:
 
-- **Monitoring:** Does the architecture specify what to monitor? You mentioned Datadog — the review checks whether Solace Insights integration with Datadog is addressed.
+- **Monitoring:** Does the architecture specify what to monitor? You mentioned Datadog. The review checks whether Solace Insights integration with Datadog is addressed.
 - **Failure modes:** What happens when an agent goes down? When the Salesforce MI loses connectivity? When the IBM MQ bridge falls behind?
 - **Capacity planning:** With 3x growth in 2 years, when does the current service class run out of capacity?
 - **Upgrade path:** How do you upgrade SAM agents, Micro-Integrations, and the broker without downtime?
@@ -922,7 +993,7 @@ Like the architect review, findings are presented interactively with Apply/Defer
 
 ---
 
-## Step 14: Security review — `/solace-security-review`
+## Step 15: Security review — `/solace-security-review`
 
 ### What you type
 
@@ -951,7 +1022,7 @@ Findings are resolved interactively (Apply/Defer/Discuss). Critical security fin
 
 ---
 
-## Step 15: Developer review — `/solace-dev-review`
+## Step 16: Developer review — `/solace-dev-review`
 
 ### What you type
 
@@ -980,7 +1051,7 @@ The dev review classifies findings differently: Friction (blocks developers), Mi
 
 ---
 
-## Step 16: Validate everything — `/solace-validate`
+## Step 17: Validate everything — `/solace-validate`
 
 Validation is the quality gate before final assembly. It runs automated checks across all artifacts.
 
@@ -1064,7 +1135,7 @@ No conflicts found.
 
 ---
 
-## Step 17: Assemble the blueprint — `/solace-blueprint`
+## Step 18: Assemble the blueprint — `/solace-blueprint`
 
 The blueprint is the final deliverable. It assembles everything into a coherent engineering handoff package.
 
@@ -1132,33 +1203,86 @@ This is the package you hand to the engineering team. Blueprint marks itself com
 
 ---
 
+## Step 19: View results — `/solace-projects`
+
+After the blueprint is assembled, use `/solace-projects` and the web dashboard to review the full engagement.
+
+### What you type
+
+```
+/solace-projects
+```
+
+### What happens
+
+`/solace-projects` is the project management command. Without arguments, it shows per-skill status for the active project: which skills have run, how long each took, how many artifacts each produced, and whether any review findings are deferred. It also supports subcommands:
+
+- **list** — show all projects with summary info
+- **status** — per-skill status for the active project (the default)
+- **switch** — change the active project
+- **compare** — side-by-side comparison of two projects
+
+### The web dashboard
+
+For a visual overview, run the web dashboard:
+
+```bash
+bun run dashboard
+```
+
+This starts a local server at `localhost:3000` and opens your browser. The dashboard reads project data from the `projects/` directory and presents it across three pages:
+
+**Overview page.** Shows the engagement at a glance. Skill tiles are grouped by phase (Discovery, Design, Review, Finalize) with status indicators for each skill. A skill tree in the right sidebar shows the dependency flow between groups. During an orchestrated run, an execution separator animates between groups as skills complete. Click any skill tile to drill into its detail: timing, artifacts produced, decisions written.
+
+**Decisions page.** Lists all design decisions and review findings across the engagement. Each entry shows which skill produced it, when, and whether it was applied or deferred. This is the visual equivalent of reading `decisions.yaml`, but organized by category and filterable.
+
+**Artifacts page.** A file browser for the project's `artifacts/` directory. Browse the directory tree on the left, click a file to view its contents on the right. Markdown files render inline. Mermaid diagrams render as SVG. YAML files display with syntax highlighting.
+
+### HTML report export
+
+The dashboard includes a report export. Click the export button to generate a self-contained HTML file that captures the full engagement:
+
+- **Executive Summary** — project overview, key decisions, skill sequence
+- **Discovery** — system landscape, requirements, goals
+- **Per-group sections** — Design decisions, Review findings, Validation results
+- **Diagrams** — all Mermaid diagrams rendered as inline SVG
+- **Blueprint** — the final architecture document
+
+The HTML report is a single file with no external dependencies. Open it in any browser. Print it to PDF. Email it to stakeholders. It contains everything the engineering team needs to understand the architecture without running Claude Code.
+
+---
+
 ## What you built
 
-Starting from a conversation about a banking assistant, Solace Architect produced a complete architecture package through 17 skill invocations:
+Starting from a conversation about a banking assistant, Solace Architect produced a complete architecture package through 21 steps:
 
-| Skill | What it produced | Time |
-|-------|-----------------|------|
-| `/solace-help` | Orientation, skill catalog | 2 min |
-| `/solace-discovery` | Discovery brief, pattern match | 15-20 min |
-| `/solace-plan` | Sequenced engagement plan | 5 min |
-| `/solace-topic-design` | Topic taxonomy with delivery modes | 10-15 min |
-| `/solace-broker-select` | Broker recommendation + sizing | 5-10 min |
-| `/solace-sam-design` | Agent topology, YAML configs, auth model | 15-20 min |
-| `/solace-protocol-select` | Protocol map per integration point | 5-10 min |
-| `/solace-mesh-design` | DMR topology + Mermaid diagram | 10-15 min |
-| `/solace-ha-dr` | HA/DR design + RPO/RTO mapping | 10-15 min |
-| `/solace-integration` | Micro-Integration map + custom MI specs | 10-15 min |
-| `/solace-migration` | Phased migration plan + coexistence topology | 10-15 min |
-| `/solace-architect-review` | Architecture review findings | 5-10 min |
-| `/solace-ops-review` | Operations readiness findings | 5-10 min |
-| `/solace-security-review` | Security posture findings | 5-10 min |
-| `/solace-dev-review` | Developer experience findings | 5-10 min |
-| `/solace-validate` | Validation report (pass/fail) | 5-10 min |
-| `/solace-blueprint` | Complete engineering handoff package | 10-15 min |
+| Step | Skill | What it produced | Time |
+|------|-------|-----------------|------|
+| 1 | `/solace-help` | Orientation, skill catalog | 2 min |
+| 2 | `/solace-discovery` | Discovery brief, pattern match | 15-20 min |
+| 3 | `/solace-plan` | Sequenced engagement plan | 5 min |
+| 4 | `/solace-topic-design` | Topic taxonomy with delivery modes | 10-15 min |
+| 5 | `/solace-broker-select` | Broker recommendation + sizing | 5-10 min |
+| 6 | `/solace-sam-design` | Agent topology, YAML configs, auth model | 15-20 min |
+| 7 | `/solace-protocol-select` | Protocol map per integration point | 5-10 min |
+| 8 | `/solace-mesh-design` | DMR topology + Mermaid diagram | 10-15 min |
+| 9 | `/solace-ha-dr` | HA/DR design + RPO/RTO mapping | 10-15 min |
+| 10 | `/solace-integration` | Micro-Integration map + custom MI specs | 10-15 min |
+| 11 | `/solace-migration` | Phased migration plan + coexistence topology | 10-15 min |
+| 12 | `/solace-event-portal` | Event Portal governance design + provisioning plan | 10-15 min |
+| 13 | `/solace-architect-review` | Architecture review findings | 5-10 min |
+| 14 | `/solace-ops-review` | Operations readiness findings | 5-10 min |
+| 15 | `/solace-security-review` | Security posture findings | 5-10 min |
+| 16 | `/solace-dev-review` | Developer experience findings | 5-10 min |
+| 17 | `/solace-validate` | Validation report (pass/fail) | 5-10 min |
+| 18 | `/solace-diagrams` | Mermaid diagrams for all design artifacts | 5-10 min |
+| 19 | `/solace-blueprint` | Complete engineering handoff package | 10-15 min |
+| 20 | `/solace-executive` | Executive summary for business leaders | 5-10 min |
+| 21 | `/solace-projects` | Project status, web dashboard, HTML report | 2-5 min |
 
 **Total: ~2-3 hours for a complete architecture engagement.**
 
-The `projects/retail-banking-chat-agent/` directory contains everything: the discovery brief, every design decision with rationale, all review findings, the validation report, and the assembled blueprint. The `decisions.yaml` file contains a complete audit trail of every architectural choice made across the engagement.
+The `projects/retail-banking-chat-agent/` directory contains everything: the discovery brief, every design decision with rationale, all review findings, the validation report, and the assembled blueprint. The `decisions.yaml` file contains a complete audit trail of every architectural choice made across the engagement. The HTML report packages it all into a single file you can share.
 
 ---
 
@@ -1168,15 +1292,17 @@ The `projects/retail-banking-chat-agent/` directory contains everything: the dis
 
 **Use `/solace-plan` to stay on track.** Plan reads the discovery brief and tells you which skills to run. If you skip one, it will be noted in validation.
 
-**Choose your execution mode.** Discovery asks whether you want auto-pilot (skills chain automatically) or interactive (you control each transition). Auto-pilot is faster for engagements where you trust the recommendations. Interactive gives you full control at every step.
+**Choose your execution mode.** Discovery asks whether you want auto (skills chain automatically, pausing only on critical findings or validation failures) or interactive (three-option routing after each skill: Continue, Skip, or Pick different). Auto is faster for engagements where you trust the recommendations. Interactive gives you full control at every step.
 
-**Use `/solace-projects` for your dashboard.** See per-skill status, execution timing, project summaries, or switch between projects. Compare two projects side by side when running discovery with different assumptions.
+**Use `/solace-projects` for status and the dashboard.** See per-skill status, execution timing, project summaries, or switch between projects. Compare two projects side by side when running discovery with different assumptions. Run `bun run dashboard` for the visual web UI at `localhost:3000`.
+
+**Export the HTML report.** After the engagement, use the dashboard's export to generate a self-contained HTML file. This is the most portable way to share the architecture with stakeholders who do not have Claude Code installed.
 
 **You can resume.** If you close Claude Code mid-engagement, your progress is saved in `progress.yaml`. When you re-invoke a skill, it offers to resume where you left off.
 
 **You can skip skills.** Not every project needs every skill. A single-site project can skip mesh-design. A greenfield project can skip migration. Plan will ask you what to include.
 
-**Review findings are resolved in-line.** The four review skills walk through each finding interactively — Apply the fix, Defer it for later, or Discuss before deciding. Applied fixes update artifacts immediately. Deferred findings are logged and flagged by validation.
+**Review findings are resolved in-line.** The four review skills walk through each finding interactively: Apply the fix, Defer it for later, or Discuss before deciding. Applied fixes update artifacts immediately. Deferred findings are logged and flagged by validation.
 
 **The grounding documents are the source of truth.** Every recommendation Solace Architect makes is grounded in Solace documentation. When it cannot find a capability in the docs, it says so explicitly and labels any first-principles reasoning as "architectural inference."
 
@@ -1188,4 +1314,5 @@ The `projects/retail-banking-chat-agent/` directory contains everything: the dis
 - Read [ETHOS.md](ETHOS.md) for the working principles behind Solace Architect
 - Run `bun run skill:check` for a health dashboard of all skills
 - Run `bun run url:check` to verify grounding document URLs are current
+- Run `bun run dashboard` to explore the web dashboard
 - Run the engagement on your own project

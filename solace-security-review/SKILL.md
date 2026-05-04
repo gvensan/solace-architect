@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -661,7 +664,7 @@ Requires at least one technical skill complete. Read all available artifacts:
 ACTIVE=$(cat projects/.active)
 cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
-for dir in 04-sam-design 03-broker-select 06-mesh-design 07-ha-dr 08-integration; do
+for dir in 02-topic-design 03-broker-select 04-sam-design 05-protocol-select 06-mesh-design 07-ha-dr 08-integration; do
   for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
     [ -f "$f" ] && echo "=== $f ===" && cat "$f"
   done 2>/dev/null

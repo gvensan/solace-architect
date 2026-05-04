@@ -137,6 +137,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -172,6 +173,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -716,9 +719,9 @@ Each source platform has concepts that map differently to Solace:
 **IBM MQ → Solace:**
 | MQ Concept | Solace Equivalent | Notes |
 |-----------|-------------------|-------|
-| Queue manager | Event broker | Different architecture |
-| MQ channels | DMR links | Different model |
-| MQ clusters | DMR cluster | Different topology |
+| Queue manager | Event broker (message VPN) | Different architecture — VPN provides similar isolation scope |
+| MQ channels | No direct equivalent | MQ channels are point-to-point transfer paths. Solace uses protocol-level connections. For cross-site: DMR links. |
+| MQ clusters | DMR cluster | Different topology model — DMR is a mesh, MQ clusters are workload distribution |
 | Dead letter queue | Dead message queue | Similar concept |
 
 Present the mapping table for the relevant source platform.
@@ -737,19 +740,42 @@ During migration, the old and new systems run side by side. Design the bridge:
 - **RabbitMQ/TIBCO/IBM MQ:** Use a Micro-Integration bridge or REST-based relay.
   Document the bridge architecture.
 
-Generate a Mermaid diagram:
+Generate a Mermaid diagram of the coexistence topology.
+
+Use `flowchart LR` — migration flows naturally left-to-right from legacy to target.
+Apply the standard style system:
+
+```
+classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
+classDef mi fill:#ffe0b2,stroke:#e65100,color:#bf360c
+```
+
+- One subgraph for the source system, one for Solace. Bridge/MI in the middle.
+- Dashed lines for temporary bridge paths (will be removed post-migration).
+- Solid lines for permanent connections.
+- Apply `:::broker` to both broker nodes, `:::mi` to bridge nodes.
+- Show both legacy consumers (still on source) and new consumers (on Solace).
+- Max 15 nodes. Keep labels under 40 chars.
+
+Example structure:
 
 ```mermaid
-graph LR
-    subgraph "Source System"
-        S[Kafka Cluster]
+flowchart LR
+    subgraph SOURCE["Source System"]
+        S["Kafka Cluster"]:::broker
+        L["Legacy Apps"]
     end
-    subgraph "Solace Event Mesh"
-        B[Event Broker]
+    subgraph SOLACE["Solace Event Mesh"]
+        B["Event Broker"]:::broker
+        C["New Apps"]
     end
-    S -->|"Kafka Bridge (Broker Integrated)"| B
-    B -->|"New consumers subscribe here"| C[New Apps]
-    S -->|"Legacy consumers stay here during migration"| L[Legacy Apps]
+    BRIDGE["Kafka Bridge"]:::mi
+    S -.->|"bridged topics"| BRIDGE
+    BRIDGE -.->|"mirrored events"| B
+    B -->|"subscribe"| C
+    S -->|"existing subscriptions"| L
+    classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
+    classDef mi fill:#ffe0b2,stroke:#e65100,color:#bf360c
 ```
 
 ---

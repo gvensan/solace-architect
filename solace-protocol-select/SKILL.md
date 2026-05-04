@@ -137,6 +137,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -172,6 +173,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -692,8 +695,8 @@ Present the protocol options with selection guidance:
 |----------|---------|---------|---------------|-------|
 | **SMF** | Lowest latency, native Solace clients | Sub-ms | Direct + Guaranteed | Solace-native. Best performance. Requires Solace client library. |
 | **MQTT** | IoT, lightweight clients, constrained devices | Low | QoS 0/1/2 mapped to Direct/Guaranteed | Widely supported. MQTT 3.1.1 and 5.0. |
-| **AMQP** | Enterprise systems already speaking AMQP | Low | Guaranteed | AMQP 1.0. JMS over AMQP supported. |
-| **JMS** | Java enterprise applications | Medium | Guaranteed | Via Solace JMS API or JNDI. |
+| **AMQP** | Enterprise systems already speaking AMQP | Low | Direct (pre-settled) + Guaranteed (unsettled) | AMQP 1.0. JMS over AMQP supported. |
+| **JMS** | Java enterprise applications | Low | Guaranteed (also Direct via non-persistent delivery) | API over SMF transport. Same wire performance as SMF. Via Solace JMS API or JNDI. |
 | **REST** | Simple integrations, request/reply, no SDK | Higher | Direct + Guaranteed (Guaranteed via REST delivery points) | HTTP-based. Lowest barrier to entry. |
 | **WebSocket** | Browser clients, real-time web apps | Low | Direct + Guaranteed | Via Solace JavaScript API or MQTT over WebSocket. |
 

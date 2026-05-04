@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -689,11 +692,11 @@ Evaluate the topic taxonomy from a developer's perspective:
 Evaluate the SDK choices for each integration point:
 
 - **Language fit:** Are the selected Solace APIs available for the languages developers
-  use? (Solace supports 11 language APIs: C, C#, Go, Java, JavaScript, JMS, Node.js,
-  Python, MQTT, AMQP, REST)
-- **Abstraction level:** Is the chosen abstraction right? Direct Solace API vs Spring
-  Cloud Stream vs MQTT client vs REST? Simpler is better for developers who just need
-  to publish or subscribe.
+  use? Solace language APIs: C, C#/.NET, Go, iOS, Java, Java RTO, JCSMP, JavaScript,
+  JMS, Node.js, Python. Protocol access (no Solace SDK needed): MQTT, AMQP 1.0, REST.
+- **Abstraction level:** Is the chosen abstraction right? Direct Solace API vs PubSub+
+  Messaging API for Spring vs MQTT client vs REST? Simpler is better for developers
+  who just need to publish or subscribe.
 - **Sample code availability:** Can developers find working examples for their use case
   in SolaceLabs GitHub or Solace tutorials?
 

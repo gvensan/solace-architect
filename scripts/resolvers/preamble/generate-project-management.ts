@@ -21,6 +21,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 \`\`\`
 
 ### Active project

@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -746,18 +749,40 @@ Check antipatterns:
 - **Overly broad wildcard subscriptions across DMR** — each wildcard has real WAN cost
 - **Symmetric high-volume bidirectional flows** — make each direction's traffic class explicit
 
-Generate a Mermaid diagram of the topology:
+Generate a Mermaid diagram of the topology.
+
+Use `flowchart LR` — geography maps naturally to left-right layout. Apply the
+standard style system:
+
+```
+classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
+classDef guaranteed fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20
+classDef direct fill:#fff9c4,stroke:#f9a825,color:#f57f17
+```
+
+- One subgraph per site/region with descriptive label (cloud + region).
+- `direction TB` inside each subgraph for vertical broker layout.
+- Dashed arrows for external links between sites. Label with direction, delivery
+  mode, and traffic class. Keep edge labels under 40 chars.
+- Apply `:::broker` to broker nodes.
+- Max 25 nodes total. If more than 3 sites, split into overview diagram (sites only,
+  no clients) and per-site detail diagrams.
+
+Example structure:
 
 ```mermaid
-graph TB
-    subgraph "Site A - US East"
-        A1[Broker A1] --- A2[Broker A2]
+flowchart LR
+    subgraph EAST["Site A — US East"]
+        direction TB
+        A1["Broker A1"]:::broker --- A2["Broker A2"]
     end
-    subgraph "Site B - EU West"
-        B1[Broker B1] --- B2[Broker B2]
+    subgraph WEST["Site B — EU West"]
+        direction TB
+        B1["Broker B1"]:::broker --- B2["Broker B2"]
     end
-    A1 -.->|"external link: market data (Direct)"| B1
-    B1 -.->|"external link: order flow (Guaranteed)"| A1
+    A1 -.->|"market data (Direct)"| B1
+    B1 -.->|"order flow (Guaranteed)"| A1
+    classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
 ```
 
 Adapt the diagram to the actual topology being designed.

@@ -138,6 +138,7 @@ When a skill starts, check whether its input dependencies have been met for the 
 | solace-ha-dr | discovery complete, broker-select complete |
 | solace-migration | discovery complete |
 | solace-integration | discovery complete |
+| solace-event-portal | discovery complete, topic-design recommended |
 | solace-architect-review | at least one technical skill complete |
 | solace-ops-review | at least one technical skill complete |
 | solace-security-review | at least one technical skill complete |
@@ -173,6 +174,8 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+    13-event-portal/
+    14-executive/
 ```
 
 ### Active project
@@ -686,11 +689,13 @@ Based on the discovery brief, determine which skills this project needs:
 - `/solace-ha-dr` — include if HA/DR requirements mentioned, regulated environment, or multi-site
 - `/solace-integration` — include if backend systems need Micro-Integrations
 - `/solace-migration` — include if migrating from another messaging system
+- `/solace-event-portal` — include if Event Portal governance is desired (recommend by default for all projects with 3+ systems or compliance requirements)
 
 **Always at the end:**
 - Review skills (architect, ops, security, dev) — all four by default, user can skip
 - `/solace-validate` — consistency and completeness check
 - `/solace-blueprint` — final assembly
+- `/solace-executive` — executive summary for business leaders
 
 ---
 
@@ -712,12 +717,14 @@ Based on discovery, here's the recommended skill sequence:
   7. → HA/DR design (/solace-ha-dr)                   [if applicable]
   8. → Micro-Integration design (/solace-integration)
   9. → Migration planning (/solace-migration)          [if applicable]
-  10. → Architecture review (/solace-architect-review)
-  11. → Operations review (/solace-ops-review)
-  12. → Security review (/solace-security-review)
-  13. → Developer review (/solace-dev-review)
-  14. → Validation (/solace-validate)
-  15. → Blueprint assembly (/solace-blueprint)
+  10. → Event Portal governance (/solace-event-portal)  [if applicable]
+  11. → Architecture review (/solace-architect-review)
+  12. → Operations review (/solace-ops-review)
+  13. → Security review (/solace-security-review)
+  14. → Developer review (/solace-dev-review)
+  15. → Validation (/solace-validate)
+  16. → Blueprint assembly (/solace-blueprint)
+  17. → Executive summary (/solace-executive)
 
 Estimated: <N> skills, <rough time estimate>
 ```
@@ -831,5 +838,5 @@ When all skills in the sequence have been completed:
 
 2. Update the plan's progress to complete.
 
-3. The last skill in the sequence should always be `/solace-blueprint`, which
-   assembles the final deliverable.
+3. The last skill in the sequence is `/solace-executive`, which produces the
+   business-focused summary after `/solace-blueprint` assembles the technical deliverable.

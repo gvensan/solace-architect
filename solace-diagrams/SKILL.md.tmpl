@@ -1,0 +1,298 @@
+---
+name: solace-diagrams
+preamble-tier: 2
+version: 0.1.0
+description: |
+  Regenerate Mermaid diagrams for the current project. Can regenerate all diagrams
+  or a single diagram by name. Works at any point in the engagement — reads whatever
+  artifacts exist and generates the diagrams they support. Use when diagrams need
+  updating after design changes, or to preview diagrams before blueprint assembly.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-diagrams — Diagram Generation
+
+You are running the diagram generation skill. Your job is to read the current project
+artifacts and generate (or regenerate) Mermaid diagrams. This skill can run at any
+point in the engagement — it generates only the diagrams supported by existing artifacts.
+
+---
+
+## Step 0: Project check and scope
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+  echo ""
+  echo "=== EXISTING DIAGRAMS ==="
+  find "projects/$ACTIVE/artifacts" -name "*.mermaid" -o -name "*.mmd" 2>/dev/null | sort
+  echo ""
+  echo "=== AVAILABLE ARTIFACTS ==="
+  find "projects/$ACTIVE/artifacts" -name "*.md" -o -name "*.yaml" 2>/dev/null | sort
+fi
+```
+
+If no active project, tell the user to run `/solace-discovery` first.
+
+Determine which diagrams can be generated based on available artifacts. Use this
+dependency map:
+
+| Diagram | Required artifacts |
+|---------|-------------------|
+| `data-flow` | integration map OR topic taxonomy |
+| `broker-topology` | broker recommendation |
+| `topic-hierarchy` | topic taxonomy |
+| `queue-subscriptions` | topic taxonomy |
+| `protocol-stack` | protocol map |
+| `security-boundaries` | security review |
+| `failure-modes` | ops review |
+| `dlq-flow` | topic taxonomy |
+| `sam-agent-topology` | SAM topology |
+| `auth-scope-flow` | SAM topology |
+| `dmr-topology` | DMR topology |
+| `ha-failover` | HA/DR design |
+| `dr-failover` | HA/DR design (multi-region) |
+| `mi-connectivity` | integration map |
+| `migration-coexistence` | migration plan |
+
+Ask the user what to generate. Use AskUserQuestion with the full D<N> format.
+Default recommendation: A (all available).
+
+- **A) Generate all available diagrams** — regenerate every diagram supported by
+  existing artifacts.
+- **B) Generate a specific diagram** — name one diagram to regenerate.
+- **C) List what's available** — show which diagrams can be generated and which
+  artifacts are missing for the rest.
+
+---
+
+## Step 1: Read source artifacts
+
+Read every artifact file needed for the selected diagrams. Do not invent data —
+every node, edge, and label must trace to a project artifact.
+
+```bash
+ACTIVE=$(cat projects/.active)
+find "projects/$ACTIVE/artifacts" -name "*.md" -o -name "*.yaml" -o -name "*.mermaid" 2>/dev/null | sort
+```
+
+Read each relevant artifact file to load content for diagram generation.
+
+---
+
+## Step 2: Ensure output directory
+
+```bash
+ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/12-blueprint/diagrams"
+```
+
+---
+
+## Step 3: Generate diagrams
+
+Generate each diagram following the specifications below. Write each diagram to
+`artifacts/12-blueprint/diagrams/`. Also write companion detail files when specified.
+
+### Style system
+
+Use these `classDef` declarations in every `flowchart` diagram. Include only the
+classes relevant to that diagram. Apply classes with `:::className` suffix on node
+declarations. Do NOT use per-node `style` lines.
+
+```
+classDef guaranteed fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20
+classDef direct fill:#fff9c4,stroke:#f9a825,color:#f57f17
+classDef failure fill:#ffcdd2,stroke:#c62828,color:#b71c1c
+classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
+classDef external fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+classDef mi fill:#ffe0b2,stroke:#e65100,color:#bf360c
+classDef agent fill:#e0f2f1,stroke:#00695c,color:#004d40
+```
+
+### Layout rules
+
+1. **Max 25 nodes per diagram.** If more are needed, split by domain or subsystem
+   into separate numbered files (e.g., `data-flow-01-payments.mermaid`,
+   `data-flow-02-fraud.mermaid`).
+2. **Max 60 chars per node label.** Move details (ACL rules, subscription patterns,
+   partition keys) to a companion `*-detail.md` table in the same directory.
+3. **Prefer vertical (TD/TB) for hierarchies and flows.** Use LR only for geographic
+   topologies (site A ↔ site B) or pipeline-style transforms.
+4. **Subgraphs must declare `direction`** when they differ from the parent chart.
+5. **Dashed lines (`-.->`)** for failure/fallback paths, solid for happy path.
+6. **Descriptive node labels.** `"Byte Transfer Service"` not `BTS`.
+7. **Edge labels** under 40 chars. Longer descriptions go in companion detail files.
+8. **Legend comment** at the top of every diagram:
+   `%% Legend: green=Guaranteed, yellow=Direct, red=failure, blue=broker`
+
+### Diagram specifications
+
+**1. `data-flow` — End-to-end event flow**
+
+- **Type:** `flowchart TD` (vertical: producers top → broker middle → consumers bottom)
+- **Split rule:** If more than 3 domains, generate one diagram per domain:
+  `data-flow-01-<domain>.mermaid`, `data-flow-02-<domain>.mermaid`, etc. Also
+  generate a `data-flow-overview.mermaid` showing only domain-level groupings.
+- **Structure:** Three horizontal tiers as subgraphs — Producers, Broker (topics/queues),
+  Consumers. Number edges to show event sequence within each flow.
+- **Source artifacts:** integration map, protocol map, topic taxonomy
+
+**2. `broker-topology` — Broker deployment**
+
+- **Type:** `flowchart TD` (vertical: HA triplet at top, client connections below)
+- **Split rule:** If multi-region, generate one `broker-topology-<region>.mermaid` per
+  region for client detail, plus a `broker-topology-overview.mermaid` showing regions
+  and DMR links only.
+- **Structure:** HA triplet subgraph (primary/backup/monitoring), client subgraphs
+  grouped by protocol. Apply `:::broker` to broker nodes.
+- **Source artifacts:** broker recommendation, HA/DR design
+
+**3. `topic-hierarchy` — Topic tree**
+
+- **Type:** `mindmap`
+- **Structure:** Root is the project name. First branches are domains. Second level
+  is nouns. Third level is verbs. Leaf nodes include `(Guaranteed)` or `(Direct)`.
+- **Split rule:** If more than 8 domains, split into multiple mindmaps.
+- **Source artifacts:** topic taxonomy
+
+**4. `queue-subscriptions` — Queue-to-consumer map**
+
+- **Type:** `flowchart LR` (left-to-right: topics → queues → consumers)
+- **Split rule:** If more than 15 topics, split by domain.
+- **Structure:** Topic nodes left, queue nodes center (with partition key annotation),
+  consumer nodes right. Apply `:::guaranteed` or `:::direct` on queue nodes.
+- **Companion file:** `queue-subscriptions-detail.md` with full subscription patterns,
+  wildcard expressions, and partition keys.
+- **Source artifacts:** topic taxonomy, wildcard subscriptions
+
+**5. `protocol-stack` — Protocol per component**
+
+- **Type:** `flowchart TD` (vertical: clients by protocol at top, broker at bottom)
+- **Structure:** One subgraph per protocol group. All connect to central broker node
+  with protocol/TLS edge labels. Apply `:::broker` to broker node.
+- **Source artifacts:** protocol map
+
+**6. `security-boundaries` — Security zones**
+
+- **Type:** `flowchart TD` (vertical: external → TLS boundary → VPN → ACL zones)
+- **Structure:** Nested subgraphs for security zones. Each zone contains only client
+  names — NOT ACL rules. Node labels max 40 chars.
+- **Companion file:** `security-detail.md` with per-client ACL profile, publish/subscribe
+  allowed topics, auth method, credential storage.
+- **Source artifacts:** security review, broker recommendation
+
+**7. `failure-modes` — Failure catalog**
+
+- **Type:** `mindmap`
+- **Structure:** Root is "Failure Modes". First level: categories (Broker, Consumer,
+  Network, Application). Second level: failure mode. Third level: recovery action.
+  Use `))urgent((` shape for critical failures.
+- **Source artifacts:** ops review, failure runbook
+
+**8. `dlq-flow` — Dead letter queue flow**
+
+- **Type:** `flowchart TD` (vertical: publish → deliver → retry → DMQ → ops)
+- **Structure:** Linear vertical flow. Apply `:::guaranteed` to queue node,
+  `:::failure` to DMQ node. Keep to ~10 nodes.
+- **Source artifacts:** topic taxonomy, ops review
+
+**9. `sam-agent-topology`** — condition: SAM design artifacts exist
+
+- **Type:** `flowchart TD` (Gateways → OrchestratorAgent → agents → backends)
+- **Structure:** Subgraph per tier. Tool names as edge labels. Apply `:::agent` to
+  agent nodes, `:::broker` to OrchestratorAgent.
+- **Source artifacts:** SAM topology
+
+**10. `auth-scope-flow`** — condition: SAM design artifacts exist
+
+- **Type:** `sequenceDiagram`
+- **Participants:** User, Gateway, OrchestratorAgent, Domain Agent, Backend System
+- **Structure:** JWT presentation, scope extraction, A2A propagation, tool filtering,
+  backend call. Use `Note over` for scope transformation steps.
+- **Source artifacts:** SAM topology
+
+**11. `dmr-topology`** — condition: mesh design artifacts exist
+
+- **Type:** `flowchart LR` (horizontal: geography maps to left-right)
+- **Structure:** One subgraph per site. Dashed arrows for external links with
+  direction, delivery mode, traffic class. Apply `:::broker` to broker nodes.
+- **Source artifacts:** DMR topology
+
+**12. `ha-failover`** — condition: HA/DR design artifacts exist
+
+- **Type:** `sequenceDiagram`
+- **Participants:** Client, Primary, Backup, Monitoring, Spool
+- **Structure:** Normal operation, failure detection, promotion, reconnection, replay.
+- **Source artifacts:** HA/DR design
+
+**13. `dr-failover`** — condition: HA/DR design with multi-region
+
+- **Type:** `sequenceDiagram`
+- **Participants:** Primary Region, DR Region, DNS/Load Balancer, Clients
+- **Structure:** Region failure, traffic rerouting, reconciliation after recovery.
+  Use `Note over` for RPO/RTO annotations.
+- **Source artifacts:** HA/DR design
+
+**14. `mi-connectivity`** — condition: integration design artifacts exist
+
+- **Type:** `flowchart LR` (backends → MIs → broker)
+- **Structure:** Backend systems left, MI nodes center (labeled with deployment model),
+  broker right. Apply `:::mi` to MI nodes, `:::broker` to broker.
+- **Source artifacts:** integration map
+
+**15. `migration-coexistence`** — condition: migration artifacts exist
+
+- **Type:** `flowchart LR` (legacy → bridge → Solace)
+- **Structure:** Legacy subgraph left, bridge center, Solace right. Dashed lines for
+  temporary bridge paths. Apply `:::broker` to broker nodes, `:::mi` to bridge nodes.
+- **Source artifacts:** migration plan
+
+---
+
+## Step 4: Report results
+
+Present a summary of what was generated:
+
+```
+Diagrams generated for: <project name>
+
+  Generated:
+    ✓ <diagram-name>.mermaid — <brief description>
+    ✓ <diagram-name>.mermaid — <brief description>
+    ...
+
+  Companion detail files:
+    ✓ <detail-file>.md — <what it contains>
+    ...
+
+  Skipped (missing source artifacts):
+    ✗ <diagram-name> — needs: <missing artifact>
+    ...
+
+  Split diagrams:
+    <diagram>-01-<domain>.mermaid
+    <diagram>-02-<domain>.mermaid
+    ...
+
+Output: projects/<active>/artifacts/12-blueprint/diagrams/
+Total: <N> diagrams, <M> detail files
+```
+
+If any diagrams were split into multiple files, explain the split rationale.
+
+Update progress to note diagram generation. Do NOT update blueprint progress — this
+skill runs independently of the blueprint.

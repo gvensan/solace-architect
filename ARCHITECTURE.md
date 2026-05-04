@@ -136,7 +136,9 @@ The grounding discipline is enforced in `generate-grounding-rules.ts`. It tells 
 
 ## Multi-host generation
 
-Solace Architect generates SKILL.md files for 10 AI coding agent hosts. Each host has a typed config in `hosts/`:
+Solace Architect generates SKILL.md files for 10 AI coding agent hosts. Each host has a typed config in `hosts/`.
+
+External host output directories (`.agents/`, `.cursor/`, `.kiro/`, etc.) are **gitignored** — they are build artifacts, not source. Only the `.tmpl` templates and the Claude-primary SKILL.md files are committed. After cloning, run `bun run build` to generate for all hosts.
 
 ### Host config interface
 
@@ -205,13 +207,14 @@ Skills are organized into categories. Users only need three commands to run a fu
 | `/solace-discovery` | Start a new project — describe systems and goals |
 | `/solace-plan` | Run the full engagement (picks skills, runs them in order) |
 | `/solace-projects` | Dashboard — status, timing, summary, switch projects |
+| `bun run dashboard` | Launch project dashboard on localhost:3000 |
 
 The remaining skills run automatically via `/solace-plan` or can be invoked individually:
 
 | Category | Skills | Description |
 |----------|--------|-------------|
 | Start here | `/solace-discovery`, `/solace-plan`, `/solace-projects` | Entry points: project creation, orchestration, dashboard |
-| Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration` | Solace platform knowledge, artifact generation (YAML, diagrams, configs) |
+| Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration`, `/solace-event-portal` | Solace platform knowledge, artifact generation (YAML, diagrams, configs) |
 | Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives with interactive finding resolution |
 | Finalize | `/solace-validate`, `/solace-blueprint` | Consistency checks, antipattern detection, final blueprint assembly |
 | Utility | `/solace-help` | Skill catalog, workflow overview, active project status |
@@ -255,6 +258,11 @@ projects/<project-slug>/
     10-reviews/
     11-validation/
     12-blueprint/
+
+dashboard/
+  index.html            # Dashboard shell (sidebar nav, content area, right sidebar)
+  app.js                # Single-page app: views, report generation, data fetching
+  styles.css            # Dark/light themes, skill groups, animations
 ```
 
 ### Active project tracking
@@ -310,8 +318,55 @@ These fixtures drive eval testing and provide reproducible test inputs for manua
 
 The canonical sources index follows three update rules: add URLs found during skill development, fix 404s, and push depth into the platform reference when topics gain real coverage.
 
+## Dashboard
+
+The project dashboard is a lightweight Bun HTTP server (`scripts/dashboard.ts`) that serves a single-page app from the `dashboard/` directory. It provides a read-only view of project state for monitoring engagements in progress or reviewing completed ones.
+
+Launch via `bun run dashboard`. The server runs on port 3000 by default (configurable via the `PORT` environment variable). On macOS it opens the browser automatically.
+
+### Server
+
+The server exposes three route groups:
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/projects` | List all projects with their context, progress, decisions, and artifact file lists |
+| `GET /api/projects/:slug/artifact?path=...` | Serve a single artifact file from `projects/<slug>/artifacts/` |
+| `GET /*` | Static file serving from the `dashboard/` directory (HTML, CSS, JS) |
+
+Responses include no-cache headers. The client polls `/api/projects` every 10 seconds to pick up changes made by running skills.
+
+### Client
+
+The single-page app (`dashboard/app.js`) has six views:
+
+| View | Content |
+|------|---------|
+| Overview | Skill groups (Discovery, Design, Review, Finalize) organized by phase. Each group shows its skills as status tiles (complete, in-progress, skipped, pending). Summary stats: total wall time, execution time, user wait time, decisions made, artifacts generated. |
+| Timeline | Per-skill execution timeline with wall time bars. Click a skill for step-level and question-level timing breakdown. |
+| Decisions | Two tables: design decisions (D-numbered, from interactive prompts) and review findings (severity, source skill, applied/deferred status). |
+| Artifacts | File browser showing all generated outputs. Click a file to view its content with syntax highlighting for YAML, Markdown rendering, and Mermaid diagram rendering. |
+| Stats | Aggregate timing, step counts, question counts, and per-skill breakdowns. |
+| Export | HTML report generation. |
+
+The right sidebar shows a skill tree with group/skill hierarchy on the Overview page, and a file tree on the Artifacts page. Dark and light themes are toggled from the sidebar header.
+
+### HTML report generation
+
+The Export view generates a self-contained HTML file that can be saved or printed to PDF from the browser. The report includes:
+
+- Executive Summary with project context and aggregate timing
+- Discovery summary
+- Per-group sections (Design, Review) with all artifact content rendered inline
+- Diagrams section collecting all Mermaid files
+- Blueprint section
+- Design decisions table and review findings table
+- Table of contents with anchor links
+
+The report fetches each artifact from the API, renders Markdown via `marked`, and embeds Mermaid diagrams for client-side rendering. The generated HTML is opened in a new tab.
+
 ## What's intentionally not here
 
-- **No browser automation.** Solace Architect is a pure skills toolkit. No Playwright, no headless Chromium, no daemon process.
+- **No browser automation or headless testing.** The dashboard is a lightweight development server for viewing project state, not a production web application.
 - **No design tooling.** No image generation, no visual design tools. The output is architecture documentation and event-driven design artifacts.
 - **No deploy pipeline.** Solace Architect advises on architecture. It does not deploy brokers or configure infrastructure.

@@ -82,7 +82,7 @@ export function validateSkill(filePath: string): SkillValidation {
       raw: trimmed,
     };
 
-    if (KNOWN_COMMANDS.has(command) || command.startsWith('_') || /^[A-Z_]+$/.test(command)) {
+    if (KNOWN_COMMANDS.has(command) || command.startsWith('_') || /^[A-Z_]+$/.test(command) || cmd.args.startsWith('=')) {
       result.valid.push(cmd);
     } else {
       result.invalid.push(cmd);

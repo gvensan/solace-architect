@@ -28,6 +28,7 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - Ask Solly AI (docs Q&A): `https://docschat.solace.com`
 - Solace Cloud landing: `https://docs.solace.com/Cloud/cloud-lp.htm`
 - Solace Software Broker landing: `https://docs.solace.com/Software-Broker/software-lp.htm`
+- Kubernetes Operator: `https://docs.solace.com/Software-Broker/sw-broker-kubernetes-operator.htm`
 - Solace Appliance landing: `https://docs.solace.com/Appliance/appliance-lp.htm`
 
 ---
@@ -49,9 +50,25 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - SMF topic syntax: `https://docs.solace.com/Messaging/SMF-Topics.htm`
 - Wildcards in topic subscriptions: `https://docs.solace.com/Messaging/Wildcard-Charaters-Topic-Subs.htm`
 
+### Message VPNs
+
+- Message VPN overview: `https://docs.solace.com/Features/VPN/message-vpns.htm`
+- Configuring message VPNs: `https://docs.solace.com/Admin/Configuring-Message-VPNs.htm`
+
 ### Endpoints
 
 - Topic endpoints and queues: `https://docs.solace.com/Get-Started/topic-endpoints-queues.htm`
+- Configuring queues: `https://docs.solace.com/Messaging/Guaranteed-Msg/Configuring-Queues.htm`
+- Partitioned queues: `https://docs.solace.com/Messaging/Guaranteed-Msg/Partitioned-Queues.htm`
+- Dead message queues: `https://docs.solace.com/Messaging/Guaranteed-Msg/Configuring-DTEs.htm`
+- Message replay: `https://docs.solace.com/Features/Message-Replay/Message-Replay.htm`
+- REST delivery points: `https://docs.solace.com/API/REST/REST-Delivery-Points.htm`
+- Solace Cache: `https://docs.solace.com/Features/Cache/cache-lp.htm`
+- Message eliding: `https://docs.solace.com/Messaging/Direct-Msg/Direct-Msg-Eliding.htm`
+- Shared subscriptions: `https://docs.solace.com/Messaging/Direct-Msg/Direct-Msg-Shared-Subscriptions.htm`
+- Message priority: `https://docs.solace.com/Messaging/Guaranteed-Msg/Message-Priority.htm`
+- Transactions: `https://docs.solace.com/Features/Transactions/Transactions-Overview.htm`
+- Message VPN bridges: `https://docs.solace.com/Features/VPN/VPN-Bridges.htm`
 
 ### Delivery modes
 
@@ -160,6 +177,8 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - SDKPerf (performance testing): `https://docs.solace.com/API/SDKPerf/SDKPerf.htm`
 - Solace Cloud REST API reference: `https://api.solace.dev/cloud/reference`
 - Codelabs: `https://docs.solace.com/API/solace-codelabs.htm`
+- Service class limits and plans: `https://docs.solace.com/Cloud/cloud-service-class-comparison.htm`
+- Software Event Broker system requirements: `https://docs.solace.com/Software-Broker/sw-broker-sys-reqs.htm`
 
 ---
 
@@ -217,14 +236,22 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 
 - Client profiles and usernames: `https://docs.solace.com/Cloud/client-profiles.htm`
 - Granting clients access (ACLs and substitution expressions): `https://docs.solace.com/Security/Granting-Clients-Access.htm`
-
-(Note: deeper security references — TLS, OAuth, RBAC, regulatory contexts — have not been catalogued here. When a skill needs them, search `docs.solace.com` for the specific topic and add the canonical URLs to this index.)
+- Client authentication overview: `https://docs.solace.com/Security/Client-Authentication.htm`
+- Client certificate authentication: `https://docs.solace.com/Security/Client-Cert-Auth.htm`
+- OAuth authentication: `https://docs.solace.com/Security/OAuth-Authentication.htm`
+- Kerberos authentication: `https://docs.solace.com/Security/Kerberos-Authentication.htm`
+- LDAP authentication: `https://docs.solace.com/Security/LDAP.htm`
+- RADIUS authentication: `https://docs.solace.com/Security/RADIUS-Authentication.htm`
+- TLS/SSL configuration: `https://docs.solace.com/Security/TLS-SSL-Config.htm`
+- SEMP access control: `https://docs.solace.com/Admin/SEMP/SEMP-API-Archit.htm`
 
 ### Operations
 
 - Syslog forwarding: `https://docs.solace.com/Cloud/cloud-syslog-forwarding.htm`
 - Product keys: `https://docs.solace.com/Admin/Product-Key.htm`
 - System event reference: `https://docs.solace.com/Admin-Ref/Solace-PubSub-Event-Reference/event_ref_boiler.html`
+- Kubernetes Operator (also listed in top-level entry points): `https://docs.solace.com/Software-Broker/sw-broker-kubernetes-operator.htm`
+- Kubernetes Operator Helm chart: `https://docs.solace.com/Software-Broker/sw-broker-install-kubernetes-operator.htm`
 
 ### Releases
 
