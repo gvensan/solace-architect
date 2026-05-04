@@ -210,6 +210,7 @@ Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/09-migration"
 cat > "projects/$ACTIVE/artifacts/09-migration/migration-plan.md" << 'EOF'
 <paste the phased migration plan>
 EOF

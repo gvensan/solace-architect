@@ -805,6 +805,7 @@ Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/06-mesh-design"
 cat > "projects/$ACTIVE/artifacts/06-mesh-design/dmr-topology.md" << 'EOF'
 <paste the topology description with rationale>
 EOF

@@ -795,6 +795,7 @@ Save artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/07-ha-dr"
 cat > "projects/$ACTIVE/artifacts/07-ha-dr/ha-dr-topology.md" << 'EOF'
 <paste the HA/DR design with rationale>
 EOF

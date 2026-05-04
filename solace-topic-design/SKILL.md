@@ -820,6 +820,7 @@ Save the topic taxonomy artifact:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/02-topic-design"
 cat > "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" << 'EOF'
 <paste the full topic taxonomy table here>
 EOF
@@ -829,6 +830,7 @@ Save the wildcard subscription map:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/02-topic-design"
 cat > "projects/$ACTIVE/artifacts/02-topic-design/wildcard-subscriptions.md" << 'EOF'
 <paste the subscription map here>
 EOF
@@ -838,6 +840,7 @@ Save the antipattern report:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/02-topic-design"
 cat > "projects/$ACTIVE/artifacts/02-topic-design/antipattern-report.md" << 'EOF'
 <paste the validation results here>
 EOF

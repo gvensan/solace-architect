@@ -111,6 +111,7 @@ Save the protocol map:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+mkdir -p "projects/$ACTIVE/artifacts/05-protocol-select"
 cat > "projects/$ACTIVE/artifacts/05-protocol-select/protocol-map.md" << 'EOF'
 <paste the protocol selection table with rationale and cross-protocol notes>
 EOF

@@ -77,7 +77,7 @@ DISPLAY_NAME="<original-name>"
 mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint,13-event-portal,14-executive}
 cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
 name: $PROJECT_SLUG
-display_name: $DISPLAY_NAME
+display_name: "$DISPLAY_NAME"
 created: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 status: active
 CTXEOF

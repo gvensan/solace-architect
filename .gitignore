@@ -28,5 +28,8 @@ dist/
 # Project data — local to each user, not committed
 projects/
 
+# Intake files — generated templates, exports, and parsed imports
+intake/
+
 /tmp/
 solace-grounding/tracker/

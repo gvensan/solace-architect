@@ -34,13 +34,13 @@ if ls projects/*/context.yaml 1>/dev/null 2>&1; then
   ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
   for ctx in projects/*/context.yaml; do
     slug=$(dirname "$ctx" | xargs basename)
-    display=$(grep "display_name" "$ctx" 2>/dev/null | sed 's/display_name: //')
-    created=$(grep "created" "$ctx" 2>/dev/null | sed 's/created: //')
-    status=$(grep "status" "$ctx" 2>/dev/null | sed 's/status: //')
+    display=$(grep "^display_name:" "$ctx" 2>/dev/null | sed 's/^display_name: *//')
+    created=$(grep "^created:" "$ctx" 2>/dev/null | sed 's/^created: *//')
+    proj_status=$(grep "^status:" "$ctx" 2>/dev/null | sed 's/^status: *//')
     artifacts=$(find "projects/$slug/artifacts" -type f 2>/dev/null | wc -l | tr -d ' ')
     marker=""
     if [ "$slug" = "$ACTIVE" ]; then marker=" (active)"; fi
-    echo "$slug$marker — $display — $status — created: $created — $artifacts artifacts"
+    echo "$slug$marker — $display — $proj_status — created: $created — $artifacts artifacts"
   done
 else
   echo "NO_PROJECTS"
