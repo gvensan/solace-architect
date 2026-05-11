@@ -266,6 +266,7 @@ FIELD_MAP = {
 
     # S10: Preferences
     'execution_mode': 'preferences.execution_mode',
+    'provision_event_portal': 'preferences.provision_event_portal',
 
     # S11: Additional
     'additional_notes': 'additional.notes',
@@ -314,9 +315,20 @@ def parse_intake_docx(filepath):
     # 4. Map to structured output
     intake = {}
 
+    # Paths whose dropdown values should be coerced from the strings stored in
+    # the DOCX SDT ("true"/"false") to native YAML booleans so downstream
+    # routing rules can compare against `value: true`/`false` directly.
+    _BOOL_PATHS = {
+        'preferences.provision_event_portal',
+    }
+
     for tag_key, dotted_path in FIELD_MAP.items():
         if tag_key in tag_map:
-            _set_nested(intake, dotted_path, tag_map[tag_key])
+            value = tag_map[tag_key]
+            if dotted_path in _BOOL_PATHS:
+                # Accept "true"/"false" (case-insensitive). Anything else → False.
+                value = str(value).strip().lower() == 'true'
+            _set_nested(intake, dotted_path, value)
 
     # Add table data
     if systems_table:

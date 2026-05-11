@@ -70,6 +70,7 @@ Based on the discovery brief, determine which skills this project needs:
 - `/solace-ha-dr` — include if HA/DR requirements mentioned, regulated environment, or multi-site
 - `/solace-integration` — include if backend systems need Micro-Integrations
 - `/solace-migration` — include if migrating from another messaging system
+- `/solace-ep-provision` — include **only** if `decisions.yaml` has `provision_event_portal: true` (set from `preferences.provision_event_portal` at intake). This writes to a live Solace Cloud tenant via the EP Designer MCP and is opt-in by design. Project type does not auto-trigger it. Must run after `/solace-event-portal`. If the gate is on but the EP Designer MCP is not loaded at run time, the skill records a BLOCKED status with the exact reason — surface that BLOCKED state in the final plan summary; never treat it as a silent skip.
 
 **Always at the end (finalize phase):**
 - Review skills (architect, ops, security, dev) — all four by default, user can skip
@@ -99,14 +100,15 @@ Based on discovery, here's the recommended skill sequence:
   8. → Micro-Integration design (/solace-integration)
   9. → Migration planning (/solace-migration)          [if applicable]
   10. → Event Portal governance (/solace-event-portal)
-  11. → Architecture review (/solace-architect-review)
-  12. → Operations review (/solace-ops-review)
-  13. → Security review (/solace-security-review)
-  14. → Developer review (/solace-dev-review)
-  15. → Validation (/solace-validate)
-  16. → Blueprint assembly (/solace-blueprint)
-  17. → Diagram generation (/solace-diagrams)
-  18. → Executive summary (/solace-executive)
+  11. → Event Portal provisioning (/solace-ep-provision)  [if applicable, requires EP Designer MCP]
+  12. → Architecture review (/solace-architect-review)
+  13. → Operations review (/solace-ops-review)
+  14. → Security review (/solace-security-review)
+  15. → Developer review (/solace-dev-review)
+  16. → Validation (/solace-validate)
+  17. → Blueprint assembly (/solace-blueprint)
+  18. → Diagram generation (/solace-diagrams)
+  19. → Executive summary (/solace-executive)
 
 Estimated: <N> skills, <rough time estimate>
 ```
@@ -262,15 +264,31 @@ When all skills in the sequence have been completed:
 1. Run the artifact validation check from Step 3. If any finalize-phase artifacts
    are missing, re-run the owning skill before marking the plan complete.
 
-2. Present a summary of the engagement:
+2. Check whether `/solace-ep-provision` was gated on. If `decisions.yaml` has
+   `provision_event_portal: true`:
+   - Read its progress entry. If status is `complete` — fine, list it among
+     completed skills and reference `provisioned.yaml` in the summary.
+   - If status is `blocked` (e.g., EP Designer MCP not loaded, expired token) —
+     do **not** silently treat the engagement as fully complete. Mark the plan
+     as `DONE_WITH_CONCERNS` and lead the summary with: "Event Portal
+     provisioning did not complete: <exact blocker from progress.yaml>. Resolve
+     the blocker and re-run `/solace-ep-provision` to materialize the catalog
+     into your Solace Cloud tenant."
+   - If there is no progress entry at all even though the gate is on — this is
+     a planning error; flag it and re-run the skill.
+
+3. Present a summary of the engagement:
    - Skills completed
    - Total artifacts produced (count all files across all artifact directories)
    - Key decisions made
    - Any open questions or concerns from review skills
    - Any artifacts that required re-generation
+   - **Live-tenant state**: if `provision_event_portal: true`, state whether
+     Solace Cloud was actually written to (with the domain ID), or what blocked
+     it. If `false`, state "Design-only engagement — no tenant changes made."
 
-3. Update the plan's progress to complete.
+4. Update the plan's progress to complete.
 
-4. The finalize sequence is: `/solace-blueprint` (technical deliverable) ->
+5. The finalize sequence is: `/solace-blueprint` (technical deliverable) ->
    `/solace-diagrams` (diagram refinement) -> `/solace-executive` (business case
    with ROI framework). All three must produce their full artifact set.

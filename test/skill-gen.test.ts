@@ -53,10 +53,10 @@ describe('resolver registry', () => {
 });
 
 describe('template discovery', () => {
-  test('discovers all 23 skill templates', () => {
+  test('discovers all 24 skill templates', () => {
     // Update when adding/removing skills. Run discoverTemplates() to verify.
     const templates = discoverTemplates(ROOT);
-    expect(templates.length).toBe(23);
+    expect(templates.length).toBe(24);
   });
 
   test('all templates produce output files', () => {

@@ -1,0 +1,166 @@
+# Audience packs for the Export Report dashboard.
+#
+# Each pack filters the comprehensive Solace Blueprint into a focused subset
+# for a specific audience. The dashboard reads this file via /api/report-packs
+# and renders one tile per pack on the Export view.
+#
+# Pack fields:
+#   id          — internal identifier (used in JS and URLs)
+#   label       — display name on the tile and in the generated HTML report title
+#   description — 1-line description on the tile
+#   audience    — who this pack is for
+#   filters:
+#     dirs            — artifact directory names to include (e.g. "12-blueprint")
+#                       all files under the directory are included
+#     files           — explicit artifact paths to include (artifacts/-relative)
+#     globs           — glob patterns matched against artifact paths
+#     top_sections    — top-level inline sections to include in the report
+#                       options: summary, scope, decisions, findings, open-items,
+#                                connected-systems, artifacts
+#                       omit the field entirely to include all sections
+#     decision_skills — filter decisions table to decisions sourced from these skills
+#                       empty list = hide decisions table entirely
+#                       omit the field = show all decisions
+#     finding_skills  — same as decision_skills, for the review findings table
+#
+# Blueprint pack uses an empty filters block — it includes everything.
+
+version: 1
+
+packs:
+  - id: blueprint
+    label: Solace Blueprint
+    description: Comprehensive engineering deliverable — full architecture, all artifacts.
+    audience: Architects, platform leads, project owners
+    filters: {}
+
+  - id: executive
+    label: Executive Team
+    description: Business case, ROI, and recommendation in plain language.
+    audience: CXO, business sponsors, investment committee
+    filters:
+      dirs:
+        - 14-executive
+      top_sections:
+        - summary
+        - scope
+        - open-items
+        - artifacts
+      decision_skills: []
+      finding_skills: []
+
+  - id: ops
+    label: Admin & Ops
+    description: Provisioning, monitoring, runbooks — full operational depth.
+    audience: Solace admin, SRE, on-call engineer
+    filters:
+      dirs:
+        - 02-topic-design
+        - 03-broker-select
+      files:
+        - 10-reviews/ops-review.md
+        - 11-validation/validation-report.md
+        - 12-blueprint/architecture.md
+        - 12-blueprint/runbook.md
+        - 12-blueprint/topic-taxonomy.md
+        - 12-blueprint/validation-report.md
+        - 12-blueprint/config/broker/provisioning-parameters.md
+        - 13-event-portal/provisioned.yaml
+        - 13-event-portal/provisioning-report.md
+      globs:
+        - "12-blueprint/diagrams/broker-topology*.mermaid"
+        - "12-blueprint/diagrams/dlq-flow*.mermaid"
+        - "12-blueprint/diagrams/failure-modes*.mermaid"
+        - "12-blueprint/diagrams/queue-subscriptions*.mermaid"
+        - "12-blueprint/diagrams/queue-subscriptions-detail*.md"
+      top_sections:
+        - summary
+        - scope
+        - decisions
+        - findings
+        - open-items
+        - connected-systems
+        - artifacts
+      decision_skills:
+        - solace-broker-select
+        - solace-topic-design
+        - solace-ops-review
+        - solace-validate
+        - solace-mesh-design
+        - solace-ha-dr
+        - solace-ep-provision
+      finding_skills:
+        - solace-ops-review
+
+  - id: security
+    label: Security
+    description: Auth, ACLs, encryption, audit, PII — full security posture.
+    audience: Security architect, compliance, infosec, audit
+    filters:
+      files:
+        - 03-broker-select/broker-recommendation.md
+        - 05-protocol-select/protocol-map.md
+        - 10-reviews/security-review.md
+        - 11-validation/validation-report.md
+        - 13-event-portal/event-portal-design.md
+        # Live-tenant state from provisioning is a security artifact too:
+        # security/audit needs to know what was actually created in the tenant.
+        - 13-event-portal/provisioned.yaml
+        - 13-event-portal/provisioning-report.md
+      globs:
+        - "02-topic-design/antipattern-report*.md"
+        - "12-blueprint/diagrams/security-*.mermaid"
+        - "12-blueprint/diagrams/security-*.md"
+      top_sections:
+        - summary
+        - scope
+        - decisions
+        - findings
+        - open-items
+        - artifacts
+      decision_skills:
+        - solace-security-review
+        - solace-event-portal
+        - solace-ep-provision
+        - solace-broker-select
+      finding_skills:
+        - solace-security-review
+
+  - id: developer
+    label: Developers
+    description: Topics, schemas, protocols, client patterns — build correct clients.
+    audience: Application engineers, SRE writing client code
+    filters:
+      dirs:
+        - 02-topic-design
+        - 05-protocol-select
+      files:
+        - 10-reviews/dev-review.md
+        - 13-event-portal/event-portal-design.md
+        - 13-event-portal/provisioning-plan.md
+        - 13-event-portal/provisioned.yaml
+        - 13-event-portal/provisioning-report.md
+      globs:
+        - "12-blueprint/diagrams/data-flow*.mermaid"
+        - "12-blueprint/diagrams/protocol-stack*.mermaid"
+        - "12-blueprint/diagrams/topic-hierarchy*.mermaid"
+        - "13-event-portal/asyncapi/*.yaml"
+        - "13-event-portal/asyncapi/*.yml"
+        - "13-event-portal/asyncapi/*.json"
+      top_sections:
+        - summary
+        - scope
+        - decisions
+        - findings
+        - open-items
+        - connected-systems
+        - artifacts
+      decision_skills:
+        - solace-topic-design
+        - solace-protocol-select
+        - solace-dev-review
+        - solace-event-portal
+        - solace-sam-design
+        - solace-ep-provision
+      finding_skills:
+        - solace-dev-review

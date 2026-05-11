@@ -401,7 +401,8 @@ Based on discovery, here's the recommended skill sequence:
   9. → Micro-Integration design (/solace-integration)
   10. → Migration planning (/solace-migration)
   11. → Event Portal governance (/solace-event-portal)
-  12. → Architecture review (/solace-architect-review)
+  12. → Event Portal provisioning (/solace-ep-provision)  [if `provision_event_portal: true` at intake]
+  13. → Architecture review (/solace-architect-review)
   13. → Operations review (/solace-ops-review)
   14. → Security review (/solace-security-review)
   15. → Developer review (/solace-dev-review)
@@ -1275,6 +1276,7 @@ Starting from a conversation about a banking assistant, Solace Architect produce
 | 10 | `/solace-integration` | Micro-Integration map + custom MI specs | 10-15 min |
 | 11 | `/solace-migration` | Phased migration plan + coexistence topology | 10-15 min |
 | 12 | `/solace-event-portal` | Event Portal governance design + provisioning plan | 10-15 min |
+| 12a | `/solace-ep-provision` | Provision design into Solace Cloud + AsyncAPI exports (opt-in via `preferences.provision_event_portal: true`; requires EP Designer MCP) | 5-10 min |
 | 13 | `/solace-architect-review` | Architecture review findings | 5-10 min |
 | 14 | `/solace-ops-review` | Operations readiness findings | 5-10 min |
 | 15 | `/solace-security-review` | Security posture findings | 5-10 min |

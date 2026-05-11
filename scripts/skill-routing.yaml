@@ -49,6 +49,19 @@ skills:
     trigger: always
     outcome: Event Portal governance — application domains and event catalog
 
+  - name: solace-ep-provision
+    command: /solace-ep-provision
+    phase: design
+    trigger: conditional
+    outcome: Provision the Event Portal model in Solace Cloud via the EP Designer MCP
+    when:
+      # Explicit opt-in only. Provisioning writes to a live Solace Cloud tenant
+      # via the EP Designer MCP (Early Access). Never auto-fire from project.type
+      # — the customer must consciously enable it during intake.
+      - field: preferences.provision_event_portal
+        op: equals
+        value: true
+
   - name: solace-sam-design
     command: /solace-sam-design
     phase: design

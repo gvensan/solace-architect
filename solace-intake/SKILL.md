@@ -880,22 +880,26 @@ landscape:
 
   events:
     # What events flow between systems?
-    # For each event, describe: name, approximate rate, delivery mode, payload format.
+    # For each event, describe: name, approximate rate, delivery mode, payload format, payload size.
+    # Payload size drives broker spool sizing and protocol-overhead decisions. Free-text format.
     #
     # Examples:
     # - name: "order-created"
     #   rate: "500/sec peak"
     #   delivery: guaranteed     # direct | guaranteed
     #   payload: JSON
+    #   payload_size: "~5KB"
     #
     # - name: "sensor-reading"
     #   rate: "100/sec per device"
     #   delivery: direct
     #   payload: binary
+    #   payload_size: "~200B"
     - name: ""
       rate: ""
       delivery: ""       # direct | guaranteed
       payload: ""         # JSON, Avro, Protobuf, XML, binary
+      payload_size: ""    # e.g. "~5KB" or "~50KB peak / ~2KB typical"
 
   volumes: ""
   # Approximate aggregate event rates.
@@ -1086,6 +1090,18 @@ preferences:
   # Pick one: auto | interactive
   #   auto        — Skills run back-to-back, pausing only for design decisions (recommended)
   #   interactive — Confirm each skill before it runs
+
+  provision_event_portal: false
+  # Provision the designed Event Portal model into your Solace Cloud tenant after design?
+  # Pick one: true | false (default: false)
+  #   false — Design-only engagement. We do not touch your tenant.
+  #   true  — After Event Portal design completes, /solace-ep-provision materializes
+  #           the catalog (domains, schemas, events, applications) into Solace Cloud
+  #           via the Event Portal Designer MCP.
+  # Requires the Solace Event Portal Designer MCP installed in your AI host AND a
+  # Solace Cloud API token with Event Portal Designer Read+Write permission. If the
+  # MCP is not configured at run time, the step records a BLOCKED status with the
+  # exact reason — it never writes silently or skips silently.
 YAMLEOF
 echo "Generated: intake/solace-intake-template.yaml"
 ```
@@ -1139,13 +1155,13 @@ cat > intake/solace-intake-template.md << 'MDEOF'
 
 
 ### Events
-<!-- What events flow between systems? For each, note: name, approximate rate, delivery mode (direct/guaranteed), and payload format. -->
+<!-- What events flow between systems? For each, note: name, approximate rate, delivery mode (direct/guaranteed), payload format, and typical payload size. Size drives broker sizing and protocol decisions. -->
 
-| Event | Rate | Delivery | Payload Format |
-|-------|------|----------|---------------|
-|       |      |          |               |
-|       |      |          |               |
-|       |      |          |               |
+| Event | Rate | Delivery | Payload Format | Payload Size |
+|-------|------|----------|----------------|--------------|
+|       |      |          |                |              |
+|       |      |          |                |              |
+|       |      |          |                |              |
 
 ### Aggregate Volumes
 <!-- Approximate total event rates. Example: "~50K events/sec peak, ~2B events/day" -->
@@ -1389,11 +1405,12 @@ Map discovery brief and decisions data to the intake YAML schema:
 - `project.type` from decisions (or infer from discovery brief)
 - `landscape.*` from the system landscape section of the brief
 - `landscape.systems` as an array with keys: `System Name`, `Role`, `Protocol`, `Owner`
-- `landscape.events` as an array with keys: `Event Name`, `Rate`, `Delivery`, `Payload Format`
+- `landscape.events` as an array with keys: `Event Name`, `Rate`, `Delivery`, `Payload Format`, `Payload Size`
 - `domain.*` from domain-specific sections
 - `requirements.*` from requirements section
 - `goals.*` from goals section
 - `preferences.execution_mode` from decisions.yaml
+- `preferences.provision_event_portal` from decisions.yaml (defaults to `false` if absent)
 
 ```bash
 ACTIVE=$(cat projects/.active)
@@ -1583,6 +1600,11 @@ source: intake
 CTXEOF
 cat > "projects/$PROJECT_SLUG/decisions.yaml" << DECEOF
 execution_mode: <auto or interactive from preferences.execution_mode, default auto>
+provision_event_portal: <true or false from preferences.provision_event_portal, default false>
+# When provision_event_portal is true, /solace-plan includes /solace-ep-provision
+# after /solace-event-portal in the design phase. At run time, the skill verifies
+# the EP Designer MCP is available; if not, it records a BLOCKED status with the
+# reason. It does not silently skip.
 decisions: []
 DECEOF
 cat > "projects/$PROJECT_SLUG/progress.yaml" << PROGEOF
