@@ -1059,7 +1059,7 @@ function renderDecisionTable(decs, title) {
         ${decs.map(d => `<tr>
           <td><span class="badge badge-user">${escHtml(d.id || d.decision || '')}</span></td>
           <td>${dashSkillLink(d.skill)}</td>
-          <td style="color:var(--text)">${escHtml(d.choice || d.value || '')}</td>
+          <td style="color:var(--text)">${escHtml(d.label || d.value || d.choice || '')}</td>
           <td style="color:var(--text-dim);font-size:13px">${escHtml(d.question || d.rationale || '')}</td>
         </tr>`).join('')}
       </tbody>
@@ -1711,7 +1711,7 @@ async function exportView() {
           <td><span class="badge badge-user">${d.id}</span></td>
           <td>${SKILL_LABELS[d.skill] || d.skill || ''}</td>
           <td style="color:var(--text)">${d.question || ''}</td>
-          <td>${d.choice || ''}</td>
+          <td>${d.label || d.value || d.choice || ''}</td>
         </tr>`).join('')}
       </tbody>
     </table></div>` });
@@ -2576,7 +2576,7 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
     ${(() => {
       const decs = items.filter(d => (d.id || d.decision) && !d.source);
       const findings = items.filter(d => d.source);
-      const dec = (name) => { const d = decs.find(x => (x.id || x.decision) === name); return d ? (d.choice || d.value || '') : ''; };
+      const dec = (name) => { const d = decs.find(x => (x.id || x.decision) === name); return d ? (d.label || d.value || d.choice || '') : ''; };
       const hasDec = (name) => decs.some(x => (x.id || x.decision) === name);
 
       const brokerType = dec('broker-type');
@@ -2597,7 +2597,7 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 
       const protocols = decs
         .filter(d => (d.id || d.decision || '').endsWith('-protocol'))
-        .map(d => ({ name: (d.id || d.decision).replace(/-protocol$/, '').replace(/-/g, ' '), value: d.choice || d.value }));
+        .map(d => ({ name: (d.id || d.decision).replace(/-protocol$/, '').replace(/-/g, ' '), value: d.label || d.value || d.choice }));
 
       const importantFindings = findings.filter(f => (f.severity || '').toLowerCase() === 'important').length;
       const advisoryFindings = findings.filter(f => (f.severity || '').toLowerCase() === 'advisory').length;
@@ -2685,7 +2685,7 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 
     <h2 id="decisions">Decisions</h2>
     <table><thead><tr><th>Decision</th><th>Skill</th><th>Value</th><th>Rationale</th></tr></thead><tbody>${items.filter(d => d.id || (d.skill && !d.source)).map(d =>
-      `<tr><td>${escHtml(d.id||d.decision||'')}</td><td>${skillLink(d.skill)}</td><td>${escHtml(d.choice||d.value||'')}</td><td>${escHtml(d.question||d.rationale||'')}</td></tr>`
+      `<tr><td>${escHtml(d.id||d.decision||'')}</td><td>${skillLink(d.skill)}</td><td>${escHtml(d.label||d.value||d.choice||'')}</td><td>${escHtml(d.question||d.rationale||'')}</td></tr>`
     ).join('') || '<tr><td colspan="4" style="color:#9ca3af;text-align:center">No decisions recorded</td></tr>'}</tbody></table>
 
     ${findingRows ? `<h2 id="findings">Review Findings</h2>

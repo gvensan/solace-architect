@@ -1,0 +1,167 @@
+# Skill routing rules — single source of truth for which Solace Architect skills
+# run for a given engagement.
+#
+# Consumed by:
+#   - scripts/build-intake-html.py (live engagement preview in the HTML form)
+#   - solace-plan/SKILL.md.tmpl    (Step 1 — Determine relevant skills)
+#
+# When you change the routing logic in /solace-plan, update this file too.
+# Conversely, when you add an entry here, update solace-plan to honor it.
+#
+# Each skill entry:
+#   name      — internal skill id (matches skill directory)
+#   command   — slash command users type
+#   phase     — design | review | finalize | utility
+#   outcome   — customer-facing one-line description (used in HTML preview)
+#   trigger   — always | conditional
+#   when      — (conditional only) list of intake conditions that include this skill.
+#               Each condition is an object with field/op/value.
+#               op = equals | in | not_empty | contains_any
+#               Multiple conditions in `when` are OR-ed.
+
+version: 1
+refreshed: 2026-05-11
+
+# ── Design phase ──────────────────────────────────────────────────────────────
+
+skills:
+  - name: solace-topic-design
+    command: /solace-topic-design
+    phase: design
+    trigger: always
+    outcome: Topic taxonomy — how every event is named and routed
+
+  - name: solace-broker-select
+    command: /solace-broker-select
+    phase: design
+    trigger: always
+    outcome: Broker selection — cloud, software, or appliance
+
+  - name: solace-protocol-select
+    command: /solace-protocol-select
+    phase: design
+    trigger: always
+    outcome: Protocol selection — MQTT, AMQP, JMS, REST, SMF per integration
+
+  - name: solace-event-portal
+    command: /solace-event-portal
+    phase: design
+    trigger: always
+    outcome: Event Portal governance — application domains and event catalog
+
+  - name: solace-sam-design
+    command: /solace-sam-design
+    phase: design
+    trigger: conditional
+    outcome: AI agent mesh design — Solace Agent Mesh topology
+    when:
+      - field: project.type
+        op: equals
+        value: sam
+      - field: landscape.systems[].name
+        op: contains_any
+        value: [chat, chatbot, assistant, agent, copilot, llm, rag, ai]
+      - field: goals.driver
+        op: contains_any
+        value: [chatbot, chat agent, ai agent, ai assistant, copilot, sam]
+
+  - name: solace-mesh-design
+    command: /solace-mesh-design
+    phase: design
+    trigger: conditional
+    outcome: Multi-site mesh topology — how brokers federate across regions
+    when:
+      - field: requirements.topology
+        op: in
+        value: [multi_region, hybrid_cloud, edge]
+
+  - name: solace-ha-dr
+    command: /solace-ha-dr
+    phase: design
+    trigger: conditional
+    outcome: HA/DR design — replication, failover, recovery objectives
+    when:
+      - field: requirements.topology
+        op: in
+        value: [multi_region, hybrid_cloud]
+      - field: requirements.delivery_mode
+        op: in
+        value: [guaranteed, mixed]
+      - field: landscape.vertical
+        op: in
+        value: [banking, capital_markets, healthcare]
+
+  - name: solace-integration
+    command: /solace-integration
+    phase: design
+    trigger: conditional
+    outcome: Micro-Integration strategy — connecting backends to the event mesh
+    when:
+      - field: landscape.systems
+        op: not_empty
+        value: true
+
+  - name: solace-migration
+    command: /solace-migration
+    phase: design
+    trigger: conditional
+    outcome: Migration plan — phased move from existing messaging to Solace
+    when:
+      - field: project.type
+        op: equals
+        value: migration
+      - field: landscape.existing_messaging
+        op: contains_any
+        value: [kafka, ibm mq, rabbitmq, tibco, activemq, mq series, jms]
+
+# ── Review phase ──────────────────────────────────────────────────────────────
+
+  - name: solace-architect-review
+    command: /solace-architect-review
+    phase: review
+    trigger: always
+    outcome: Architecture review — trade-offs, simpler alternatives, second opinion
+
+  - name: solace-ops-review
+    command: /solace-ops-review
+    phase: review
+    trigger: always
+    outcome: Operations review — monitoring, runbooks, what the on-call sees at 3am
+
+  - name: solace-security-review
+    command: /solace-security-review
+    phase: review
+    trigger: always
+    outcome: Security review — ACLs, TLS, auth, regulatory compliance
+
+  - name: solace-dev-review
+    command: /solace-dev-review
+    phase: review
+    trigger: always
+    outcome: Developer experience review — onboarding path, SDKs, schema governance
+
+# ── Finalize phase ────────────────────────────────────────────────────────────
+
+  - name: solace-validate
+    command: /solace-validate
+    phase: finalize
+    trigger: always
+    outcome: Consistency and completeness check across all artifacts
+
+  - name: solace-blueprint
+    command: /solace-blueprint
+    phase: finalize
+    trigger: always
+    outcome: Engineering blueprint — architecture, diagrams, configs, runbook
+
+  - name: solace-diagrams
+    command: /solace-diagrams
+    phase: finalize
+    trigger: always
+    outcome: Diagram refinement — consistent styling, split large views
+
+  - name: solace-executive
+    command: /solace-executive
+    phase: finalize
+    trigger: always
+    outcome: Executive summary — business outcomes, ROI framework, board-ready
