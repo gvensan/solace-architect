@@ -1,11 +1,101 @@
 /* Solace Architect Dashboard */
 
-let state = { projects: [], active: null, current: null, data: null };
+let state = { projects: [], active: null, current: null, data: null, reportPacks: null };
+
+/**
+ * Default report packs — used as fallback if /api/report-packs is unreachable.
+ * The canonical definition lives in scripts/report-packs.yaml.
+ */
+const DEFAULT_REPORT_PACKS = [
+  { id: 'blueprint', label: 'Solace Blueprint', description: 'Comprehensive engineering deliverable.', audience: 'Architects, platform leads', filters: {} }
+];
+
+/**
+ * Fetch and parse report-packs.yaml from the server. Cached on state.reportPacks.
+ */
+async function loadReportPacks() {
+  if (state.reportPacks) return state.reportPacks;
+  try {
+    const res = await fetch('/api/report-packs');
+    if (!res.ok) throw new Error('packs endpoint failed');
+    const text = await res.text();
+    const parsed = parseYaml(text);
+    if (parsed && Array.isArray(parsed.packs) && parsed.packs.length > 0) {
+      state.reportPacks = parsed.packs;
+      return parsed.packs;
+    }
+  } catch (e) {
+    console.warn('Could not load report-packs.yaml, using defaults:', e.message);
+  }
+  state.reportPacks = DEFAULT_REPORT_PACKS;
+  return DEFAULT_REPORT_PACKS;
+}
+
+/**
+ * Match a single artifact path against a pack's filter rules.
+ * Returns true if the path should be included in the pack's report.
+ *
+ * Blueprint (empty filters) matches everything.
+ * Other packs match if path is under one of `dirs`, or in `files`, or matches a glob.
+ */
+function packIncludesArtifact(packFilters, artifactPath) {
+  if (!packFilters || Object.keys(packFilters).length === 0) return true;  // blueprint
+  const norm = artifactPath.replace(/^artifacts\//, '');
+  if (Array.isArray(packFilters.dirs)) {
+    for (const dir of packFilters.dirs) {
+      if (norm === dir || norm.startsWith(dir + '/')) return true;
+    }
+  }
+  if (Array.isArray(packFilters.files)) {
+    for (const file of packFilters.files) {
+      if (norm === file) return true;
+    }
+  }
+  if (Array.isArray(packFilters.globs)) {
+    for (const glob of packFilters.globs) {
+      // Convert simple glob to regex: ** -> .*, * -> [^/]*, ? -> .
+      const re = new RegExp('^' + glob
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*\*/g, '__GLOBSTAR__')
+        .replace(/\*/g, '[^/]*')
+        .replace(/__GLOBSTAR__/g, '.*')
+        .replace(/\?/g, '.') + '$');
+      if (re.test(norm)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Filter a decisions/findings list by allowed source skills.
+ * - undefined source_skills field → return original list unchanged
+ * - empty array → return empty list (caller should hide the section)
+ * - non-empty array → keep only items whose .skill (or .source) is in the list
+ */
+function filterByPackSkills(items, allowedSkills) {
+  if (allowedSkills === undefined) return items;
+  if (!Array.isArray(allowedSkills)) return items;
+  if (allowedSkills.length === 0) return [];
+  return items.filter(it => {
+    const skill = it.skill || it.source || '';
+    return allowedSkills.includes(skill);
+  });
+}
+
+/**
+ * Check whether a top-level section should be rendered for a pack.
+ * undefined top_sections → all sections allowed.
+ */
+function packIncludesSection(packFilters, sectionId) {
+  if (!packFilters || !Array.isArray(packFilters.top_sections)) return true;
+  return packFilters.top_sections.includes(sectionId);
+}
 
 const SKILL_ORDER = [
   'solace-discovery', 'solace-plan', 'solace-topic-design', 'solace-broker-select',
   'solace-sam-design', 'solace-protocol-select', 'solace-mesh-design', 'solace-ha-dr',
-  'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-architect-review', 'solace-ops-review',
+  'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-ep-provision',
+  'solace-architect-review', 'solace-ops-review',
   'solace-security-review', 'solace-dev-review', 'solace-validate', 'solace-blueprint',
   'solace-executive', 'solace-diagrams'
 ];
@@ -16,6 +106,7 @@ const SKILL_LABELS = {
   'solace-sam-design': 'SAM Design', 'solace-protocol-select': 'Protocol Selection',
   'solace-mesh-design': 'Mesh Design', 'solace-ha-dr': 'HA/DR',
   'solace-integration': 'Integration', 'solace-migration': 'Migration', 'solace-event-portal': 'Event Portal',
+  'solace-ep-provision': 'EP Provisioning',
   'solace-architect-review': 'Architect Review', 'solace-ops-review': 'Ops Review',
   'solace-security-review': 'Security Review', 'solace-dev-review': 'Dev Review',
   'solace-validate': 'Validation', 'solace-blueprint': 'Technical Blueprint',
@@ -28,6 +119,7 @@ const SKILL_PHASES = {
   'solace-sam-design': 'Design', 'solace-protocol-select': 'Design',
   'solace-mesh-design': 'Design', 'solace-ha-dr': 'Design',
   'solace-integration': 'Design', 'solace-migration': 'Design', 'solace-event-portal': 'Design',
+  'solace-ep-provision': 'Design',
   'solace-architect-review': 'Review', 'solace-ops-review': 'Review',
   'solace-security-review': 'Review', 'solace-dev-review': 'Review',
   'solace-validate': 'Finalize', 'solace-blueprint': 'Finalize',
@@ -36,7 +128,7 @@ const SKILL_PHASES = {
 
 const SKILL_GROUPS = [
   { phase: 'discovery', label: 'Discovery', skills: ['solace-discovery'] },
-  { phase: 'design', label: 'Design', skills: ['solace-topic-design', 'solace-broker-select', 'solace-sam-design', 'solace-protocol-select', 'solace-mesh-design', 'solace-ha-dr', 'solace-integration', 'solace-migration', 'solace-event-portal'] },
+  { phase: 'design', label: 'Design', skills: ['solace-topic-design', 'solace-broker-select', 'solace-sam-design', 'solace-protocol-select', 'solace-mesh-design', 'solace-ha-dr', 'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-ep-provision'] },
   { phase: 'review', label: 'Review', skills: ['solace-architect-review', 'solace-ops-review', 'solace-security-review', 'solace-dev-review'] },
   { phase: 'finalize', label: 'Finalize', skills: ['solace-validate', 'solace-blueprint', 'solace-executive'] },
   { phase: 'utility', label: 'Utility', skills: ['solace-diagrams'] },
@@ -46,7 +138,8 @@ const SKIP_REASONS = {
   'solace-sam-design': 'No Agent Mesh components in scope',
   'solace-mesh-design': 'Single-site topology',
   'solace-ha-dr': 'Not in MVP scope',
-  'solace-migration': 'Greenfield project, no migration needed'
+  'solace-migration': 'Greenfield project, no migration needed',
+  'solace-ep-provision': 'Provisioning not requested in intake (preferences.provision_event_portal=false)'
 };
 
 function fmtTime(sec) {
@@ -62,9 +155,44 @@ function parseYaml(text) {
   try { return jsyaml.load(text); } catch { return null; }
 }
 
+// Status precedence for dedup: complete wins over partial/interrupted/blocked, etc.
+// Lower number = higher precedence (kept when multiple entries share a skill name).
+const STATUS_RANK = {
+  complete: 0,
+  'in-progress': 1,
+  partial: 2,
+  interrupted: 3,
+  skipped: 4,
+  blocked: 5,
+};
+
 function getSkills(progress) {
   if (!progress?.progress) return [];
-  return progress.progress;
+  const all = progress.progress;
+  // Deduplicate entries with the same skill name. Earlier failed attempts
+  // (blocked/interrupted/partial) get superseded by a later complete run.
+  // Tiebreak by `started` timestamp (newest wins).
+  const bySkill = new Map();
+  for (let i = 0; i < all.length; i++) {
+    const entry = { ...all[i], _idx: i };
+    const key = entry.skill;
+    const existing = bySkill.get(key);
+    if (!existing) {
+      bySkill.set(key, entry);
+      continue;
+    }
+    const rA = STATUS_RANK[entry.status] ?? 99;
+    const rB = STATUS_RANK[existing.status] ?? 99;
+    if (rA < rB) {
+      bySkill.set(key, entry);
+    } else if (rA === rB) {
+      const tA = Date.parse(entry.started || '') || 0;
+      const tB = Date.parse(existing.started || '') || 0;
+      if (tA >= tB) bySkill.set(key, entry);
+    }
+  }
+  // Preserve the original ordering by the kept entry's original index.
+  return [...bySkill.values()].sort((a, b) => a._idx - b._idx);
 }
 
 function getDecisions(decisions) {
@@ -78,6 +206,19 @@ function getDecisions(decisions) {
 function getSkipList(progress) {
   const plan = progress?.progress?.find(s => s.skill === 'solace-plan');
   return plan?.skipped_skills || [];
+}
+
+// Effective skipped set = explicit skips (from /solace-plan) plus skills the
+// intake gate left out of the engagement. /solace-ep-provision is opt-in only
+// (preferences.provision_event_portal: true). When the gate is off, treat it
+// as skipped so completion counters, "next step" hints, and group progress
+// don't keep pointing the user at a step they never asked for.
+function getEffectiveSkipped(progress, decisions) {
+  const explicit = getSkipList(progress);
+  const wantEpProvision = decisions?.provision_event_portal === true;
+  const set = new Set(explicit);
+  if (!wantEpProvision) set.add('solace-ep-provision');
+  return [...set];
 }
 
 function getOpenItems(openItems) {
@@ -391,7 +532,9 @@ async function overview() {
   const { progress, decisions: dec, files, context } = state.data;
   const skills = getSkills(progress);
   const { mode, items } = getDecisions(dec);
-  const skipped = getSkipList(progress);
+  const skipped = getEffectiveSkipped(progress, dec);
+  const wantEpProvision = dec?.provision_event_portal === true;
+  const epProvisionEntry = skills.find(s => s.skill === 'solace-ep-provision');
 
   const totalWall = skills.reduce((a, s) => a + (s.timing?.wall_sec || 0), 0);
   const totalExec = skills.reduce((a, s) => a + (s.timing?.execution_sec || 0), 0);
@@ -510,22 +653,37 @@ async function overview() {
     if (isSkipped) return 'skipped';
     if (entry?.status === 'complete') return 'complete';
     if (entry?.status === 'in-progress') return 'in-progress';
+    // Treat real failure statuses as failures so the icon logic can flag them
+    // distinctly from "not yet started" (which is a benign state for any
+    // conditional skill that simply doesn't apply to this project).
+    if (entry && ['blocked', 'partial', 'interrupted'].includes(entry.status)) return 'failed';
     return 'not-started';
   }
 
+  // Group status colors carry meaning. We use orange ONLY when something failed
+  // — never as a "partial progress" indicator. Conditional design skills that
+  // a project doesn't need (e.g. SAM/Mesh/HA-DR on a single-site, non-AI build)
+  // would otherwise drag the parent group to orange, which reads as "concern"
+  // even though the project is healthy. Rules:
+  //   - any failure (blocked/partial/interrupted)  → orange (real concern)
+  //   - anything in-progress                        → running dot
+  //   - at least one complete (and no failure)      → green (group is healthy)
+  //   - nothing started yet                         → dimmed gray (idle)
   function getGroupStatusIcon(group) {
-    const done = group.skills.every(sk => getSkillStatus(sk) === 'complete' || getSkillStatus(sk) === 'skipped');
-    const hasProgress = group.skills.some(sk => getSkillStatus(sk) === 'complete' || getSkillStatus(sk) === 'in-progress');
-    const hasRunning = group.skills.some(sk => getSkillStatus(sk) === 'in-progress');
-    if (done) return '<span style="color:var(--classic-green)">&#10003;</span>';
+    const statuses = group.skills.map(sk => getSkillStatus(sk));
+    const hasFailure = statuses.includes('failed');
+    const hasRunning = statuses.includes('in-progress');
+    const hasComplete = statuses.includes('complete');
+    if (hasFailure) return '<span style="color:var(--orange)" title="failure in this phase">&#9679;</span>';
     if (hasRunning) return '<span class="tree-running-dot"></span>';
-    if (hasProgress) return '<span style="color:var(--orange)">&#9679;</span>';
+    if (hasComplete) return '<span style="color:var(--classic-green)">&#10003;</span>';
     return '<span style="color:var(--text-muted);opacity:0.4">&#9679;</span>';
   }
 
   function getSkillStatusIcon(sk) {
     const st = getSkillStatus(sk);
     if (st === 'complete') return '<span style="color:var(--classic-green)">&#10003;</span>';
+    if (st === 'failed') return '<span style="color:var(--orange)" title="needs attention">!</span>';
     if (st === 'in-progress') return '<span class="tree-running-dot"></span>';
     if (st === 'skipped') return '<span style="color:var(--text-muted)">&#8212;</span>';
     return '<span style="color:var(--text-muted);opacity:0.3">&#9675;</span>';
@@ -569,6 +727,45 @@ async function overview() {
         <div class="card-value">${fmtTime(totalExec)}</div>
         <div class="card-sub">${fmtTime(totalWait)} user wait / ${fmtTime(totalWall)} wall</div>
       </div>
+      ${(() => {
+        // Live-tenant Event Portal provisioning status card.
+        // Visible when the user either (a) opted in at intake, or (b) ran the
+        // skill ad hoc. Always tell the user what state Solace Cloud is in.
+        if (!wantEpProvision && !epProvisionEntry) return '';
+        const asyncapiCount = (files || []).filter(f => f.includes('13-event-portal/asyncapi/')).length;
+        const provisionedFile = (files || []).find(f => f === '13-event-portal/provisioned.yaml');
+        if (!epProvisionEntry) {
+          return `<div class="card" title="Opt-in via preferences.provision_event_portal at intake">
+            <div class="card-label">EP Provisioning</div>
+            <div class="card-value" style="font-size:18px;color:var(--text-muted)">Pending</div>
+            <div class="card-sub">Run /solace-ep-provision to write to your Solace Cloud tenant</div>
+          </div>`;
+        }
+        const st = epProvisionEntry.status;
+        if (st === 'complete') {
+          return `<div class="card card-clickable" data-nav="artifacts" title="${provisionedFile ? escHtml(provisionedFile) : 'Event Portal artifacts'}">
+            <div class="card-label">EP Provisioning</div>
+            <div class="card-value" style="font-size:18px;color:var(--classic-green)">Live</div>
+            <div class="card-sub">${asyncapiCount} AsyncAPI ${asyncapiCount === 1 ? 'spec' : 'specs'} exported · tenant updated</div>
+          </div>`;
+        }
+        if (st === 'blocked' || st === 'interrupted' || st === 'partial') {
+          const reason = (epProvisionEntry.summary || epProvisionEntry.step_reached || st).split('\n')[0].slice(0, 80);
+          return `<div class="card" style="border-left:3px solid var(--orange)" title="${escHtml(epProvisionEntry.summary || '')}">
+            <div class="card-label">EP Provisioning</div>
+            <div class="card-value" style="font-size:18px;color:var(--orange)">${st.charAt(0).toUpperCase() + st.slice(1)}</div>
+            <div class="card-sub">${escHtml(reason)}</div>
+          </div>`;
+        }
+        if (st === 'in-progress') {
+          return `<div class="card">
+            <div class="card-label">EP Provisioning</div>
+            <div class="card-value" style="font-size:18px;color:var(--orange)">Running</div>
+            <div class="card-sub">${escHtml(epProvisionEntry.step_reached || 'In progress')}</div>
+          </div>`;
+        }
+        return '';
+      })()}
     </div>
     ${systemsList.length > 0 ? `
     <div class="section" style="margin-top:8px">
@@ -1189,6 +1386,84 @@ function renderOpenItemsTable(items, title) {
 
 /* ─── ARTIFACTS ─── */
 
+// Map a file's basename to a human-readable title. Pattern-based first; falls
+// back to title-cased filename without the extension.
+function artifactTitleFor(path) {
+  const file = path.split('/').pop() || path;
+  const base = file.replace(/\.[^.]+$/, '');
+  const known = {
+    'discovery-brief': 'Discovery Brief',
+    'topic-taxonomy': 'Topic Taxonomy',
+    'wildcard-subscriptions': 'Wildcard Subscriptions',
+    'antipattern-report': 'Antipattern Report',
+    'broker-recommendation': 'Broker Recommendation',
+    'protocol-map': 'Protocol Map',
+    'sam-design': 'SAM Design',
+    'mesh-design': 'Mesh Design',
+    'ha-dr-plan': 'HA/DR Plan',
+    'ha-dr-design': 'HA/DR Design',
+    'migration-plan': 'Migration Plan',
+    'integration-strategy': 'Integration Strategy',
+    'event-portal-design': 'Event Portal Design',
+    'provisioning-plan': 'Provisioning Plan',
+    'provisioned': 'Provisioned Objects',
+    'provisioning-report': 'Provisioning Report',
+    'architect-review': 'Architect Review',
+    'ops-review': 'Operations Review',
+    'security-review': 'Security Review',
+    'dev-review': 'Developer Review',
+    'validation-report': 'Validation Report',
+    'architecture': 'Architecture Document',
+    'runbook': 'Operations Runbook',
+    'provisioning-params': 'Provisioning Parameters',
+    'executive-summary': 'Executive Summary',
+    'business-architecture': 'Business Architecture',
+    'roi-framework': 'ROI Framework',
+    'README': 'Diagram Index',
+  };
+  if (known[base]) return known[base];
+  // AsyncAPI: e.g. e-commerce-backend.yaml under asyncapi/
+  if (path.includes('/asyncapi/')) {
+    return `AsyncAPI — ${base.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}`;
+  }
+  // Numbered mermaid diagrams: 01-system-context.mermaid → "01 · System Context"
+  const numbered = base.match(/^(\d+)-(.+)$/);
+  if (numbered) {
+    const [, n, rest] = numbered;
+    return `${n} · ${rest.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}`;
+  }
+  return base.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+}
+
+// When no description exists in progress.yaml, build a sensible fallback from
+// the file's location (skill group) and extension.
+function artifactDefaultDescription(path) {
+  const group = path.split('/')[0] || '';
+  const ext = path.split('.').pop();
+  const groupLabel = group.replace(/^\d+-/, '');
+  const groupHumans = {
+    '01-discovery': 'Discovery',
+    '02-topic-design': 'Topic Design',
+    '03-broker-select': 'Broker Selection',
+    '04-sam-design': 'SAM Design',
+    '05-protocol-select': 'Protocol Selection',
+    '06-mesh-design': 'Mesh Design',
+    '07-ha-dr': 'HA/DR',
+    '08-integration': 'Integration',
+    '09-migration': 'Migration',
+    '10-reviews': 'Reviews',
+    '11-validation': 'Validation',
+    '12-blueprint': 'Blueprint',
+    '13-event-portal': 'Event Portal',
+    '14-executive': 'Executive',
+  };
+  const skillHuman = groupHumans[group] || groupLabel;
+  if (ext === 'mermaid' || ext === 'mmd') return `Mermaid diagram from the ${skillHuman} step.`;
+  if (ext === 'yaml' || ext === 'yml') return `Configuration produced by the ${skillHuman} step.`;
+  if (ext === 'md') return `Document produced by the ${skillHuman} step.`;
+  return `Artifact produced by the ${skillHuman} step.`;
+}
+
 function artifacts() {
   const files = state.data.files || [];
   const skills = getSkills(state.data.progress);
@@ -1272,10 +1547,40 @@ function artifacts() {
       const text = await res.text();
       const ext = path.split('.').pop();
 
+      const title = artifactTitleFor(path);
+      const description = artDescMap[path] || artifactDefaultDescription(path);
+      const headerHtml = `
+        <div class="artifact-header">
+          <div class="artifact-header-text">
+            <h2 class="artifact-title">${escHtml(title)}</h2>
+            <code class="artifact-path">${escHtml(path)}</code>
+            ${description ? `<p class="artifact-description">${escHtml(description)}</p>` : ''}
+          </div>
+          <button class="btn btn-outline btn-copy" type="button" data-copy-target="artifactRawText" title="Copy raw source to clipboard">
+            <span class="btn-copy-label">Copy</span>
+          </button>
+          <textarea id="artifactRawText" class="artifact-raw" readonly aria-hidden="true">${escHtml(text)}</textarea>
+        </div>`;
+      const bodyId = 'artifactBody';
+      let bodyHtml;
+
       if (ext === 'md') {
-        const html = marked.parse(text);
-        content.innerHTML = html;
-        content.querySelectorAll('pre code').forEach(block => {
+        bodyHtml = `<div id="${bodyId}">${marked.parse(text)}</div>`;
+      } else if (ext === 'yaml' || ext === 'yml') {
+        bodyHtml = `<div id="${bodyId}"><pre><code>${escHtml(text)}</code></pre></div>`;
+      } else if (ext === 'mermaid' || ext === 'mmd') {
+        const desc = artDescMap[path] || '';
+        bodyHtml = `<div id="${bodyId}"><div class="mermaid">${escHtml(text)}</div>${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}</div>`;
+      } else {
+        bodyHtml = `<div id="${bodyId}"><pre><code>${escHtml(text)}</code></pre></div>`;
+      }
+
+      content.innerHTML = headerHtml + bodyHtml;
+
+      // Post-process markdown (mermaid blocks) after insertion so DOM exists.
+      if (ext === 'md') {
+        const body = document.getElementById(bodyId);
+        body.querySelectorAll('pre code').forEach(block => {
           const lang = block.className?.match(/language-(\w+)/)?.[1];
           if (lang === 'mermaid' || block.textContent.trim().startsWith('graph ') || block.textContent.trim().startsWith('sequenceDiagram')) {
             const div = document.createElement('div');
@@ -1284,18 +1589,40 @@ function artifacts() {
             block.closest('pre').replaceWith(div);
           }
         });
-        if (content.querySelector('.mermaid')) {
-          mermaid.run({ nodes: content.querySelectorAll('.mermaid') });
+        if (body.querySelector('.mermaid')) {
+          mermaid.run({ nodes: body.querySelectorAll('.mermaid') });
         }
-      } else if (ext === 'yaml' || ext === 'yml') {
-        content.innerHTML = `<pre><code>${escHtml(text)}</code></pre>`;
       } else if (ext === 'mermaid' || ext === 'mmd') {
-        const desc = artDescMap[path] || '';
-        content.innerHTML = `<div class="mermaid">${escHtml(text)}</div>${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`;
         mermaid.run({ nodes: content.querySelectorAll('.mermaid') });
-      } else {
-        content.innerHTML = `<pre><code>${escHtml(text)}</code></pre>`;
       }
+
+      // Wire the copy button.
+      const btn = content.querySelector('.btn-copy');
+      const label = btn?.querySelector('.btn-copy-label');
+      btn?.addEventListener('click', async () => {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.getElementById('artifactRawText');
+            ta.select();
+            document.execCommand('copy');
+          }
+          if (label) {
+            label.textContent = 'Copied';
+            btn.classList.add('btn-copy-done');
+            setTimeout(() => {
+              label.textContent = 'Copy';
+              btn.classList.remove('btn-copy-done');
+            }, 1500);
+          }
+        } catch (err) {
+          if (label) {
+            label.textContent = 'Copy failed';
+            setTimeout(() => { label.textContent = 'Copy'; }, 1500);
+          }
+        }
+      });
     });
   });
 
@@ -1558,7 +1885,7 @@ async function exportView() {
   const { items } = getDecisions(state.data.decisions);
   const context = state.data.context;
   const files = state.data.files || [];
-  const skipped = getSkipList(state.data.progress);
+  const skipped = getEffectiveSkipped(state.data.progress, state.data.decisions);
   const totalExec = skills.reduce((a, s) => a + (s.timing?.execution_sec || 0), 0);
   const totalWall = skills.reduce((a, s) => a + (s.timing?.wall_sec || 0), 0);
   const completedSkills = skills.filter(s => s.status === 'complete');
@@ -1788,14 +2115,22 @@ async function exportView() {
       `).join('');
     })()}` });
 
+  const reportPacks = await loadReportPacks();
+
   document.getElementById('view').innerHTML = `
     <div class="section export-controls no-print">
       <span class="overline">EXPORT</span>
       <h1>Export Report</h1>
-      <p style="color:var(--text-dim);margin-bottom:20px">Executive summary of your project. Download the full HTML report for complete artifact content.</p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <button class="btn" id="btnExport">View / Download HTML Report</button>
-        <button class="btn btn-outline" id="btnPrint">Print / Save as PDF</button>
+      <p style="color:var(--text-dim);margin-bottom:20px">Choose an audience-specific report below. Each pack filters the full architecture into a focused view. Print / Save as PDF is available inside the generated HTML report.</p>
+      <div class="pack-tiles">
+        ${reportPacks.map(p => `
+          <div class="pack-tile pack-${p.id}">
+            <div class="pack-tile-audience">${escHtml(p.audience || '')}</div>
+            <h3 class="pack-tile-title">${escHtml(p.label)}</h3>
+            <p class="pack-tile-description">${escHtml(p.description || '')}</p>
+            <button class="btn" data-pack="${p.id}">View / Download HTML Report</button>
+          </div>
+        `).join('')}
       </div>
     </div>
     ${sections.map((s, i) => `
@@ -1828,15 +2163,34 @@ async function exportView() {
 
   document.getElementById('view').dataset.tocManaged = 'true';
 
-  document.getElementById('btnExport').addEventListener('click', () => generateReport(skills, items, files));
-  document.getElementById('btnPrint').addEventListener('click', () => {
-    setTimeout(() => window.print(), 200);
+  document.querySelectorAll('.pack-tile button[data-pack]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const packId = btn.dataset.pack;
+      const pack = reportPacks.find(p => p.id === packId);
+      if (!pack) {
+        console.warn('Unknown pack:', packId);
+        return;
+      }
+      generateReport(pack, skills, items, files);
+    });
   });
 }
 
 /* ─── REPORT GENERATION ─── */
 
-async function generateReport(skills, items, files) {
+async function generateReport(pack, skills, items, files) {
+  // Backward-compat: legacy callers passed (skills, items, files). Detect and shift.
+  if (Array.isArray(pack)) {
+    files = items;
+    items = skills;
+    skills = pack;
+    pack = { id: 'blueprint', label: 'Solace Blueprint', filters: {} };
+  }
+  if (!pack) pack = { id: 'blueprint', label: 'Solace Blueprint', filters: {} };
+  const packFilters = pack.filters || {};
+  const packLabel = pack.label || 'Solace Blueprint';
+  const packId = pack.id || 'blueprint';
+
   const context = state.data.context;
   const totalExec = skills.reduce((a, s) => a + (s.timing?.execution_sec || 0), 0);
   const totalWait = skills.reduce((a, s) => a + (s.timing?.user_wait_sec || 0), 0);
@@ -1871,7 +2225,7 @@ async function generateReport(skills, items, files) {
   }
 
   const artifactExts = ['.md', '.mermaid', '.mmd', '.yaml', '.yml'];
-  const docFiles = files.filter(f => artifactExts.some(ext => f.endsWith(ext)));
+  const docFiles = files.filter(f => artifactExts.some(ext => f.endsWith(ext)) && packIncludesArtifact(packFilters, f));
 
   const rptSystemsList = [];
   const rptInputs = { messaging: '', protocols: '', eventTypes: [], refArch: '', requirements: {}, goals: {} };
@@ -1918,6 +2272,27 @@ async function generateReport(skills, items, files) {
   const skillLink = (skill) => { const g = SKILL_TO_GROUP[skill]; const label = SKILL_LABELS[skill]||skill||''; return g ? xref(label, 'grp-' + g) : label; };
   const artRefLink = (ref) => { if (!ref) return ''; const id = 'art-' + ref.replace(/^artifacts\//, '').replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').toLowerCase(); return xref('source', id); };
 
+  // Every artifact embedded in a report gets the same title / path / brief
+  // description / copy-button treatment as the in-app Artifacts page, so the
+  // standalone HTML report is fully self-describing and shareable.
+  let _copySeq = 0;
+  function reportArtifactHeader(filePath, rawText, fallbackDesc) {
+    const title = (typeof artifactTitleFor === 'function') ? artifactTitleFor(filePath) : filePath;
+    const desc = (artifactDescriptions[filePath] || (typeof artifactDefaultDescription === 'function' ? artifactDefaultDescription(filePath) : '') || fallbackDesc || '');
+    const copyId = `rpt-copy-${++_copySeq}`;
+    return `<div class="report-artifact-header">
+      <div class="report-artifact-text">
+        <h4 class="report-artifact-title">${escHtml(title)}</h4>
+        <code class="report-artifact-path">${escHtml(filePath)}</code>
+        ${desc ? `<p class="report-artifact-desc">${escHtml(desc)}</p>` : ''}
+      </div>
+      <button class="report-copy-btn" type="button" data-copy-target="${copyId}" title="Copy raw source to clipboard">
+        <span class="report-copy-label">Copy</span>
+      </button>
+      <textarea id="${copyId}" class="report-copy-raw" readonly aria-hidden="true">${escHtml(rawText)}</textarea>
+    </div>`;
+  }
+
   const sections = [];
   let prevGroup = null;
   for (const f of docFiles) {
@@ -1930,12 +2305,10 @@ async function generateReport(skills, items, files) {
     const ext = f.split('.').pop();
     let html;
     if (ext === 'mermaid' || ext === 'mmd') {
-      const label = f.split('/').pop().replace(/\.(mermaid|mmd)$/, '').replace(/[-_]/g, ' ');
       const desc = artifactDescriptions[f] || '';
-      html = `<h4>${escHtml(label)}</h4><div class="mermaid">${escHtml(text)}</div>${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`;
+      html = `${reportArtifactHeader(f, text)}<div class="mermaid">${escHtml(text)}</div>${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`;
     } else if (ext === 'yaml' || ext === 'yml') {
-      const label = f.split('/').slice(1).join('/');
-      html = `<h4>${escHtml(label)}</h4><pre><code class="language-yaml">${escHtml(text)}</code></pre>`;
+      html = `${reportArtifactHeader(f, text)}<pre><code class="language-yaml">${escHtml(text)}</code></pre>`;
     } else if (f.endsWith('roi-framework.md')) {
       const roiRows = { c: [], p: [], v: [] };
       const indicators = [];
@@ -2111,7 +2484,11 @@ ${roiSum('Total annual value', 'v')}
 <span style="font-size:12px;color:#5A7A94">Includes formulas, sensitivity scenarios, and architecture indicators</span>
 </div>`;
     } else {
-      html = marked.parse(text);
+      // All other markdown documents (and any other unhandled type) get the
+      // same title / path / description / copy-button header on top of the
+      // rendered content. The ROI-framework branch above intentionally keeps
+      // its own interactive layout and skips this header.
+      html = `${reportArtifactHeader(f, text)}${marked.parse(text)}`;
     }
     sections.push({ group: groupName, isNewGroup, html, file: f, ext });
   }
@@ -2137,9 +2514,39 @@ ${roiSum('Total annual value', 'v')}
     }
   }
 
-  const findingRows = items.filter(d => d.source).map(d =>
+  // Pack-filtered subsets of decisions and findings.
+  const packFilteredFindings = filterByPackSkills(
+    items.filter(d => d.source),
+    packFilters.finding_skills
+  );
+  const packFilteredDecisions = filterByPackSkills(
+    items.filter(d => d.id || (d.skill && !d.source)),
+    packFilters.decision_skills
+  );
+  const findingRows = packFilteredFindings.map(d =>
     `<tr><td>${skillLink(d.source)}</td><td>${(d.severity||'advisory').toUpperCase()}</td><td>${escHtml(d.decision||'')}</td><td>${escHtml(d.action||'')}</td></tr>`
   ).join('');
+
+  // Pack-filtered skill and file counts. For restricted packs, these are used
+  // in headline stats so we don't reveal the hidden total project scope
+  // (Codex adversarial review: leak of metadata via top-line counts).
+  const isUnfilteredPack = !packFilters || Object.keys(packFilters).length === 0;
+  const packFilteredFileCount = docFiles.length;
+  const packFilteredSkillIds = new Set();
+  for (const s of skills) {
+    if (s.status !== 'complete') continue;
+    if (!s.artifacts || s.artifacts.length === 0) {
+      if (isUnfilteredPack) packFilteredSkillIds.add(s.skill);
+      continue;
+    }
+    for (const a of s.artifacts) {
+      if (packIncludesArtifact(packFilters, a.path)) {
+        packFilteredSkillIds.add(s.skill);
+        break;
+      }
+    }
+  }
+  const packFilteredSkillCount = packFilteredSkillIds.size;
 
   const GROUP_SORT_ORDER = {
     'discovery': 0, 'topic-design': 10, 'broker-select': 20, 'sam-design': 25, 'protocol-select': 30,
@@ -2156,7 +2563,10 @@ ${roiSum('Total annual value', 'v')}
     if (s.isNewGroup && !seen.has(s.group)) { seen.add(s.group); groups.push(s.group); }
   }
 
-  const openItems = getOpenItems(state.data.openItems);
+  const rawOpenItems = getOpenItems(state.data.openItems);
+  // Pack-filter by source skill (same rule as findings). Open items typically have
+  // a `source` field pointing to the review skill that surfaced them.
+  const openItems = filterByPackSkills(rawOpenItems, packFilters.finding_skills);
   const openCount = openItems.filter(i => i.status !== 'resolved').length;
 
   const PHASE_MAP = {
@@ -2224,7 +2634,7 @@ ${roiSum('Total annual value', 'v')}
 
   const reportHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
-<title>${escHtml(context?.display_name || state.current.slug)} - Solace Architect Report</title>
+<title>${escHtml(context?.display_name || state.current.slug)} — ${escHtml(packLabel)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -2493,6 +2903,43 @@ body.dark .systems-table td{color:#c9d1d9}
 body.dark .float-btn{background:rgba(22,27,34,0.92);color:#8b949e;border-color:#21262d}
 body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895}
 
+/* --- Per-artifact header (title + path + description + copy) --- */
+.report-artifact-header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  padding:14px 16px;margin:24px 0 16px;
+  background:rgba(15,42,68,0.04);border:1px solid #e1e8ef;border-radius:6px;
+}
+.report-artifact-text{flex:1;min-width:0}
+.report-artifact-title{
+  font-size:17px;font-weight:700;margin:0 0 4px;color:#093B5F;line-height:1.25;
+}
+.report-artifact-path{
+  display:inline-block;font-family:'SFMono-Regular',Menlo,Monaco,Consolas,monospace;
+  font-size:11px;letter-spacing:0.3px;color:#5A7A94;
+  background:rgba(15,42,68,0.06);padding:2px 8px;border-radius:4px;margin:2px 0;
+}
+.report-artifact-desc{
+  color:#3F5870;font-size:13px;line-height:1.55;margin:6px 0 0;max-width:80ch;
+}
+.report-copy-btn{
+  flex-shrink:0;padding:6px 14px;font-size:11px;font-weight:600;letter-spacing:0.5px;
+  text-transform:uppercase;background:transparent;border:1px solid #cbd5dc;
+  border-radius:4px;color:#3F5870;cursor:pointer;font-family:inherit;
+  transition:background 0.12s,color 0.12s,border-color 0.12s;
+}
+.report-copy-btn:hover{background:#093B5F;color:#fff;border-color:#093B5F}
+.report-copy-btn.is-copied{background:#00C895;color:#03213B;border-color:#00C895}
+.report-copy-raw{
+  position:absolute;left:-10000px;top:-10000px;width:1px;height:1px;opacity:0;
+  pointer-events:none;
+}
+body.dark .report-artifact-header{background:rgba(255,255,255,0.03);border-color:#21262d}
+body.dark .report-artifact-title{color:#c9d1d9}
+body.dark .report-artifact-path{background:rgba(255,255,255,0.06);color:#8b949e}
+body.dark .report-artifact-desc{color:#8b949e}
+body.dark .report-copy-btn{border-color:#30363d;color:#8b949e}
+body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#00C895}
+
 /* --- Print --- */
 @media print{
   .page-header{background:#093B5F!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -2500,6 +2947,8 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
   .layout{display:block}
   .content{max-width:100%;padding:0}
   body{font-size:12px;padding-top:0!important}
+  .report-copy-btn{display:none}
+  .report-artifact-header{background:transparent;border-color:#cbd5dc;padding:6px 0;margin:14px 0 8px}
   .content h2{font-size:16px;margin:24px 0 10px}
   .content h3{font-size:13px;margin:16px 0 6px}
   pre{background:#f4f4f4!important;color:#1a1a1a!important;border:1px solid #ddd!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -2515,7 +2964,7 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 </style></head><body style="padding-top:48px">
 
 <div class="dl-bar">
-  <a href="#" class="dl-title" onclick="window.scrollTo({top:0,behavior:'smooth'});return false" style="text-decoration:none;cursor:pointer">Solace Architect Report</a>
+  <a href="#" class="dl-title" onclick="window.scrollTo({top:0,behavior:'smooth'});return false" style="text-decoration:none;cursor:pointer">${escHtml(packLabel)}</a>
   <div class="dl-actions">
     <button class="dl-theme-toggle" onclick="document.body.classList.toggle('dark');this.textContent=document.body.classList.contains('dark')?'☀':'☾'" title="Toggle dark/light theme">☾</button>
     <button class="dl-print" onclick="window.print()">Print / PDF</button>
@@ -2528,12 +2977,12 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 </div>
 
 <div class="page-header">
-  <p class="eyebrow">Solace Architect Report</p>
+  <p class="eyebrow">${escHtml(packLabel)}</p>
   <h1>${escHtml(context?.display_name||state.current.slug)}</h1>
   <p class="subtitle">${escHtml(discoverySummary)}</p>
   <div class="stat-row">
-    <div class="stat-item"><div class="stat-label">Skills</div><div class="stat-value">${skills.filter(s=>s.status==='complete').length}</div></div>
-    <div class="stat-item"><div class="stat-label">Artifacts</div><div class="stat-value">${files.length}</div></div>
+    <div class="stat-item"><div class="stat-label">Skills</div><div class="stat-value">${packFilteredSkillCount}${isUnfilteredPack ? ` <span style="font-size:14px;color:#8BA4B8;font-weight:400">/ ${skills.length}</span>` : ''}</div></div>
+    <div class="stat-item"><div class="stat-label">Artifacts</div><div class="stat-value">${packFilteredFileCount}</div></div>
     <div class="stat-item"><div class="stat-label">Execution</div><div class="stat-value">${fmtTime(totalExec)}</div></div>
     <div class="stat-item"><div class="stat-label">User Wait</div><div class="stat-value">${fmtTime(totalWait)}</div></div>
   </div>
@@ -2546,18 +2995,19 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
   </nav>
 
   <article class="content">
+    ${packIncludesSection(packFilters, 'summary') ? `
     <h2 id="exec-summary">Summary</h2>
     <p>${escHtml(discoverySummary)}</p>
     <div class="stat-row" style="margin-bottom:24px">
-      <div class="stat-item"><div class="stat-label">Completed skills</div><div style="font-size:18px;font-weight:700;color:#093B5F">${skills.filter(s=>s.status==='complete').length} of ${skills.length}</div></div>
-      <div class="stat-item"><div class="stat-label">Total artifacts</div><div style="font-size:18px;font-weight:700;color:#093B5F">${files.length} files</div></div>
-      ${systemsList.length > 0 ? `<div class="stat-item"><a href="#connected-systems" class="xref-link" style="text-decoration:none"><div class="stat-label">Systems</div><div style="font-size:18px;font-weight:700;color:#093B5F">${systemsList.length}</div></a></div>` : ''}
-      <div class="stat-item"><a href="#decisions" class="xref-link" style="text-decoration:none"><div class="stat-label">Decisions</div><div style="font-size:18px;font-weight:700;color:#093B5F">${items.filter(d => d.id || (d.skill && !d.source)).length}</div></a></div>
-      <div class="stat-item"><a href="#findings" class="xref-link" style="text-decoration:none"><div class="stat-label">Review findings</div><div style="font-size:18px;font-weight:700;color:#093B5F">${items.filter(d => d.source).length}</div></a></div>
-      ${openItems.length > 0 ? `<div class="stat-item"><a href="#open-items" class="xref-link" style="text-decoration:none"><div class="stat-label">Open items</div><div style="font-size:18px;font-weight:700;color:#093B5F">${openCount}</div></a></div>` : ''}
-    </div>
+      <div class="stat-item"><div class="stat-label">${isUnfilteredPack ? 'Completed skills' : 'Skills in this pack'}</div><div style="font-size:18px;font-weight:700;color:#093B5F">${packFilteredSkillCount}${isUnfilteredPack ? ` of ${skills.length}` : ''}</div></div>
+      <div class="stat-item"><div class="stat-label">${isUnfilteredPack ? 'Total artifacts' : 'Artifacts in this pack'}</div><div style="font-size:18px;font-weight:700;color:#093B5F">${packFilteredFileCount} files</div></div>
+      ${systemsList.length > 0 && packIncludesSection(packFilters, 'connected-systems') ? `<div class="stat-item"><a href="#connected-systems" class="xref-link" style="text-decoration:none"><div class="stat-label">Systems</div><div style="font-size:18px;font-weight:700;color:#093B5F">${systemsList.length}</div></a></div>` : ''}
+      ${packIncludesSection(packFilters, 'decisions') ? `<div class="stat-item"><a href="#decisions" class="xref-link" style="text-decoration:none"><div class="stat-label">Decisions</div><div style="font-size:18px;font-weight:700;color:#093B5F">${packFilteredDecisions.length}</div></a></div>` : ''}
+      ${packIncludesSection(packFilters, 'findings') ? `<div class="stat-item"><a href="#findings" class="xref-link" style="text-decoration:none"><div class="stat-label">Review findings</div><div style="font-size:18px;font-weight:700;color:#093B5F">${packFilteredFindings.length}</div></a></div>` : ''}
+      ${openItems.length > 0 && packIncludesSection(packFilters, 'open-items') ? `<div class="stat-item"><a href="#open-items" class="xref-link" style="text-decoration:none"><div class="stat-label">Open items</div><div style="font-size:18px;font-weight:700;color:#093B5F">${openCount}</div></a></div>` : ''}
+    </div>` : ''}
 
-    ${rptSystemsList.length > 0 || Object.keys(rptInputs.goals).length > 0 ? (() => {
+    ${packIncludesSection(packFilters, 'scope') && (rptSystemsList.length > 0 || Object.keys(rptInputs.goals).length > 0) ? (() => {
       const rReq = [['Delivery guarantee',rptInputs.requirements['Delivery guarantee']],['Ordering',rptInputs.requirements['Ordering']],['Latency target',rptInputs.requirements['Latency target']],['Scale',rptInputs.requirements['Scale']],['Topology',rptInputs.requirements['Topology']],['Processing guarantee',rptInputs.requirements['Processing guarantee']],['Data residency',rptInputs.requirements['Data residency']]].filter(([,v])=>v);
       const rGoal = [['Project type',rptInputs.goals['Project type']],['Driver',rptInputs.goals['Driver']],['Timeline',rptInputs.goals['Timeline']],['Budget',rptInputs.goals['Budget']],['Team',rptInputs.goals['Team']],['Constraints',rptInputs.goals['Constraints']]].filter(([,v])=>v);
       const roleClass = (r) => { const rl = (r||'').toLowerCase(); if (/both|producer.*consumer|consumer.*producer/.test(rl)) return 'role-both'; if (/producer/.test(rl)) return 'role-producer'; return 'role-consumer'; };
@@ -2574,8 +3024,10 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
     })() : ''}
 
     ${(() => {
-      const decs = items.filter(d => (d.id || d.decision) && !d.source);
-      const findings = items.filter(d => d.source);
+      // Auto-narrative consumes only pack-filtered decisions/findings so that
+      // restricted packs (e.g. Executive) don't leak technical detail.
+      const decs = packFilteredDecisions;
+      const findings = packFilteredFindings;
       const dec = (name) => { const d = decs.find(x => (x.id || x.decision) === name); return d ? (d.label || d.value || d.choice || '') : ''; };
       const hasDec = (name) => decs.some(x => (x.id || x.decision) === name);
 
@@ -2668,7 +3120,9 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 
       html += '<h3>Engagement Summary</h3>';
       html += '<table><thead><tr><th>Skill</th><th>Status</th><th>Execution</th><th>Artifacts</th></tr></thead><tbody>';
-      html += skills.filter(s => s.skill !== 'solace-plan').map(s => {
+      // Pack-filtered: only include skills that have at least one artifact passing the pack filter,
+      // so restricted packs (Executive, Security, etc.) don't enumerate hidden skills.
+      html += skills.filter(s => s.skill !== 'solace-plan' && packFilteredSkillIds.has(s.skill)).map(s => {
         const grp = SKILL_TO_GROUP[s.skill];
         const nameHtml = grp ? xref('<span style="font-weight:600">' + (SKILL_LABELS[s.skill]||s.skill) + '</span>', 'grp-' + grp) : '<span style="font-weight:600">' + (SKILL_LABELS[s.skill]||s.skill) + '</span>';
         const artCount = s.artifacts?.length || 0;
@@ -2683,16 +3137,18 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
       return html;
     })()}
 
+    ${packIncludesSection(packFilters, 'decisions') ? `
     <h2 id="decisions">Decisions</h2>
-    <table><thead><tr><th>Decision</th><th>Skill</th><th>Value</th><th>Rationale</th></tr></thead><tbody>${items.filter(d => d.id || (d.skill && !d.source)).map(d =>
+    <table><thead><tr><th>Decision</th><th>Skill</th><th>Value</th><th>Rationale</th></tr></thead><tbody>${packFilteredDecisions.map(d =>
       `<tr><td>${escHtml(d.id||d.decision||'')}</td><td>${skillLink(d.skill)}</td><td>${escHtml(d.label||d.value||d.choice||'')}</td><td>${escHtml(d.question||d.rationale||'')}</td></tr>`
-    ).join('') || '<tr><td colspan="4" style="color:#9ca3af;text-align:center">No decisions recorded</td></tr>'}</tbody></table>
+    ).join('') || '<tr><td colspan="4" style="color:#9ca3af;text-align:center">No decisions recorded</td></tr>'}</tbody></table>` : ''}
 
-    ${findingRows ? `<h2 id="findings">Review Findings</h2>
+    ${packIncludesSection(packFilters, 'findings') && findingRows ? `<h2 id="findings">Review Findings</h2>
     <table><thead><tr><th>Source</th><th>Severity</th><th>Decision</th><th>Status</th></tr></thead><tbody>${findingRows}</tbody></table>` : ''}
 
     ${(() => {
       if (openItems.length === 0) return '';
+      if (!packIncludesSection(packFilters, 'open-items')) return '';
       const sevColor = { blocking: '#DC2626', high: '#EA580C', medium: '#5A7A94', advisory: '#00C895' };
       const stColor = { open: '#DC2626', 'in-progress': '#EA580C', resolved: '#00C895' };
       const bySev = {};
@@ -2722,14 +3178,14 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
     </table>`;
     })()}
 
-    ${systemsList.length > 0 ? `
+    ${systemsList.length > 0 && packIncludesSection(packFilters, 'connected-systems') ? `
     <h2 id="connected-systems">Connected Systems (${systemsList.length})</h2>
     <table class="systems-table">
       <thead><tr><th>System</th><th>Role</th><th>Description</th></tr></thead>
       <tbody>${systemsList.map(s => `<tr><td style="font-weight:600;color:#093B5F;white-space:nowrap">${escHtml(s.name)}</td><td style="font-size:12px;font-family:'Space Mono',monospace;color:#5A7A94">${escHtml(s.role)}</td><td style="font-size:13px">${escHtml(s.description)}</td></tr>`).join('')}</tbody>
     </table>` : ''}
 
-    ${(() => {
+    ${packIncludesSection(packFilters, 'artifacts') ? (() => {
       const output = [];
 
       for (let i = 0; i < sections.length; i++) {
@@ -2749,9 +3205,9 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
       }
 
       return output.join('\n    ');
-    })()}
+    })() : ''}
 
-    <div class="report-footer">Generated by Solace Architect on ${new Date().toLocaleDateString()}</div>
+    <div class="report-footer">Generated by Solace Architect (${escHtml(packLabel)}) on ${new Date().toLocaleDateString()}</div>
   </article>
 </div>
 
@@ -2781,7 +3237,7 @@ document.getElementById('dlBtn').addEventListener('click',function(){
   var blob=new Blob([html],{type:'text/html'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='${state.current.slug}-report.html';
+  a.download='${state.current.slug}-${packId}.html';
   a.click();
   URL.revokeObjectURL(a.href);
 });
@@ -3062,6 +3518,43 @@ document.getElementById('dlBtn').addEventListener('click',function(){
     XLSX.writeFile(wb,'roi-framework.xlsx');
   });
   update();
+})();
+<\/script>
+<script>
+// Copy-to-clipboard handler for every embedded artifact in this report.
+// Uses event delegation so it works regardless of how many artifacts the
+// pack produced. Falls back to legacy execCommand for non-secure contexts.
+(function(){
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest && e.target.closest('.report-copy-btn');
+    if (!btn) return;
+    var targetId = btn.getAttribute('data-copy-target');
+    if (!targetId) return;
+    var ta = document.getElementById(targetId);
+    if (!ta) return;
+    var label = btn.querySelector('.report-copy-label');
+    var done = function(ok){
+      if (label) label.textContent = ok ? 'Copied' : 'Copy failed';
+      btn.classList.toggle('is-copied', !!ok);
+      setTimeout(function(){
+        if (label) label.textContent = 'Copy';
+        btn.classList.remove('is-copied');
+      }, 1500);
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(function(){ done(true); }, function(){ done(false); });
+      } else {
+        ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.opacity = '1';
+        ta.select();
+        var ok = document.execCommand('copy');
+        ta.style.position = ''; ta.style.left = ''; ta.style.top = ''; ta.style.opacity = '';
+        done(ok);
+      }
+    } catch (err) {
+      done(false);
+    }
+  });
 })();
 <\/script>
 </body></html>`;

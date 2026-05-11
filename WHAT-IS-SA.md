@@ -163,14 +163,28 @@ to someone who was not part of the conversation.
 
 ## Who it is for
 
-- **Solution architects** running Solace engagements — faster time-to-design,
-  consistent quality, nothing missed
-- **Engineering teams** evaluating Solace — structured discovery that surfaces
-  the right questions before the first line of code
-- **Technical leaders** building the business case — ROI framework and executive
-  summary that speak the language of funding decisions
-- **Existing Solace customers** extending their platform — migration planning,
+Solace Architect has two distinct audiences: the **operator** who runs the
+engagement, and the **consumer** who reads the deliverables.
+
+**Operators** — the people who invoke the skills and guide the engagement.
+
+- **Solution architects, developer advocates, pre-sales engineers, and
+  professional services consultants** running Solace engagements — faster
+  time-to-design, consistent quality, nothing missed
+
+**Consumers** — the people who receive the artifacts.
+
+- **Engineering teams evaluating Solace** — structured discovery surfaces the
+  right questions before the first line of code
+- **Technical leaders building the business case** — ROI framework and executive
+  summary speak the language of funding decisions
+- **Existing Solace customers extending their platform** — migration planning,
   new use case design, architecture review of what is already running
+
+The skills assume an expert operator who can verify recommendations against
+Solace documentation and adapt them to customer-specific constraints. Customers
+can run the tool unguided, but the discovery questions, grounding caveats, and
+validation labels are written for someone who can verify and adapt on the spot.
 
 ---
 

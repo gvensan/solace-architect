@@ -16,6 +16,8 @@ bun run gen:skill-docs --host all # regenerate for all 10 hosts
 bun run skill:check  # health dashboard for all skills
 bun run dev:skill    # watch mode: auto-regen + validate on change
 bun run url:check    # check all grounding document URLs for health
+bun run dashboard    # launch project dashboard at http://localhost:3000
+bun run intake       # launch interactive intake HTML form at http://localhost:3001
 ./setup              # full install: deps + generate + symlink into ~/.claude/skills/
 ./uninstall          # remove all skill symlinks from ~/.claude/skills/
 ```
@@ -72,6 +74,7 @@ and blueprint skills automatically.
 | Design | Migration Planning | `/solace-migration` |
 | Design | Integration Design | `/solace-integration` |
 | Design | Event Portal | `/solace-event-portal` |
+| Design | Event Portal Provisioning | `/solace-ep-provision` |
 | Review | Architecture Review | `/solace-architect-review` |
 | Review | Operations Review | `/solace-ops-review` |
 | Review | Security Review | `/solace-security-review` |
@@ -103,6 +106,7 @@ Individual skills (for re-running specific steps or skipping the orchestrator):
 - Migration from Kafka, RabbitMQ, TIBCO, IBM MQ -> invoke /solace-migration
 - Micro-Integration strategy -> invoke /solace-integration
 - Event Portal governance, application domains, event catalog, schema registry -> invoke /solace-event-portal
+- Provision Event Portal model in Solace Cloud, materialize design via EP Designer MCP -> invoke /solace-ep-provision (opt-in gate: requires `preferences.provision_event_portal: true` at intake; never auto-fires)
 - Architecture review -> invoke /solace-architect-review
 - Operations review -> invoke /solace-ops-review
 - Security review -> invoke /solace-security-review
@@ -143,6 +147,9 @@ solace-architect/
     host-config-export.ts # CLI for host config field extraction
     parse-intake-docx.py  # DOCX intake parser (import: .docx -> YAML)
     build-intake-docx.py  # DOCX intake builder (template + export: YAML -> .docx)
+    build-intake-html.py  # HTML intake form builder (standalone with autocomplete + live engagement preview)
+    intake-server.ts      # Local HTTP server for hosted intake form (mirrors dashboard.ts)
+    skill-routing.yaml    # Single source of truth for which skills run per intake (consumed by build-intake-html.py)
     resolvers/            # Template resolver modules
       index.ts            # Resolver registry (9 entries)
       types.ts            # TemplateContext, HostPaths, Host type
@@ -183,6 +190,7 @@ solace-architect/
   solace-validate/        # /solace-validate
   solace-blueprint/       # /solace-blueprint
   solace-event-portal/    # /solace-event-portal
+  solace-ep-provision/    # /solace-ep-provision
   solace-executive/       # /solace-executive
   solace-diagrams/        # /solace-diagrams
   solace-projects/        # /solace-projects

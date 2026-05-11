@@ -886,6 +886,49 @@ For a retail banking project with topic prefixes `payments/`, `fraud/`, `notific
 
 ---
 
+## `/solace-ep-provision`
+
+**Category:** Technical
+**Preamble tier:** T2
+**Prerequisites:** `/solace-event-portal` complete. Solace Event Portal Designer MCP installed in the AI host. Solace Cloud API token with Event Portal Designer Read+Write scope.
+
+### When to use
+
+- The intake flow set `preferences.provision_event_portal: true`, opting the engagement into live-tenant materialization.
+- The design from `/solace-event-portal` has been reviewed and you want the catalog (application domains, schemas, events, applications) created in Solace Cloud, plus AsyncAPI specs exported per application for code generation.
+- A prior run was BLOCKED (e.g., MCP not registered, token missing) and you've corrected the underlying issue; re-invoking resumes safely via content-match verification.
+
+### Opt-in gate
+
+This skill is **never** auto-fired by project type. Inclusion in `/solace-plan` requires `decisions.yaml` to contain `provision_event_portal: true`, set at intake time via the **"Provision Event Portal model after design?"** preference. The default is `false` — design-only engagements never touch your tenant.
+
+If the gate is on but the MCP is not configured at run time, the skill records a `BLOCKED` status with the exact reason (tool not found, auth error, region mismatch) and the plan summary surfaces it — it never writes silently or skips silently.
+
+### What it does
+
+Reads `event-portal-design.md` and provisions in dependency order:
+
+1. **Application Domain** with `uniqueTopicAddressEnforcementEnabled: true`.
+2. **Schemas + Schema Versions** — one JSON Schema per event type, v1.0.0. Content is synthesized from design field skeletons (Path A) unless `13-event-portal/schemas/<name>.json` exists (Path B — author externally).
+3. **Events + Event Versions** with topic addresses bound to schema versions, delivery mode (Guaranteed/Direct) captured in description.
+4. **Applications + Application Versions** with `declaredProducedEventVersionIds` / `declaredConsumedEventVersionIds` resolved from the design's produce/consume graph.
+5. **AsyncAPI 2.5.0 export** per application version into `artifacts/13-event-portal/asyncapi/<application>.yaml`.
+
+Before reusing any existing object with a matching name, the skill performs **content-match verification** (semantic equality of fields, not name-only). On mismatch it hard-stops with a structured diff so a shared tenant's prior objects are never silently rebound to a new design.
+
+### Outputs
+
+- **Artifacts:** `artifacts/13-event-portal/provisioned.yaml` (object ID map), `provisioning-report.md` (run summary), `asyncapi/<application>.yaml` (one per application).
+- **Decisions:** `ep_provision` block in `decisions.yaml` with domain ID, counts, region, status.
+- **Progress:** `solace-ep-provision` marked complete (or `blocked`/`partial` on failure, with the prior attempt preserved under `prior_attempts:`).
+- **Chains to:** Reviews or `/solace-validate`.
+
+### Example
+
+For the `retailco-order-events` project, opting in at intake produces: 1 application domain (`RetailCo Order Operations`), 10 JSON Schemas v1.0.0, 10 events with topic addresses (`retailco/order/created/v1/{customerId}/{orderId}`, etc.), 4 applications (E-Commerce Backend, WMS, Order Dashboard, Mobile App) with full produce/consume declarations, and 4 AsyncAPI specs ready for client code generation.
+
+---
+
 # Review
 
 All four review skills share the same structure: read all available artifacts, evaluate against their domain, classify findings as Critical/Important/Advisory, and resolve each finding interactively (Apply, Defer, or Discuss). They require at least one technical skill to be complete, but produce the best output when all technical skills have run.

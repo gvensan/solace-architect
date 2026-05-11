@@ -202,7 +202,8 @@ FIELD_MAP = {
     's9_references':         'goals.references',
 
     # S10: Preferences
-    'execution_mode': 'preferences.execution_mode',
+    'execution_mode':          'preferences.execution_mode',
+    'provision_event_portal':  'preferences.provision_event_portal',
 
     # S11: Additional
     'additional_notes':      'additional.notes',
@@ -336,6 +337,11 @@ EXECUTION_MODE_OPTIONS = [
     ("Select one...", ""),
     ("Auto",         "auto"),
     ("Interactive",  "interactive"),
+]
+
+PROVISION_EVENT_PORTAL_OPTIONS = [
+    ("No — design-only (default)", "false"),
+    ("Yes — provision into Solace Cloud after design", "true"),
 ]
 
 SYSTEM_ROLE_OPTIONS = [
@@ -723,13 +729,14 @@ def _build_events_table(doc: Document, data: Optional[dict]) -> None:
     """
     Add the Events table (S3).
 
-    Columns: Event Name | Rate | Delivery | Payload Format
+    Columns: Event Name | Rate | Delivery | Payload Format | Payload Size
     Parser expects header 'event name' (case-insensitive).
+    Payload size feeds broker spool sizing and protocol-overhead decisions.
     """
-    table = doc.add_table(rows=1, cols=4)
+    table = doc.add_table(rows=1, cols=5)
     table.style = 'Table Grid'
 
-    headers = ['Event Name', 'Rate', 'Delivery', 'Payload Format']
+    headers = ['Event Name', 'Rate', 'Delivery', 'Payload Format', 'Payload Size']
     for i, h in enumerate(headers):
         _style_header_cell(table.rows[0].cells[i], h)
     _add_cell_borders(table)
@@ -769,6 +776,11 @@ def _build_events_table(doc: Document, data: Optional[dict]) -> None:
         add_cell_text_sdt(row.cells[3], row_idx, 'event_payload',
                           'e.g. JSON, Avro, Protobuf',
                           ev_data.get('Payload Format'))
+
+        # Col 4: Payload Size (text SDT) — feeds broker sizing
+        add_cell_text_sdt(row.cells[4], row_idx, 'event_payload_size',
+                          'e.g. ~5KB or ~50KB peak / ~2KB typical',
+                          ev_data.get('Payload Size'))
 
     _add_cell_borders(table)
     doc.add_paragraph()
@@ -1099,6 +1111,19 @@ def build_s10_preferences(doc: Document, data: Optional[dict]) -> None:
     p = doc.add_paragraph(
         "Auto: Solace Architect runs all applicable skills and presents findings at the end.  "
         "Interactive: pauses after each skill for your input before proceeding."
+    )
+    p.paragraph_format.space_after = Pt(6)
+
+    _add_field_dropdown(doc, 'provision_event_portal',
+                        "Provision Event Portal model into Solace Cloud after design?",
+                        PROVISION_EVENT_PORTAL_OPTIONS,            data)
+    p = doc.add_paragraph(
+        "When set to Yes, /solace-ep-provision runs after Event Portal design and materializes the catalog "
+        "(application domains, schemas, events, applications) directly into your Solace Cloud tenant via the "
+        "Solace Event Portal Designer MCP. Requires the EP Designer MCP installed in your AI host and a "
+        "Solace Cloud API token with Event Portal Designer Read+Write permission. If the MCP is not "
+        "configured at run time, the step records a BLOCKED status with the exact reason — it never writes "
+        "silently or skips silently. Leave as No for design-only engagements that do not touch your tenant."
     )
     p.paragraph_format.space_after = Pt(6)
     _section_divider(doc)

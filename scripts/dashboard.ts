@@ -112,6 +112,14 @@ const server = Bun.serve({
       return json(await getProjects());
     }
 
+    if (path === "/api/report-packs") {
+      const content = await readSafe(join(ROOT, "scripts", "report-packs.yaml"));
+      if (!content) return json({ error: "report-packs.yaml not found" }, 404);
+      return new Response(content, {
+        headers: { "Content-Type": "text/yaml", "Cache-Control": "no-store" },
+      });
+    }
+
     if (path.startsWith("/api/projects/") && path.endsWith("/artifact")) {
       const slug = path.split("/")[3];
       const artifactPath = url.searchParams.get("path");

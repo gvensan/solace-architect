@@ -1,17 +1,18 @@
 ---
-name: solace-plan
+name: solace-ep-provision
 preamble-tier: 2
 version: 0.1.0
 description: |
-  Orchestrate Solace Architect skills in sequence for a complete engagement. Reads
-  the discovery brief, determines which technical domain skills are relevant, sequences
-  them, and threads context across invocations via decisions.yaml. Use after discovery
-  to get a guided architecture workflow.
+  Provision the Event Portal model designed by /solace-event-portal into a live
+  Solace Cloud tenant via the Solace Event Portal Designer MCP. Creates application
+  domains, schemas, events, applications, and exports AsyncAPI per application.
+  Requires the EP Designer MCP installed and a Solace API token with Designer
+  Read+Write permissions. Use after /solace-event-portal is complete.
 allowed-tools:
   - Bash
   - Read
-  - WebFetch
-  - WebSearch
+  - Write
+  - Edit
   - AskUserQuestion
 interactive: true
 ---
@@ -23,7 +24,7 @@ interactive: true
 ```bash
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
-echo "SKILL: solace-plan"
+echo "SKILL: solace-ep-provision"
 ```
 
 ## Grounding Discipline
@@ -673,11 +674,24 @@ When completing a skill workflow, report status using one of:
 
 Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
 
-# /solace-plan — Engagement Orchestrator
+# /solace-ep-provision — Event Portal Provisioning
 
-You are running the plan skill. Your job is to read the discovery brief, determine
-which Solace Architect skills this project needs, sequence them correctly, and guide
-the user through the complete architecture engagement.
+You are running the Event Portal provisioning skill. Your job is to take the
+design produced by `/solace-event-portal` and materialize it as live Event Portal
+objects in Solace Cloud via the Solace Event Portal Designer MCP.
+
+Where `/solace-event-portal` produces a paper design (markdown, REST API outline),
+this skill closes the loop and creates real objects: application domains, schemas
+with versions, events with topic addresses bound to schemas, and applications
+that declare what they produce and consume. It also exports AsyncAPI per
+application so downstream developer tooling has a concrete contract.
+
+**Early Access caveat.** The Solace Event Portal Designer MCP is currently
+labeled Early Access. Solace's published guidance: *"intended for use with AI
+assistants in a controlled environment with human oversight. Not designed for
+automated workflows like GitHub Actions or unattended automation systems."*
+Honor that — pause for confirmation before each create batch, never silently
+mass-create, surface every API response.
 
 ---
 
@@ -689,261 +703,491 @@ if [ -z "$ACTIVE" ]; then
   echo "NO_ACTIVE_PROJECT"
 else
   echo "PROJECT: $ACTIVE"
-  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-event-portal" || echo "NO_EVENT_PORTAL"
 fi
 ```
 
-Requires discovery complete. If not, tell the user to run `/solace-discovery` first.
+Requires `/solace-event-portal` complete with status `complete`. If not, warn:
 
-Read all current project state:
+> "Event Portal design must be complete before provisioning. Run
+> `/solace-event-portal` first to produce the design artifacts."
+
+### Prior progress entry handling
+
+Inspect the most recent `solace-ep-provision` entry in `progress.yaml`:
+
+- **No prior entry** → write a fresh `in-progress` entry. Continue.
+- **status: `complete`** → the model is already provisioned. Show the existing
+  `provisioned.yaml` summary and ask the user whether they want to (A) keep as-is,
+  (B) re-run idempotently to verify state matches the design, or (C) cancel.
+  On (B), proceed; on completion **replace** the existing entry — do not append.
+- **status: `blocked`** → Step 1 aborted with no side effects (e.g., MCP not loaded,
+  expired token). The retry is a fresh run. On successful completion, **replace**
+  the blocked entry — do not leave a stale entry alongside the new complete one.
+  Record the prior attempt under a `prior_attempts:` key on the new entry so the
+  history isn't lost.
+- **status: `in-progress` / `interrupted` / `partial`** → the prior run made
+  tenant-side changes recorded in `provisioned.yaml`. Use AskUserQuestion:
+  A) Resume, B) Start over, C) Review prior provisioning. On Resume, follow the
+  reuse-by-content-match flow described in Step 3 against the live tenant state.
+  On Start over, the user must first reconcile orphaned objects in Designer.
+  Either way, when the run reaches `complete`, **replace** the in-progress entry —
+  do not append a second entry for the same skill.
+
+**Single entry per skill in `progress.yaml`.** The dashboard groups timeline and
+stats by skill name. Two entries for the same skill in the same file produce
+ambiguous renders. Always replace; never append.
+
+Read all relevant artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+echo "=== EVENT PORTAL DESIGN ==="
+cat "projects/$ACTIVE/artifacts/13-event-portal/event-portal-design.md" 2>/dev/null || echo "MISSING"
+echo ""
+echo "=== PROVISIONING PLAN ==="
+cat "projects/$ACTIVE/artifacts/13-event-portal/provisioning-plan.md" 2>/dev/null || echo "MISSING"
+echo ""
+echo "=== TOPIC TAXONOMY ==="
+cat "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" 2>/dev/null || echo "MISSING"
+echo ""
+echo "=== DECISIONS ==="
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
-cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
 ```
 
-If the plan skill was previously run and skills are already in progress, show the
-current state and offer to continue from where things left off.
+If `event-portal-design.md` is missing, **stop**. There is nothing to provision.
+
+Write initial progress entry with status `in-progress`.
 
 ---
 
-## Step 1: Determine relevant skills
+## Step 1: Verify the EP Designer MCP is available
 
-Based on the discovery brief, determine which skills this project needs:
+Check whether the Solace Event Portal Designer MCP is registered with the host
+and reachable. The MCP exposes tools whose names start with patterns reflecting
+the underlying REST resources — for example, list application domains, create
+application domain, get application by id, and so on.
 
-**Always include (design phase):**
-- `/solace-topic-design` — every project needs a topic taxonomy
-- `/solace-broker-select` — every project needs a broker type decision
-- `/solace-protocol-select` — every project needs protocol assignments
-- `/solace-event-portal` — every project needs Event Portal governance. Without it, the architecture exists only in documentation, not in a discoverable, enforceable catalog.
+**Detection approach.** Ask the user to confirm the MCP is installed by trying a
+read-only call. Use the MCP's "list application domains" tool to fetch the
+current set of domains. If the call succeeds, the MCP is working and the token
+is valid. If it fails with authentication error, the token is missing or
+expired. If it fails with "tool not found," the MCP is not registered.
 
-**Conditional (design phase):**
-- `/solace-sam-design` — include if SAM, AI assistant, chatbot, agent orchestration mentioned
-- `/solace-mesh-design` — include if multi-site, multi-region, multi-cloud, or edge
-- `/solace-ha-dr` — include if HA/DR requirements mentioned, regulated environment, or multi-site
-- `/solace-integration` — include if backend systems need Micro-Integrations
-- `/solace-migration` — include if migrating from another messaging system
-- `/solace-ep-provision` — include **only** if `decisions.yaml` has `provision_event_portal: true` (set from `preferences.provision_event_portal` at intake). This writes to a live Solace Cloud tenant via the EP Designer MCP and is opt-in by design. Project type does not auto-trigger it. Must run after `/solace-event-portal`. If the gate is on but the EP Designer MCP is not loaded at run time, the skill records a BLOCKED status with the exact reason — surface that BLOCKED state in the final plan summary; never treat it as a silent skip.
+Use AskUserQuestion (interactive mode) or auto-decide if `execution_mode: auto`:
 
-**Always at the end (finalize phase):**
-- Review skills (architect, ops, security, dev) — all four by default, user can skip
-- `/solace-validate` — consistency and completeness check
-- `/solace-blueprint` — final assembly (architecture document, diagrams, configs, runbook)
-- `/solace-diagrams` — diagram generation and refinement (splits large diagrams, applies consistent styling, generates companion detail files)
-- `/solace-executive` — executive summary, business architecture visual, and ROI framework
+```
+D1 — Verify EP Designer MCP is available?
+Context: This skill provisions live Event Portal objects via the Solace Event
+Portal Designer MCP. Without the MCP, this skill cannot proceed.
+
+> **Recommended: A) Verify now**
+> Why: A single read-only list call confirms the MCP, the token, and the
+> region. Failure modes (missing MCP, expired token, wrong region) are far
+> easier to fix before any writes are attempted.
+
+A) Verify now — list application domains via the MCP (recommended)
+  ✅ Catches setup issues before any provisioning writes
+  ✅ Confirms region and token scope in one call
+  ❌ Requires the MCP to be installed; if not, this fails immediately
+
+B) Skip verification — assume the MCP is ready
+  ✅ Faster start
+  ❌ First write failure may leave partial state with unclear cause
+
+Net: Verify first; the cost is one API read and clarity downstream.
+```
+
+If verification fails:
+- **Tool not found / MCP not registered.** Print install instructions and stop. The MCP install requires `uvx` and a Claude Code MCP config entry:
+  ```json
+  {
+    "mcpServers": {
+      "solace-event-portal-designer": {
+        "command": "uvx",
+        "args": ["--from", "solace-event-portal-designer-mcp", "solace-ep-designer-mcp"],
+        "env": { "SOLACE_API_TOKEN": "<your-token>" }
+      }
+    }
+  }
+  ```
+  Reference: `https://github.com/SolaceLabs/solace-platform-mcp/tree/main/solace-event-portal-designer-mcp`. Status: BLOCKED.
+- **Authentication error.** Token missing, expired, or wrong scope. Tell the user to verify the token in Solace Cloud Console and ensure it has `Event Portal > Designer > Read+Write`. Status: BLOCKED.
+- **Region error.** Default base URL is `https://api.solace.cloud` (US). If the customer is on EU/AU/SG, the MCP needs `SOLACE_API_BASE_URL` set. Tell the user which region URL to use. Status: BLOCKED.
+
+If verification succeeds, capture the list of existing domains for the idempotency check in Step 3.
 
 ---
 
-## Step 2: Present the plan
+## Step 2: Parse the design + present the provisioning plan
 
-Present the sequenced plan to the user:
+From `event-portal-design.md`, extract the object inventory. Cross-reference with `provisioning-plan.md` to confirm the same set. Build a concrete plan:
+
+| Layer | Object | Count |
+|-------|--------|-------|
+| Application Domains | from "Application Domains" section | 1 (typical) or N |
+| Schemas | from "Schemas" section / event-to-schema map | one per event type |
+| Events | from "Event Objects" table | as listed |
+| Applications | from "Applications" table | one per first-party service + reserved future placeholders |
+
+For each event, capture:
+- Name (human-readable, from design doc)
+- Topic address (from topic taxonomy)
+- Delivery mode (Guaranteed or Direct)
+- Schema reference (which schema this event uses)
+- Description
+
+For each application, capture:
+- Name
+- Application type (producer, consumer, both)
+- Produced event names
+- Subscribed event names
+- Tags (from Catalog Organization section)
+
+For each schema, capture:
+- Name
+- Format (typically JSON Schema for new builds)
+- Version (typically v1 at first provisioning)
+- Content — see the schema content strategy below
+
+### Schema content strategy
+
+The `/solace-event-portal` design produces *field skeletons* per event (required + optional fields), not full JSON Schema documents. Two paths:
+
+**Path A — Synthesize JSON Schema from the design (default).** Build a minimal but valid JSON Schema document for each event from the skeleton. Mark optional fields explicitly. Set `additionalProperties: false` initially (strict) — the team can loosen post-provisioning if needed.
+
+**Path B — Author schemas externally.** Look for `13-event-portal/schemas/*.json` files in the project. If present, use those; ignore the synthesized content for events that have a corresponding file.
+
+Default to Path A. Path B kicks in automatically if files exist. Document the choice in the plan.
+
+### Present the plan
+
+Show the user exactly what will be created. Use AskUserQuestion:
 
 ```
-Engagement Plan for: <project name>
+D2 — Proceed with this provisioning plan?
+Context: The plan below creates <N> objects across 4 layers in Solace Cloud.
+Idempotency: existing objects with matching names are detected in Step 3 and
+handled per your choice. Failures during provisioning leave partial state
+recorded in provisioned.yaml; re-running resumes from the last successful step.
 
-Based on discovery, here's the recommended skill sequence:
+> **Recommended: A) Proceed**
+> Why: The design has been reviewed and validated. Provisioning makes the
+> design real and unlocks AsyncAPI generation for the dev team.
 
-  1. ✓ Discovery (complete)
-  2. → Topic taxonomy design (/solace-topic-design)
-  3. → Broker selection (/solace-broker-select)
-  4. → SAM agent design (/solace-sam-design)         [if applicable]
-  5. → Protocol selection (/solace-protocol-select)
-  6. → Mesh topology (/solace-mesh-design)            [if applicable]
-  7. → HA/DR design (/solace-ha-dr)                   [if applicable]
-  8. → Micro-Integration design (/solace-integration)
-  9. → Migration planning (/solace-migration)          [if applicable]
-  10. → Event Portal governance (/solace-event-portal)
-  11. → Event Portal provisioning (/solace-ep-provision)  [if applicable, requires EP Designer MCP]
-  12. → Architecture review (/solace-architect-review)
-  13. → Operations review (/solace-ops-review)
-  14. → Security review (/solace-security-review)
-  15. → Developer review (/solace-dev-review)
-  16. → Validation (/solace-validate)
-  17. → Blueprint assembly (/solace-blueprint)
-  18. → Diagram generation (/solace-diagrams)
-  19. → Executive summary (/solace-executive)
+A) Proceed with the full plan (recommended)
+  ✅ Creates the complete model in dependency order
+  ✅ Records every object ID for traceability and rollback
+  ❌ Touches your live Solace Cloud tenant — review the plan carefully
 
-Estimated: <N> skills, <rough time estimate>
-```
+B) Dry run — produce the call sequence without executing
+  ✅ Safer for first-time review or training environment
+  ❌ Doesn't actually provision; you'll need to re-run with A) to finish
 
-Mark already-completed skills with ✓. Mark the next skill with →.
+C) Stop — I want to review the design more first
 
-Check `decisions.yaml` for `execution_mode`. If already set (from discovery), show the
-current mode and skip the execution mode question. If not set, ask the user:
-
-```
-D1 — How should we run the remaining skills?
-Context: You have <N> skills to run. This decides whether they chain automatically
-or you confirm each transition. You can switch anytime.
-
-> **Recommended: A) Auto**
-> Why: <N> skills remaining — auto keeps momentum while still pausing for every
-> architecture decision inside each skill. Stops on critical validation issues.
-
-A) Auto — run the plan sequence back-to-back (recommended)
-  ✅ Fastest path to a complete blueprint — no pauses between skills
-  ✅ Still pauses for every architecture decision within each skill
-  ❌ Less visibility between skill transitions — one-line status, not a menu
-
-B) Interactive — confirm each skill before it runs
-  ✅ Full control at every transition — skip, reorder, or pick a different skill
-  ✅ Natural pause points to step away or review artifacts
-  ❌ More prompts to answer — each skill completion asks what to do next
-
-Net: Auto is "drive-through" — you still make every design decision, just without stopping
-at each traffic light between skills. Interactive is "park and walk" — you decide the pace.
-```
-
-Save the choice to `decisions.yaml` (same as discovery — `execution_mode: auto` or `interactive`).
-
-Then confirm the plan itself. Use AskUserQuestion with the full D<N> format.
-Default recommendation: A (Proceed). Guideline for the options:
-
-- **A) Proceed with this plan** — run the skills in the presented sequence.
-- **B) Skip specific skills** — ask which skills to remove, then proceed.
-- **C) Reorder skills** — ask for the new order, then proceed.
-- **D) Add skills** — ask which additional skills to include, then proceed.
-
----
-
-## Step 3: Execute the plan
-
-For each skill in the sequence, check `execution_mode` from `decisions.yaml`:
-
-**Auto mode:** Invoke the skill immediately via the Skill tool. Print a one-line
-transition before each: `"→ Running /solace-<skill> — <title>..."`. After the skill
-completes, read progress, confirm success, and move to the next.
-
-If the skill's progress status is not "complete" after execution:
-1. Print: "STOPPED: /solace-<skill> did not complete (status: <actual status>)."
-2. Fall back to interactive mode for the remainder of the plan.
-3. Tell the user which artifact is missing and suggest re-running the skill.
-Do not advance to the next skill with an incomplete status.
-
-Auto mode also stops
-(falls back to interactive) if `/solace-validate` finds critical issues or a skill
-completes with BLOCKED or NEEDS_CONTEXT status.
-
-**Interactive mode:**
-
-1. Announce which skill is next: "Next: `/solace-topic-design` — Topic Taxonomy Design"
-2. Tell the user to invoke the skill: "Run `/solace-topic-design` to start."
-3. After the skill completes, read the updated progress and decisions:
-
-```bash
-ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
-```
-
-4. Confirm the skill completed successfully. If it was interrupted, note the
-   interruption point and offer to resume or skip.
-5. Move to the next skill in the sequence.
-
-**Context threading:** Each skill writes to `decisions.yaml`. The next skill reads
-those decisions. This is how context flows across the engagement. The plan skill does
-not need to manually thread context — the project infrastructure handles it.
-
-**Handling interruptions:** If the user stops mid-plan, the plan's progress is saved.
-When the plan skill is re-invoked, it reads `progress.yaml`, identifies where things
-left off, and offers to continue.
-
-### Artifact validation (after each finalize-phase skill)
-
-After each finalize-phase skill completes (`/solace-blueprint`, `/solace-diagrams`,
-`/solace-executive`), verify the skill produced its minimum expected artifacts.
-These skills are context-intensive and can truncate under pressure.
-
-```bash
-ACTIVE=$(cat projects/.active)
-echo "=== Artifact validation ==="
-echo "--- Reviews ---"
-for r in architect-review ops-review security-review dev-review; do
-  [ -f "projects/$ACTIVE/artifacts/10-reviews/${r}.md" ] && echo "OK: ${r}.md" || echo "MISSING: ${r}.md"
-done
-echo "--- Validation ---"
-[ -f "projects/$ACTIVE/artifacts/11-validation/validation-report.md" ] && echo "OK: validation-report.md" || echo "MISSING: validation-report.md"
-echo "--- Blueprint ---"
-[ -f "projects/$ACTIVE/artifacts/12-blueprint/architecture.md" ] && echo "OK: architecture.md" || echo "MISSING: architecture.md"
-[ -f "projects/$ACTIVE/artifacts/12-blueprint/runbook.md" ] && echo "OK: runbook.md" || echo "MISSING: runbook.md"
-DIAGRAM_COUNT=$(find "projects/$ACTIVE/artifacts/12-blueprint/diagrams" -name "*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
-echo "DIAGRAMS: $DIAGRAM_COUNT (minimum 8 core expected)"
-echo "--- Executive ---"
-[ -f "projects/$ACTIVE/artifacts/14-executive/executive-summary.md" ] && echo "OK: executive-summary.md" || echo "MISSING: executive-summary.md"
-[ -f "projects/$ACTIVE/artifacts/14-executive/business-architecture.mermaid" ] && echo "OK: business-architecture.mermaid" || echo "MISSING: business-architecture.mermaid"
-[ -f "projects/$ACTIVE/artifacts/14-executive/roi-framework.md" ] && echo "OK: roi-framework.md" || echo "MISSING: roi-framework.md"
-```
-
-**If any MISSING artifacts are detected:** Re-run the skill that owns the missing
-artifact. Do not mark the plan as complete with missing deliverables.
-
-**Minimum artifact counts by skill:**
-
-| Skill | Minimum artifacts | Key files |
-|-------|-------------------|-----------|
-| `/solace-blueprint` | 12+ files | architecture.md, runbook.md, 8 core diagrams, provisioning params, copied taxonomy + validation |
-| `/solace-diagrams` | Varies by project | At least the 8 core diagrams regenerated with consistent styling |
-| `/solace-executive` | 3 files | executive-summary.md, business-architecture.mermaid, roi-framework.md |
-| `/solace-validate` | 1 file | validation-report.md |
-| Review skills | 4 files | architect-review.md, ops-review.md, security-review.md, dev-review.md |
-
----
-
-## Step 4: Track plan progress
-
-After each skill completion, update the plan's own progress entry:
-
-```bash
-ACTIVE=$(cat projects/.active)
-python3 -c "
-import yaml, datetime
-with open('projects/$ACTIVE/progress.yaml', 'r') as f:
-    data = yaml.safe_load(f) or {}
-for entry in data.get('progress', []):
-    if entry.get('skill') == 'solace-plan':
-        entry['step_reached'] = '<N>/<total> — <last completed skill>'
-        entry['summary'] = '<skills completed so far>'
-        break
-with open('projects/$ACTIVE/progress.yaml', 'w') as f:
-    yaml.dump(data, f, default_flow_style=False)
-" 2>/dev/null || echo "Progress update requires PyYAML"
+Net: Default to A) when the design has been reviewed; B) is a useful first-time check; C) is the exit if anything looks off.
 ```
 
 ---
 
-## Step 5: Complete the plan
+## Step 3: Provision objects in dependency order
 
-When all skills in the sequence have been completed:
+The Event Portal REST API has a strict creation order: parent before child. The dependencies are:
 
-1. Run the artifact validation check from Step 3. If any finalize-phase artifacts
-   are missing, re-run the owning skill before marking the plan complete.
+```
+applicationDomain
+    ├── schemas → schemaVersions
+    ├── events → eventVersions  (eventVersion references schemaVersion + topic address)
+    └── applications → applicationVersions  (applicationVersion references eventVersions)
+```
 
-2. Check whether `/solace-ep-provision` was gated on. If `decisions.yaml` has
-   `provision_event_portal: true`:
-   - Read its progress entry. If status is `complete` — fine, list it among
-     completed skills and reference `provisioned.yaml` in the summary.
-   - If status is `blocked` (e.g., EP Designer MCP not loaded, expired token) —
-     do **not** silently treat the engagement as fully complete. Mark the plan
-     as `DONE_WITH_CONCERNS` and lead the summary with: "Event Portal
-     provisioning did not complete: <exact blocker from progress.yaml>. Resolve
-     the blocker and re-run `/solace-ep-provision` to materialize the catalog
-     into your Solace Cloud tenant."
-   - If there is no progress entry at all even though the gate is on — this is
-     a planning error; flag it and re-run the skill.
+Provision in that order. After each create, persist the returned object ID to `provisioned.yaml` immediately so a mid-batch failure leaves a recoverable record.
 
-3. Present a summary of the engagement:
-   - Skills completed
-   - Total artifacts produced (count all files across all artifact directories)
-   - Key decisions made
-   - Any open questions or concerns from review skills
-   - Any artifacts that required re-generation
-   - **Live-tenant state**: if `provision_event_portal: true`, state whether
-     Solace Cloud was actually written to (with the domain ID), or what blocked
-     it. If `false`, state "Design-only engagement — no tenant changes made."
+### Reuse policy — content match, not name match
 
-4. Update the plan's progress to complete.
+**This is the most important guarantee in this skill.** A pre-existing object with the same name as one in the design is NOT automatically safe to reuse. On a shared Solace Cloud tenant, that name could belong to another team's domain, an older engagement's event, or a hand-edited schema. Silently attaching to it would corrupt downstream wiring (events pointing at the wrong schema, applications declaring against the wrong event versions, AsyncAPI exports documenting the wrong contract).
 
-5. The finalize sequence is: `/solace-blueprint` (technical deliverable) ->
-   `/solace-diagrams` (diagram refinement) -> `/solace-executive` (business case
-   with ROI framework). All three must produce their full artifact set.
+The reuse path is therefore a **read-back + semantic comparison**, not a skip:
+
+1. **Look up by name** in the appropriate scope (domain-scope for schemas/events/applications, tenant-scope for domains).
+2. **If not found** → create as planned.
+3. **If found** → fetch the object's current state via the MCP. Fetch the **latest version** of the object as well (the version_id we need for dependent creates).
+4. **Compare** the existing object's semantic fields against the design (see per-layer comparison rules below).
+5. **If match** → reuse. Capture the existing object_id AND the existing version_id. Record `action: reused-verified`.
+6. **If mismatch** → **hard stop.** Do NOT auto-create-new and do NOT auto-overwrite. Surface a structured diff to the user. The user resolves by:
+   - (a) Renaming the design object so a new name avoids the collision.
+   - (b) Manually reconciling the EP object in Designer before re-running.
+   - (c) Confirming the design should win and asking the skill to version-bump (create a new version of the existing object).
+   Auto mode treats this as a STATUS: NEEDS_CONTEXT and stops. Interactive mode presents the diff and asks.
+
+The same flow handles two scenarios with one mechanism: **shared-tenant safety** (someone else's object with our name) and **partial-failure resume** (our prior run's object). In both cases the rerun fetches current state, captures version IDs, and proceeds only when the state matches the design.
+
+Per-layer comparison fields are defined in each Step 3 substep below.
+
+### Step 3a: Application Domain
+
+For each application domain in the design:
+
+1. List domains via the MCP's list-application-domains tool. Find a domain with matching `name`.
+2. **If not found** → create via create-application-domain (name, description, uniqueTopicAddressEnforcementEnabled: true). Capture the returned `id`. Record `action: created`.
+3. **If found** → fetch the existing domain. Compare:
+   - **name** — exact match (already enforced by lookup)
+   - **uniqueTopicAddressEnforcementEnabled** — must be `true` (the design assumes uniqueness)
+   - **description** — soft check; mismatch is a warning, not a hard stop
+4. **Match** → reuse. Capture the existing `id` as `domain_id`. Record `action: reused-verified`.
+5. **Mismatch** → hard stop with diff. Common causes: another team's domain with our name; a domain we created for a different engagement.
+
+Write to `provisioned.yaml` immediately:
+
+```yaml
+domain:
+  name: <name>
+  id: <id>
+  uniqueTopicAddressEnforcementEnabled: <bool>
+  created_at: <timestamp>
+  action: created | reused-verified
+```
+
+### Step 3b: Schemas + Schema Versions
+
+For each schema in the design:
+
+1. List schemas under the domain. Find by `name`.
+2. **If not found** → create schema (name, applicationDomainId, schemaType: `jsonSchema`, shared: true). Then create schemaVersion (version `v1`, content). Capture both `schema_id` and `schema_version_id`. Record `action: created`.
+3. **If found** → fetch the existing schema AND its latest version (list-schema-versions, take the highest-numbered active version). Compare:
+   - **name** — exact (lookup already matched)
+   - **schemaType** — exact match (jsonSchema, avro, protobuf)
+   - **shared** — exact (true or false as designed)
+   - **schema version content** — semantic equality. Either:
+     - Hash the canonical-form content (sorted keys, normalized whitespace) on both sides and compare.
+     - Or do a structural compare of the JSON Schema (same required fields, same property types, same enum values where applicable).
+4. **Match** → reuse. Capture existing `schema_id` and `schema_version_id`. Record `action: reused-verified`.
+5. **Mismatch** → hard stop with a content diff. Common causes: hand-edited schema in Designer; previous engagement created a schema with the same name but different fields.
+
+Capture both IDs in `provisioned.yaml`. The `schema_version_id` is required by Step 3c — never proceed to Step 3c without it.
+
+### Step 3c: Events + Event Versions
+
+For each event in the design:
+
+1. List events under the domain. Find by `name`.
+2. **If not found** → create event (name, applicationDomainId, shared: true). Then create eventVersion (version `v1`, displayName, schemaVersionId from 3b, deliveryDescriptor including the topic address). Capture both `event_id` and `event_version_id`. Record `action: created`.
+3. **If found** → fetch event AND its latest version. Compare:
+   - **name** — exact (lookup matched)
+   - **event version topic address** — exact string match against the topic taxonomy
+   - **event version bound schemaVersionId** — must match the schema version ID captured in Step 3b (this is the most consequential check — wrong schema binding silently breaks contracts)
+   - **deliveryDescriptor's delivery mode** — Guaranteed or Direct must match the design
+4. **Match** → reuse. Capture existing `event_id` and `event_version_id`. Record `action: reused-verified`.
+5. **Mismatch** → hard stop. Surface the topic address diff and/or schema binding diff. Common causes: the event was reused across engagements but the topic taxonomy changed.
+
+Order events by topic, then by name, so the post-provision diff is easy to scan.
+
+### Step 3d: Applications + Application Versions
+
+For each application:
+
+1. List applications under the domain. Find by `name`.
+2. **If not found** → create application (name, applicationDomainId, applicationType). Then create applicationVersion with `declaredProducedEventVersionIds` and `declaredConsumedEventVersionIds` resolved from Step 3c. Capture both `application_id` and `application_version_id`. Record `action: created`.
+3. **If found** → fetch application AND its latest version. Compare:
+   - **name** — exact (lookup matched)
+   - **applicationType** — exact
+   - **declaredProducedEventVersionIds** — the set must exactly match the design's produced events resolved to their version IDs from Step 3c (not just the count — the actual IDs)
+   - **declaredConsumedEventVersionIds** — same exact-set comparison
+4. **Match** → reuse. Capture existing IDs. Record `action: reused-verified`.
+5. **Mismatch** → hard stop. Surface the produce/consume graph diff. This is the highest-stakes check because AsyncAPI export reads from this object — a mismatch here means the wrong contract is published to dev teams.
+
+Capture `application_id` and `application_version_id` in `provisioned.yaml`. Both are required by Step 3e.
+
+### Step 3e: AsyncAPI export per application
+
+For each application version, call the AsyncAPI export tool. Save the returned AsyncAPI document to:
+
+```
+projects/$ACTIVE/artifacts/13-event-portal/asyncapi/<application-name>.yaml
+```
+
+This is the artifact dev tooling consumes for code generation. Resolves the deferred dev-review F3 in one step.
+
+### Step 3f: Tag application
+
+For each event object created in Step 3c, apply the tags captured from the design (e.g., `commerce-critical`, `audit-required`, `realtime-only`, `mvp`). Use the tag endpoint per event version.
+
+### Per-step user oversight (auto mode behavior)
+
+In auto mode, pause **once per layer** with a one-line summary:
+
+```
+About to create 6 schemas (JSON Schema, v1) under retail domain. Proceed?
+About to create 6 events with topic addresses under retail domain. Proceed?
+About to create 3 applications with produce/consume declarations. Proceed?
+```
+
+Per-object confirmation is too noisy. Per-layer is the right granularity — it lets the user catch a misconfigured layer before it cascades.
+
+Interactive mode: same per-layer prompts, but the user may opt into per-object confirmation via a `--verbose` flag (not yet supported; future enhancement).
+
+### Failure handling
+
+If any create call fails:
+
+1. **Do not auto-delete.** Leaving partial state is safer than rolling back something another team might already reference.
+2. Persist what was created so far in `provisioned.yaml` with the failure point.
+3. Surface the raw API response error to the user.
+4. Status: NEEDS_CONTEXT. The user fixes the underlying issue (token scope, duplicate name, invalid schema, etc.) and re-runs the skill.
+
+**Resume semantics.** When the skill is re-invoked after a partial failure, it does NOT trust `provisioned.yaml`'s previously-captured IDs blindly. Instead, every layer of Step 3 runs through the same content-match flow described in the "Reuse policy" section above:
+
+- The lookup-by-name finds the object that the prior run created.
+- The current-state fetch retrieves the live object and its latest version ID.
+- The content comparison validates the live object still matches the design.
+- If the live object has drifted (someone edited it in Designer between runs, or our design changed), the rerun hard-stops with a diff just like the shared-tenant case.
+
+This means resume and shared-tenant safety use the same mechanism. There is no separate "skip if in provisioned.yaml" path — that would let stale local state override live tenant state.
+
+---
+
+## Step 4: Verify by read-back
+
+After all writes complete, list:
+- Application domains (confirm the target domain exists with correct name)
+- Events in the domain (confirm count matches design)
+- Applications in the domain (confirm count and produce/consume declarations)
+- Schemas in the domain (confirm count)
+
+Build a diff table:
+
+| Layer | Designed | Provisioned | Status |
+|-------|----------|-------------|--------|
+| Domain | retail | retail (id=...) | OK |
+| Schemas | 6 | 6 | OK |
+| Events | 6 | 6 | OK |
+| Applications | 3 | 3 | OK |
+
+If a row shows mismatch, flag it. Common causes:
+- A schema was renamed in EP outside this engagement.
+- An application has additional event refs added in EP UI.
+- The design includes reserved/future placeholders that were not provisioned (this is expected).
+
+---
+
+## Step 5: Write artifacts and complete
+
+### `provisioned.yaml`
+
+The canonical record of what exists in Event Portal as a result of this run:
+
+```yaml
+provisioned:
+  region: <api-base-url>
+  account: <inferred-from-token-or-domain-listing>
+  domain:
+    name: retail
+    id: <domain-id>
+    action: created
+  schemas:
+    - name: order-created
+      id: <schema-id>
+      version_id: <schema-version-id>
+      version: v1
+      action: created
+    # ...
+  events:
+    - name: Order Created
+      topic: retail/order/created/v1/{region}/{customerId}/{orderId}
+      id: <event-id>
+      version_id: <event-version-id>
+      schema_version_id: <ref>
+      delivery: Guaranteed
+      action: created
+    # ...
+  applications:
+    - name: Order Service
+      id: <app-id>
+      version_id: <app-version-id>
+      produces: [Order Created]
+      subscribes: [Order Confirmed, Order Rejected]
+      action: created
+    # ...
+  asyncapi:
+    - application: Order Service
+      file: artifacts/13-event-portal/asyncapi/order-service.yaml
+    # ...
+  ran_at: <timestamp>
+  status: complete | partial
+```
+
+Save to `projects/$ACTIVE/artifacts/13-event-portal/provisioned.yaml`.
+
+### `provisioning-report.md`
+
+A markdown summary suitable for sharing:
+
+```markdown
+# Event Portal Provisioning Report: <project>
+
+Provisioned: <date>
+Region: <api-base-url>
+Status: <complete | partial>
+
+## Summary
+- 1 application domain
+- N schemas (all JSON Schema v1)
+- N events with topic-bound versions
+- M applications with produce/consume declarations
+- M AsyncAPI documents exported
+
+## Object map
+<table mapping local names to EP object IDs>
+
+## AsyncAPI exports
+<file list>
+
+## Drift / mismatch
+<read-back comparison>
+
+## Next steps
+- AsyncAPI files are in artifacts/13-event-portal/asyncapi/. Wire them into each service repo per dev-review F3.
+- Schema content is synthesized; refine in EP Designer post-provision if needed.
+- Manage future changes via /solace-event-portal (re-design) + this skill (re-provision).
+```
+
+### Update decisions.yaml
+
+Append a section recording the provisioning run:
+
+```yaml
+ep_provision:
+  region: <api-base-url>
+  domain_id: <id>
+  schemas_count: N
+  events_count: N
+  applications_count: M
+  asyncapi_files: M
+  ran_at: <timestamp>
+  status: complete | partial
+```
+
+### Update progress.yaml
+
+Mark `solace-ep-provision` complete (or `interrupted` / `partial` on failure).
+
+If a prior entry exists for `solace-ep-provision` (regardless of its status),
+**replace** it with the current run's entry. Move the prior status, started
+timestamp, and step_reached into a `prior_attempts:` array on the new entry so
+the history is preserved without duplicating the skill key. Never append a
+second `solace-ep-provision` entry to the file.
+
+### Status reporting
+
+- **DONE** — full provisioning succeeded with read-back match.
+- **DONE_WITH_CONCERNS** — provisioned, but read-back showed drift (likely benign).
+- **BLOCKED** — MCP not available, token issue, or region misconfiguration. State the exact blocker.
+- **NEEDS_CONTEXT** — partial state recorded; user needs to resolve a duplicate name conflict or schema validation error before re-running.
+
+---
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-architect-review` — Architecture Review (if not yet run)
+- Alternate: `/solace-validate` — Validation (if reviews complete)
+- Alternate: end of plan — the engagement is materialized; the team takes it from here

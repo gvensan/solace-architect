@@ -637,15 +637,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="field">
     <label>Events</label>
-    <div class="help">Major event types. Each row: name, approximate rate, delivery mode, payload format.</div>
+    <div class="help">Major event types. Each row: name, approximate rate, delivery mode, payload format, typical payload size. Size drives broker sizing and protocol decisions; free-text like "~5KB", "~50KB peak / ~2KB typical".</div>
     <table class="repeater" id="events-table">
       <thead>
         <tr>
-          <th style="width:30%">Name</th>
-          <th style="width:18%">Rate</th>
-          <th style="width:22%">Delivery</th>
-          <th style="width:20%">Payload</th>
-          <th style="width:10%"></th>
+          <th style="width:24%">Name</th>
+          <th style="width:16%">Rate</th>
+          <th style="width:18%">Delivery</th>
+          <th style="width:16%">Payload format</th>
+          <th style="width:18%">Payload size</th>
+          <th style="width:8%"></th>
         </tr>
       </thead>
       <tbody id="events-body"></tbody>
@@ -901,6 +902,15 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <label><input type="radio" name="execution_mode" value="interactive" data-path="preferences.execution_mode"> <span><strong>Interactive</strong> — Confirm each skill before it runs</span></label>
     </div>
   </div>
+
+  <div class="field">
+    <label>Provision the Event Portal model after design?</label>
+    <div class="help">When enabled, <code>/solace-ep-provision</code> runs after Event Portal design and materializes the catalog (domains, schemas, events, applications) directly into your Solace Cloud tenant via the EP Designer MCP. Requires the <strong>Solace Event Portal Designer MCP</strong> installed in your AI host and a <strong>Solace Cloud API token with Event Portal Designer Read+Write</strong> permission. If the MCP is not configured at run time, the step records a BLOCKED status with the exact reason — it never writes silently or skips silently.</div>
+    <div class="radio-group">
+      <label><input type="radio" name="provision_event_portal" value="false" data-path="preferences.provision_event_portal" data-bool="1" checked onchange="updatePreview()"> <span><strong>No</strong> — design-only engagement; we do not touch your tenant <em>(default)</em></span></label>
+      <label><input type="radio" name="provision_event_portal" value="true" data-path="preferences.provision_event_portal" data-bool="1" onchange="updatePreview()"> <span><strong>Yes</strong> — provision the designed Event Portal model into Solace Cloud after design completes</span></label>
+    </div>
+  </div>
 </section>
 
 <div class="stamp" id="stamp">
@@ -963,7 +973,15 @@ function collectData() {
   // Single-value fields
   document.querySelectorAll('[data-path]').forEach(el => {
     if (el.type === 'radio') {
-      if (el.checked) setByPath(data, el.dataset.path, el.value);
+      if (el.checked) {
+        let v = el.value;
+        // Coerce typed inputs: data-bool="1" means store as actual boolean
+        // so routing rules with `value: true` (YAML bool) compare correctly.
+        if (el.dataset.bool === '1') {
+          v = (el.value === 'true');
+        }
+        setByPath(data, el.dataset.path, v);
+      }
     } else if (el.type === 'checkbox') {
       // Handled separately below
     } else {
@@ -999,8 +1017,9 @@ function collectData() {
     const rate = tr.querySelector('[data-col=rate]').value.trim();
     const delivery = tr.querySelector('[data-col=delivery]').value.trim();
     const payload = tr.querySelector('[data-col=payload]').value.trim();
-    if (name || rate || delivery || payload) {
-      events.push({ name, rate, delivery, payload });
+    const payload_size = tr.querySelector('[data-col=payload_size]').value.trim();
+    if (name || rate || delivery || payload || payload_size) {
+      events.push({ name, rate, delivery, payload, payload_size });
     }
   });
   if (events.length) setByPath(data, 'landscape.events', events);
@@ -1085,6 +1104,7 @@ function addEventRow(row) {
       </select>
     </td>
     <td><input data-col="payload" type="text" placeholder="JSON, Avro..." value="${esc(row.payload || '')}"></td>
+    <td><input data-col="payload_size" type="text" placeholder="e.g. ~5KB" value="${esc(row.payload_size || '')}"></td>
     <td><button class="row-delete" type="button" onclick="this.closest('tr').remove(); markDirty();">×</button></td>
   `;
   document.getElementById('events-body').appendChild(tr);
@@ -1402,9 +1422,9 @@ function downloadMD() {
   ((data.landscape && data.landscape.systems) || []).forEach(s => {
     md += `| ${s.name || ''} | ${s.role || ''} | ${s.protocol || ''} | ${s.owner || ''} |\n`;
   });
-  md += '\n### Events\n\n| Name | Rate | Delivery | Payload |\n|---|---|---|---|\n';
+  md += '\n### Events\n\n| Name | Rate | Delivery | Payload | Payload size |\n|---|---|---|---|---|\n';
   ((data.landscape && data.landscape.events) || []).forEach(e => {
-    md += `| ${e.name || ''} | ${e.rate || ''} | ${e.delivery || ''} | ${e.payload || ''} |\n`;
+    md += `| ${e.name || ''} | ${e.rate || ''} | ${e.delivery || ''} | ${e.payload || ''} | ${e.payload_size || ''} |\n`;
   });
   md += `\n**Existing messaging:** ${(data.landscape && data.landscape.existing_messaging) || ''}\n\n`;
   md += `**Protocols in use:** ${((data.landscape && data.landscape.protocols_in_use) || []).join(', ')}\n\n`;

@@ -219,7 +219,7 @@ The remaining skills run automatically via `/solace-plan` or can be invoked indi
 | Category | Skills | Description |
 |----------|--------|-------------|
 | Start here | `/solace-intake`, `/solace-discovery`, `/solace-plan`, `/solace-projects` | Entry points: intake, project creation, orchestration, dashboard |
-| Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration`, `/solace-event-portal` | Solace platform knowledge, artifact generation (YAML, diagrams, configs) |
+| Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration`, `/solace-event-portal`, `/solace-ep-provision` | Solace platform knowledge, artifact generation (YAML, diagrams, configs). `/solace-ep-provision` additionally calls the EP Designer MCP to create live tenant objects — opt-in via `preferences.provision_event_portal: true` at intake. |
 | Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives with interactive finding resolution |
 | Finalize | `/solace-validate`, `/solace-blueprint`, `/solace-executive` | Consistency checks, antipattern detection, final blueprint assembly, executive summary |
 | Utility | `/solace-diagrams`, `/solace-help` | Diagram regeneration, skill catalog, workflow overview, active project status |
