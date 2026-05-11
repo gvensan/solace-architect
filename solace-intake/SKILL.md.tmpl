@@ -83,14 +83,15 @@ Use AskUserQuestion:
 Which format should the intake template use?
 
 A) Word document (recommended) — professional layout with dropdowns and structured fields, best for sharing with stakeholders
-B) YAML — machine-readable, can be imported directly back into /solace-intake
-C) Markdown — human-readable, easy to share via email or Confluence
-D) All formats — generate Word, YAML, and Markdown
+B) HTML form — interactive single-file form with autocomplete from the Integration Hub catalog and a live preview of the engagement scope
+C) YAML — machine-readable, can be imported directly back into /solace-intake
+D) Markdown — human-readable, easy to share via email or Confluence
+E) All formats — generate Word, HTML, YAML, and Markdown
 ```
 
 ### Step T2: Generate the intake template files
 
-**If Word (A) or All (D) was selected:**
+**If Word (A) or All (E) was selected:**
 
 Generate the DOCX template using the builder script:
 
@@ -118,7 +119,50 @@ If the builder script is not found at any expected location, generate YAML and
 Markdown instead, and suggest the user run `./setup` from the Solace Architect
 repo to install all assets.
 
-**If YAML (B) or All (D) was selected:**
+**If HTML (B) or All (E) was selected:**
+
+Generate the standalone HTML form using the builder script:
+
+```bash
+mkdir -p intake
+for HTMLBLD in \
+  "scripts/build-intake-html.py" \
+  "$HOME/.claude/skills/solace-architect/scripts/build-intake-html.py" \
+  "{{BIN_DIR}}/../scripts/build-intake-html.py"; do
+  [ -f "$HTMLBLD" ] && break
+done
+echo "HTML BUILDER: $HTMLBLD"
+python3 "$HTMLBLD" --output intake/solace-intake-template.html
+```
+
+If the HTML builder is not found, suggest running `./setup` from the Solace Architect
+repo to install all assets. The HTML form needs `PyYAML` for routing-rule embedding;
+if missing, install with `pip install pyyaml` and re-run.
+
+The generated file is a single self-contained HTML — no CDN, no network calls.
+It embeds:
+- A snapshot of `solace-grounding/integration-hub-catalog.md` for system-name autocomplete
+- The routing rules from `scripts/skill-routing.yaml` for a live engagement preview
+- The catalog refresh date is stamped at the bottom of the form
+
+**Sharing model — two ways to use the HTML form:**
+
+1. **Standalone** (default) — open the file directly from disk, fill it out, click
+   *Download YAML*, and place the YAML in `intake/`. Send the file to a customer by
+   email; they do the same. No server required.
+
+2. **Hosted locally** — run `bun run intake` from the repo root. This launches a
+   local HTTP server (default port 3001), serves the same form, and writes
+   submissions straight to `intake/<project-slug>.yaml`. The form detects server
+   mode automatically and swaps the *Download YAML* button for *Submit to architect*.
+
+If the user prefers the hosted mode, point them to:
+
+> Run `bun run intake` from the Solace Architect repo. The form opens automatically
+> in your browser. Fill it in and click *Submit to architect* — the file lands in
+> `intake/` and you can immediately run `/solace-intake intake/<project-slug>.yaml`.
+
+**If YAML (C) or All (E) was selected:**
 
 Generate `intake/solace-intake-template.yaml`:
 
@@ -391,7 +435,7 @@ YAMLEOF
 echo "Generated: intake/solace-intake-template.yaml"
 ```
 
-**If Markdown (C) or All (D) was selected:**
+**If Markdown (D) or All (E) was selected:**
 
 Generate `intake/solace-intake-template.md`:
 
@@ -617,18 +661,21 @@ After generating files, tell the user which formats were produced:
 > | File | Format | Use for |
 > |------|--------|---------|
 > | `intake/solace-intake-template.docx` | Word | Professional layout with dropdowns — best for stakeholder sharing |
+> | `intake/solace-intake-template.html` | HTML | Interactive single-file form — autocomplete from the Integration Hub catalog, live engagement preview, downloads YAML on submit |
 > | `intake/solace-intake-template.yaml` | YAML | Machine-readable — feed directly back into `/solace-intake` |
 > | `intake/solace-intake-template.md` | Markdown | Human-friendly — share via email, Confluence, Google Docs |
 >
 > Only list the files that were actually generated.
 >
 > **How to use:**
-> 1. Share the Word document (or Markdown) with your customer or stakeholder
-> 2. Have them fill in what they know (blanks are fine — we follow up)
-> 3. Place the completed file in the `intake/` folder
+> 1. Share the Word document, HTML form, or Markdown with your customer or stakeholder
+> 2. Have them fill in what they know — blanks are fine, we follow up
+>    - For the HTML form: open in any browser, fill it in, click *Download YAML*
+> 3. Place the completed file (or downloaded YAML) in the `intake/` folder
 > 4. Run: `/solace-intake intake/filled-intake.docx` (or `.yaml` / `.md`)
 >
-> All three formats are accepted for import.
+> All formats above are accepted for import. The HTML form emits the same YAML
+> schema the DOCX parser produces, so the import flow is shared.
 
 Stop here. Do not proceed to import or export mode.
 
