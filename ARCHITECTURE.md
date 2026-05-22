@@ -294,7 +294,7 @@ The dependency map in `generate-dependency-enforcement.ts` ensures skills check 
 
 ### Feedback loops
 
-`projects/<slug>/feedback.yaml` records what worked and what didn't about each skill's output. When feedback patterns repeat across projects, they become entries in `IMPROVEMENTS.md` at the repo root, which maps patterns to specific skill template changes.
+`projects/<slug>/feedback.yaml` records what worked and what didn't about each skill's output. When feedback patterns repeat across projects, they become entries in `docs/improvements.md`, which maps patterns to specific skill template changes.
 
 `solace-grounding/gaps.md` records when a skill can't find what it needs in the grounding documents. Each gap entry names the topic, the skill that needed it, and the workaround used. This drives grounding document maintenance priorities.
 

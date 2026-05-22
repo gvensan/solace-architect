@@ -1,6 +1,6 @@
 # Slash Commands Reference
 
-Solace Architect provides 21 slash commands organized into five categories: Start Here, Design, Review, Finalize, and Utility. Every command can run standalone — `/solace-plan` sequences them automatically, but you can invoke any command directly when you know what you need.
+Solace Architect provides 23 slash commands organized into five categories: Start Here, Design, Review, Finalize, and Utility. Every command can run standalone — `/solace-plan` sequences them automatically, but you can invoke any command directly when you know what you need.
 
 ---
 
@@ -20,6 +20,8 @@ Solace Architect provides 21 slash commands organized into five categories: Star
 | `/solace-ha-dr` | Design | Configure HA redundancy groups and cross-site DR replication |
 | `/solace-integration` | Design | Design Micro-Integration strategy for backend connectivity |
 | `/solace-migration` | Design | Plan phased migration from Kafka, RabbitMQ, TIBCO, or IBM MQ |
+| `/solace-event-portal` | Design | Map architecture into Event Portal: application domains, events, schemas, runtime connections |
+| `/solace-ep-provision` | Design | Provision the Event Portal model into a live Solace Cloud tenant via the EP Designer MCP (opt-in only) |
 | `/solace-architect-review` | Review | Evaluate trade-offs, component choices, and simpler alternatives |
 | `/solace-ops-review` | Review | Assess monitoring, failure modes, capacity, and day-2 readiness |
 | `/solace-security-review` | Review | Audit ACLs, TLS, authentication, authorization, and compliance |
@@ -367,7 +369,7 @@ In **Interactive mode**, the plan announces each skill and waits for the user to
 
 ### Example
 
-After discovery for a banking chatbot project, `/solace-plan` determines the sequence: topic design, broker selection, SAM design, protocol selection, integration design, all four reviews, validation, blueprint, and executive summary. It skips mesh design (single-site) and migration (new build). In Auto mode, it runs all 14 skills back-to-back, pausing only for architecture decisions within each skill.
+After discovery for a banking chatbot project, `/solace-plan` determines the sequence: topic design, broker selection, SAM design, protocol selection, HA/DR, integration design, event portal, all four reviews, validation, blueprint, and executive summary. It skips mesh design (single-site) and migration (new build). In Auto mode, it runs all 14 skills back-to-back, pausing only for architecture decisions within each skill.
 
 ---
 
@@ -1315,7 +1317,7 @@ Running `/solace-help` with an active project that has completed discovery and t
   Recommended next: /solace-broker-select
 
   Individual Skills
-    Design:    8 skills (topic, broker, SAM, protocol, mesh, HA/DR, migration, integration)
+    Design:    10 skills (topic, broker, SAM, protocol, mesh, HA/DR, migration, integration, event-portal, ep-provision)
     Review:    4 skills (architect, ops, security, dev)
     Finalize:  3 skills (validate, blueprint, executive)
     Utility:   2 skills (diagrams, help)

@@ -17,10 +17,10 @@ By the end, you will understand what each skill does, when to use it, what it as
 ```bash
 git clone https://github.com/solacecommunity/solace-architect.git
 cd solace-architect
-./setup
+./install-sa.sh
 ```
 
-The setup script installs dependencies, generates SKILL.md files, and symlinks skills into `~/.claude/skills/solace-architect/`. Verify it worked:
+`install-sa.sh` installs dependencies, generates SKILL.md files, and symlinks skills into `~/.claude/skills/solace-architect/`. Verify it worked:
 
 ```bash
 bun test
@@ -58,7 +58,7 @@ Most users only need these commands:
 
 Alternatively, use `/solace-intake` to generate a DOCX template for offline requirements gathering. Import the completed template to skip interactive discovery.
 
-Everything else is available as individual slash commands if you want to re-run a specific step or skip the orchestrator entirely. There are 22 slash commands in total: 4 start-here + 9 design + 4 review + 3 finalize + 2 utility = 22.
+Everything else is available as individual slash commands if you want to re-run a specific step or skip the orchestrator entirely. There are 23 slash commands in total: 4 start-here + 10 design + 4 review + 3 finalize + 2 utility = 23.
 
 ---
 

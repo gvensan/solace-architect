@@ -116,8 +116,8 @@ If `python-docx` is not installed, tell the user:
 > Then re-run `/solace-intake --template`.
 
 If the builder script is not found at any expected location, generate YAML and
-Markdown instead, and suggest the user run `./setup` from the Solace Architect
-repo to install all assets.
+Markdown instead, and suggest the user run `./install-sa.sh` from the Solace
+Architect repo to install all assets.
 
 **If HTML (B) or All (E) was selected:**
 
@@ -135,9 +135,9 @@ echo "HTML BUILDER: $HTMLBLD"
 python3 "$HTMLBLD" --output intake/solace-intake-template.html
 ```
 
-If the HTML builder is not found, suggest running `./setup` from the Solace Architect
-repo to install all assets. The HTML form needs `PyYAML` for routing-rule embedding;
-if missing, install with `pip install pyyaml` and re-run.
+If the HTML builder is not found, suggest running `./install-sa.sh` from the Solace
+Architect repo to install all assets. The HTML form needs `PyYAML` for routing-rule
+embedding; if missing, install with `pip install pyyaml` and re-run.
 
 The generated file is a single self-contained HTML — no CDN, no network calls.
 It embeds:
