@@ -47,5 +47,5 @@ else
   echo ""
   echo "Removed $removed skill(s) from $CLAUDE_SKILLS_DIR"
   echo ""
-  echo "To reinstall: ./setup"
+  echo "To reinstall: ./install-sa.sh"
 fi

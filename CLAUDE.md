@@ -18,8 +18,8 @@ bun run dev:skill    # watch mode: auto-regen + validate on change
 bun run url:check    # check all grounding document URLs for health
 bun run dashboard    # launch project dashboard at http://localhost:3000
 bun run intake       # launch interactive intake HTML form at http://localhost:3001
-./setup              # full install: deps + generate + symlink into ~/.claude/skills/
-./uninstall          # remove all skill symlinks from ~/.claude/skills/
+./install-sa.sh      # full install: deps + generate + symlink into ~/.claude/skills/
+./uninstall-sa.sh    # remove all skill symlinks from ~/.claude/skills/
 ```
 
 ## Grounding documents
@@ -205,16 +205,16 @@ solace-architect/
   projects/               # Project data (gitignored, local to user)
   SKILL.md.tmpl           # Root skill template
   SKILL.md                # Generated root skill
-  setup                   # Install script
-  uninstall               # Remove script
+  install-sa.sh           # Install script
+  uninstall-sa.sh         # Remove script
   VERSION                 # Current version tag
-  IMPROVEMENTS.md         # Skill improvement tracking from feedback
   ARCHITECTURE.md         # How the template pipeline works
   GETTING-STARTED.md      # Full walkthrough of a complete engagement
   ETHOS.md                # Working principles
-  SAAS-ARCHITECTURE.md    # SaaS architecture overview
   SLASH-COMMANDS.md       # Slash command reference
-  WHAT-IS-SA.md           # What is Solace Architect
+  docs/                   # Strategy and planning docs
+    improvements.md       # Skill improvement tracking from feedback
+    saas-strategy.md      # Forward-looking SaaS design discussion
   conductor.json          # Conductor configuration
   package.json            # Build scripts
 ```

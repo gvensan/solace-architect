@@ -20,8 +20,9 @@ into `~/.claude/skills/`. Users invoke them as slash commands (`/solace-discover
 - **Skill chaining** — `/solace-plan` orchestrates other skills in sequence.
 - **Local project state** — artifacts are written to a `projects/` directory on
   the local filesystem.
-- **18 skills** covering discovery, design (7 skills), review (4 skills),
-  validation, blueprint assembly, orchestration, project management, and help.
+- **23 skills** covering intake, discovery, design (10 skills, including Event Portal
+  provisioning), review (4 skills), validation, blueprint assembly, executive summary,
+  orchestration, project management, diagram regeneration, and help.
 
 ---
 

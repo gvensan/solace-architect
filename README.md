@@ -21,7 +21,7 @@ The skills assume an expert operator who can verify "architectural inference, no
 
 ## What it does
 
-Solace Architect is a toolkit of 23 skills (prompt templates) that AI coding agents read at invocation time. Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and producing concrete architectural artifacts.
+Solace Architect is a toolkit of 23 skills (prompt templates) that AI coding agents read at invocation time. You drive it with slash commands (`/solace-intake`, `/solace-discovery`, `/solace-plan`). Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and writing real artifacts to disk — markdown documents, Mermaid diagrams, YAML configs, and a runbook. See [Outputs and reports](#outputs-and-reports) for where everything lands and how to share it.
 
 One skill, [`/solace-ep-provision`](#event-portal-provisioning-mcp), bridges the design output to a live Solace Cloud tenant via the [Solace Event Portal Designer MCP](https://github.com/SolaceLabs/solace-platform-mcp/tree/main/solace-event-portal-designer-mcp). See the **Event Portal provisioning (MCP)** section below for setup.
 
@@ -37,12 +37,204 @@ Prerequisites: [Bun](https://bun.sh) >= 1.0.0
 ```bash
 git clone https://github.com/solacecommunity/solace-architect.git
 cd solace-architect
-./setup
+./install-sa.sh
 ```
 
-The setup script installs dependencies, generates SKILL.md files for all supported hosts, and creates symlinks in `~/.claude/skills/`.
+What `install-sa.sh` does:
 
-## Skill categories
+1. Installs Bun dependencies.
+2. Generates SKILL.md files for all 10 supported AI agent hosts.
+3. Symlinks the Claude Code skills into `~/.claude/skills/` so you can invoke them as slash commands.
+
+Re-running `./install-sa.sh` is safe — it refreshes the symlinks against the current source after edits.
+
+### Uninstall
+
+```bash
+./uninstall-sa.sh
+```
+
+Removes only the symlinks under `~/.claude/skills/` that point back to this repo (it reads the symlink target before deleting, so unrelated skills are left alone). Your local copy of the repo, the `projects/` folder, the `intake/` folder, and any other local environment are untouched.
+
+To wipe everything Solace Architect added — including the cloned repo — run `./uninstall-sa.sh` first, then delete the repo directory.
+
+## Getting started
+
+### Two ways to start
+
+Pick the entry point that matches how much info you already have.
+
+**A. Interactive discovery — no prep.**
+
+```
+/solace-discovery
+```
+
+The skill asks ~15 structured questions about systems, flows, reliability, topology, and goals. Allow ~20–30 minutes. Produces a discovery brief that feeds every downstream skill.
+
+**B. Intake template — prep offline first.**
+
+```
+/solace-intake                            # generates blank YAML + DOCX template
+# fill the template offline (~30–45 minutes)
+/solace-intake import path/to/intake.yaml # imports and bootstraps the engagement
+```
+
+Best when you're gathering info from a customer, a workshop, or async stakeholders. The completed intake skips discovery's interactive questions entirely.
+
+### Drive the full engagement
+
+Once discovery is in place, run one command to do everything:
+
+```
+/solace-plan
+```
+
+`/solace-plan` reads the brief, decides which technical skills apply (skips SAM if there's no AI layer, skips migration for greenfield), and runs design → review → validation → blueprint → executive summary in order.
+
+Or call any single skill directly when you only need one slice:
+
+```
+/solace-topic-design     # rework topic taxonomy
+/solace-broker-select    # redo broker sizing or type
+/solace-diagrams         # regenerate visuals after a design change
+/solace-blueprint        # reassemble the engineering handoff package
+```
+
+### Iterating and re-assembling
+
+Every skill can be re-run at any time — you don't have to restart the engagement to refine a decision. After re-running any design or review skill, run `/solace-validate` to confirm consistency, then `/solace-blueprint` to refresh the engineering handoff package (`architecture.md`, runbook, diagrams, configs) with the updated content. Run `/solace-executive` after that if the business framing changed too.
+
+Typical iteration cycle:
+
+```
+/solace-topic-design     # change something upstream
+/solace-validate         # re-check consistency and antipatterns
+/solace-blueprint        # refresh the final package
+/solace-executive        # (optional) refresh the business case
+```
+
+`/solace-blueprint` and `/solace-executive` overwrite their outputs on every run, so the files on disk — and everything the dashboard and HTML report read from — always reflect the current state of decisions. Treat the blueprint as the always-current snapshot; individual skill artifacts are the working drafts that feed into it.
+
+### Auto or interactive mode
+
+Each `D<N>` design decision in a skill can either pause for your input (interactive, the default) or be auto-decided to the recommended option with full rationale logged. Set this during intake, or add `execution_mode: auto` to the project's `decisions.yaml`. Either way, every choice is recorded with the option chosen and why.
+
+Use interactive when you want to drive the trade-offs. Use auto for fast end-to-end runs, comparison projects, or after you've validated the recommended path is sensible.
+
+### What you can do across projects
+
+```
+/solace-projects              # status of the active project
+/solace-projects list         # all projects
+/solace-projects switch       # change the active project
+/solace-projects compare      # decision diff between two projects
+/solace-help                  # workflow overview + skill index
+```
+
+Each engagement is a self-contained folder under `projects/<slug>/`, so parallel designs (e.g., `payment-solutions-v1`, `v2`, `v3`) live side by side and can be compared decision-by-decision.
+
+### See it end-to-end
+
+1. `/solace-discovery` — answer the questions for a small system (e.g., two services and a mobile app).
+2. `/solace-plan` — let the orchestrator run the rest in auto mode.
+3. `bun run dashboard` — open `http://localhost:3000` and click **Export** for the HTML report.
+
+For a full guided walkthrough of a real engagement (retail banking AI assistant scenario, every skill explained step-by-step), see [GETTING-STARTED.md](GETTING-STARTED.md).
+
+Next: read [Outputs and reports](#outputs-and-reports) to see exactly what gets produced and how to share it.
+
+## Outputs and reports
+
+Slash commands produce real artifacts on disk: markdown documents, Mermaid diagrams, YAML configs, and a runbook. Everything lands under `projects/<your-project>/artifacts/`. You can read it as plain files, browse it through a local dashboard, or export it as a single shareable report.
+
+### Where everything lives
+
+Every skill writes to a numbered subdirectory:
+
+```
+projects/<your-project>/
+  context.yaml                       ← project metadata
+  decisions.yaml                     ← every D<N> decision with rationale
+  progress.yaml                      ← per-skill status, timing, artifact list
+  artifacts/
+    01-discovery/discovery-brief.md
+    02-topic-design/topic-taxonomy.md
+    03-broker-select/broker-recommendation.md
+    04-sam-design/                   ← only if SAM design ran
+    05-protocol-select/protocol-map.md
+    06-mesh-design/dmr-topology.md
+    07-ha-dr/ha-dr-topology.md
+    08-integration/micro-integration-map.md
+    09-migration/                    ← only if migration planning ran
+    10-reviews/                      ← architect, ops, security, dev reviews
+    11-validation/validation-report.md
+    12-blueprint/                    ← engineering handoff package
+      architecture.md
+      runbook.md
+      topic-taxonomy.md
+      validation-report.md
+      diagrams/*.mermaid             ← 8 core + conditional diagrams
+      config/                        ← YAML configs, broker provisioning params
+    13-event-portal/                 ← Event Portal governance design
+    14-executive/                    ← business case
+      executive-summary.md
+      roi-framework.md
+      business-architecture.mermaid
+```
+
+Open any of these in your editor. Mermaid diagrams render in GitHub, VS Code, Obsidian, or [mermaid.live](https://mermaid.live).
+
+### Dashboard
+
+For interactive browsing, run the dashboard:
+
+```bash
+bun run dashboard    # serves http://localhost:3000 and opens it
+```
+
+Sidebar views:
+
+- **Overview** — Phases (Discovery, Design, Review, Finalize) with per-skill status tiles. Click a tile for details.
+- **Timeline** — Chronological view with timing per skill and decisions in context.
+- **Decisions** — Every `D<N>` design decision with rationale, plus review findings with severity and resolution status.
+- **Open Items** — Unresolved questions, risks, and follow-ups across the engagement.
+- **Artifacts** — File tree browser. Click any file to view rendered content. Mermaid diagrams render inline.
+- **Stats** — Execution time, user wait time, decision counts, artifact counts.
+- **Export** — One-click HTML report or print-to-PDF (see below).
+
+### Single-file report — share, archive, print
+
+The **Export** view in the dashboard has two buttons:
+
+- **View / Download HTML Report** — generates a self-contained HTML file with the executive summary, business case, architecture diagrams, decision log, and full engagement history. One file, no server required to view it. Email it, drop it in a repo, attach it to a ticket.
+- **Print / Save as PDF** — triggers the browser print dialog. Pick "Save as PDF" for handoff packages or stakeholder distribution. The styles are print-aware so diagrams and tables format cleanly.
+
+### What to share with whom
+
+| Audience | Hand them this |
+|----------|----------------|
+| Engineering team (implementing) | `12-blueprint/architecture.md`, `runbook.md`, `diagrams/`, `config/` |
+| Solace ops / cloud provisioning | `12-blueprint/config/broker/provisioning-parameters.md` |
+| Event Portal admin / governance | `13-event-portal/` (provisioning plan + design) |
+| CXO / business stakeholders | HTML Report, or `14-executive/executive-summary.md` |
+| External review or archive | HTML Report (single self-contained file) |
+| Live walkthrough | Dashboard at `localhost:3000` |
+
+### Inspecting a project from the command line
+
+```bash
+/solace-projects             # status of the active project
+/solace-projects list        # all projects
+/solace-projects summary     # key decisions and findings
+/solace-projects compare     # side-by-side comparison of two projects
+```
+
+`/solace-projects` also surfaces what's recommended next, so you can pick up a paused engagement without re-reading the file tree.
+
+## Skill reference
+
+Full catalog of every skill. For the recommended flow, see [Getting started](#getting-started). For per-skill scenarios, the dependency map, and detailed usage patterns, see [SLASH-COMMANDS.md](SLASH-COMMANDS.md).
 
 | Category | Skill | Command | Description |
 |----------|-------|---------|-------------|
@@ -96,7 +288,7 @@ bun run build                          # generate for all 10 hosts
 bun run gen:skill-docs --host codex    # generate for a single host
 ```
 
-For Claude Code, `./setup` handles generation and symlinks in one step.
+For Claude Code, `./install-sa.sh` handles generation and symlinks in one step.
 
 ## Grounding documents
 
@@ -124,20 +316,6 @@ SKILL.md               Committed, auto-generated, ready for the agent to read
 ```
 
 Skills use a preamble tier system (T1–T4) that controls which shared sections are included. Every skill gets grounding rules and naming conventions. Interactive skills (T2+) also get the AskUserQuestion format, writing style, and completeness principle. Code-modifying skills (T3+) add search-before-building and repo ownership.
-
-## Dashboard
-
-Solace Architect includes a project dashboard for visualizing engagement progress.
-
-```bash
-bun run dashboard    # opens at localhost:3000
-```
-
-The dashboard shows:
-- **Overview** — Skill groups (Discovery, Design, Review, Finalize) with per-skill status tiles
-- **Decisions** — Design decisions and review findings with severity and resolution status
-- **Artifacts** — File browser for all generated outputs
-- **HTML Report** — Self-contained report with Executive Summary, architecture diagrams, and full engagement history. Print to PDF from the browser.
 
 ## Event Portal provisioning (MCP)
 
@@ -263,7 +441,7 @@ bun run skill:check  # health dashboard
 bun run dev:skill    # watch mode: auto-regen on change
 bun run url:check    # check grounding document URLs for health
 bun run dashboard    # project dashboard at localhost:3000
-./uninstall          # remove all skill symlinks
+./uninstall-sa.sh    # remove all skill symlinks
 ```
 
 The test suite checks terminology compliance (zero forbidden terms), structural validation (frontmatter, placeholders, preamble tiers), token budget enforcement (per-skill and total ceilings), and generation freshness (committed files match templates).
