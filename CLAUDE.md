@@ -81,6 +81,7 @@ and blueprint skills automatically.
 | Review | Developer Review | `/solace-dev-review` |
 | Finalize | Validate | `/solace-validate` |
 | Finalize | Blueprint | `/solace-blueprint` |
+| Finalize | Architecture Blueprint (4+1) | `/solace-architecture-blueprint` |
 | Finalize | Executive Summary | `/solace-executive` |
 | Utility | Diagrams | `/solace-diagrams` |
 | Utility | Help | `/solace-help` |
@@ -113,6 +114,7 @@ Individual skills (for re-running specific steps or skipping the orchestrator):
 - Developer experience review -> invoke /solace-dev-review
 - Validation, consistency checks -> invoke /solace-validate
 - Blueprint assembly -> invoke /solace-blueprint
+- Architecture blueprint, 4+1 view, view-oriented blueprint for engineering teams -> invoke /solace-architecture-blueprint
 - Executive summary, business case, ROI -> invoke /solace-executive
 - Regenerate diagrams, update diagrams, preview diagrams -> invoke /solace-diagrams
 
@@ -189,6 +191,7 @@ solace-architect/
   solace-plan/            # /solace-plan
   solace-validate/        # /solace-validate
   solace-blueprint/       # /solace-blueprint
+  solace-architecture-blueprint/   # /solace-architecture-blueprint
   solace-event-portal/    # /solace-event-portal
   solace-ep-provision/    # /solace-ep-provision
   solace-executive/       # /solace-executive

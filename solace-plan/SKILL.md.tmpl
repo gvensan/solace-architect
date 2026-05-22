@@ -76,6 +76,7 @@ Based on the discovery brief, determine which skills this project needs:
 - Review skills (architect, ops, security, dev) — all four by default, user can skip
 - `/solace-validate` — consistency and completeness check
 - `/solace-blueprint` — final assembly (architecture document, diagrams, configs, runbook)
+- `/solace-architecture-blueprint` — 4+1 view repackaging (logical, process, development, physical, scenarios) optimized for the implementation team
 - `/solace-diagrams` — diagram generation and refinement (splits large diagrams, applies consistent styling, generates companion detail files)
 - `/solace-executive` — executive summary, business architecture visual, and ROI framework
 
@@ -107,8 +108,9 @@ Based on discovery, here's the recommended skill sequence:
   15. → Developer review (/solace-dev-review)
   16. → Validation (/solace-validate)
   17. → Blueprint assembly (/solace-blueprint)
-  18. → Diagram generation (/solace-diagrams)
-  19. → Executive summary (/solace-executive)
+  18. → Architecture blueprint, 4+1 view (/solace-architecture-blueprint)
+  19. → Diagram generation (/solace-diagrams)
+  20. → Executive summary (/solace-executive)
 
 Estimated: <N> skills, <rough time estimate>
 ```
@@ -196,9 +198,10 @@ left off, and offers to continue.
 
 ### Artifact validation (after each finalize-phase skill)
 
-After each finalize-phase skill completes (`/solace-blueprint`, `/solace-diagrams`,
-`/solace-executive`), verify the skill produced its minimum expected artifacts.
-These skills are context-intensive and can truncate under pressure.
+After each finalize-phase skill completes (`/solace-blueprint`,
+`/solace-architecture-blueprint`, `/solace-diagrams`, `/solace-executive`),
+verify the skill produced its minimum expected artifacts. These skills are
+context-intensive and can truncate under pressure.
 
 ```bash
 ACTIVE=$(cat projects/.active)
@@ -214,6 +217,12 @@ echo "--- Blueprint ---"
 [ -f "projects/$ACTIVE/artifacts/12-blueprint/runbook.md" ] && echo "OK: runbook.md" || echo "MISSING: runbook.md"
 DIAGRAM_COUNT=$(find "projects/$ACTIVE/artifacts/12-blueprint/diagrams" -name "*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
 echo "DIAGRAMS: $DIAGRAM_COUNT (minimum 8 core expected)"
+echo "--- Architecture Blueprint (4+1) ---"
+for f in 00-executive-summary.md 01-logical-view.md 02-process-view.md 03-development-view.md 04-physical-view.md 05-scenarios.md; do
+  [ -f "projects/$ACTIVE/artifacts/15-arch-blueprint/$f" ] && echo "OK: $f" || echo "MISSING: $f"
+done
+ARCH_DIAGRAM_COUNT=$(find "projects/$ACTIVE/artifacts/15-arch-blueprint/diagrams" -name "*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
+echo "DIAGRAMS: $ARCH_DIAGRAM_COUNT (minimum 5 expected — domain-model + state machine(s) + 3 sequence diagrams)"
 echo "--- Executive ---"
 [ -f "projects/$ACTIVE/artifacts/14-executive/executive-summary.md" ] && echo "OK: executive-summary.md" || echo "MISSING: executive-summary.md"
 [ -f "projects/$ACTIVE/artifacts/14-executive/business-architecture.mermaid" ] && echo "OK: business-architecture.mermaid" || echo "MISSING: business-architecture.mermaid"
@@ -228,6 +237,7 @@ artifact. Do not mark the plan as complete with missing deliverables.
 | Skill | Minimum artifacts | Key files |
 |-------|-------------------|-----------|
 | `/solace-blueprint` | 12+ files | architecture.md, runbook.md, 8 core diagrams, provisioning params, copied taxonomy + validation |
+| `/solace-architecture-blueprint` | 11+ files | 6 view files (00-05), domain-model.mermaid, ≥1 state machine, ≥3 sequence diagrams, 3 appendices |
 | `/solace-diagrams` | Varies by project | At least the 8 core diagrams regenerated with consistent styling |
 | `/solace-executive` | 3 files | executive-summary.md, business-architecture.mermaid, roi-framework.md |
 | `/solace-validate` | 1 file | validation-report.md |

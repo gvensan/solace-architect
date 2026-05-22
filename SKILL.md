@@ -825,5 +825,6 @@ When the user's request matches an available skill, invoke it.
 - Developer experience review, SDK, onboarding -> `/solace-dev-review`
 - Validation, consistency checks, antipattern detection -> `/solace-validate`
 - Blueprint assembly, final deliverable -> `/solace-blueprint`
+- Architecture blueprint, 4+1 view, implementation-team navigation -> `/solace-architecture-blueprint`
 - Executive summary, business case, ROI, CXO report -> `/solace-executive`
 - Regenerate diagrams, update diagrams, preview diagrams -> `/solace-diagrams`

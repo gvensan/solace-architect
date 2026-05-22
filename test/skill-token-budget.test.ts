@@ -13,7 +13,7 @@ const ROOT = path.resolve(import.meta.dir, '..');
 const SKILL_FILES = discoverSkillFiles(ROOT).map(f => path.join(ROOT, f));
 
 const PER_SKILL_TOKEN_CEILING = 40_000;
-const TOTAL_TOKEN_WARNING = 250_000;
+const TOTAL_TOKEN_WARNING = 275_000;
 
 function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);

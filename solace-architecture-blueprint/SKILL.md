@@ -1,15 +1,19 @@
 ---
-name: solace-plan
+name: solace-architecture-blueprint
 preamble-tier: 2
 version: 0.1.0
 description: |
-  Orchestrate Solace Architect skills in sequence for a complete engagement. Reads
-  the discovery brief, determines which technical domain skills are relevant, sequences
-  them, and threads context across invocations via decisions.yaml. Use after discovery
-  to get a guided architecture workflow.
+  Architecture Blueprint organized by the 4+1 view model (Logical, Process,
+  Development, Physical, Scenarios). Repackages all project artifacts into a
+  view-oriented document an engineering team can navigate during implementation,
+  with a domain entity model, payment state machine, and end-to-end sequence
+  diagrams. Independent of /solace-blueprint — reads raw artifacts directly.
+  Use after validation passes.
 allowed-tools:
   - Bash
   - Read
+  - Write
+  - Edit
   - WebFetch
   - WebSearch
   - AskUserQuestion
@@ -23,7 +27,7 @@ interactive: true
 ```bash
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
-echo "SKILL: solace-plan"
+echo "SKILL: solace-architecture-blueprint"
 ```
 
 ## Grounding Discipline
@@ -673,11 +677,17 @@ When completing a skill workflow, report status using one of:
 
 Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
 
-# /solace-plan — Engagement Orchestrator
+# /solace-architecture-blueprint — 4+1 Architecture Blueprint
 
-You are running the plan skill. Your job is to read the discovery brief, determine
-which Solace Architect skills this project needs, sequence them correctly, and guide
-the user through the complete architecture engagement.
+You are running the architecture-blueprint skill. Your job is to repackage all
+project artifacts into a 4+1 view architecture document. The 4+1 model (Logical,
+Process, Development, Physical, +1 Scenarios) is how engineering teams navigate
+an architecture during implementation, in contrast to the skill-sequence order
+used by `/solace-blueprint`.
+
+This skill is **independent** of `/solace-blueprint`. It reads raw artifacts
+under `projects/$ACTIVE/artifacts/` directly, so it works whether or not the
+sequenced blueprint has been assembled.
 
 ---
 
@@ -689,271 +699,639 @@ if [ -z "$ACTIVE" ]; then
   echo "NO_ACTIVE_PROJECT"
 else
   echo "PROJECT: $ACTIVE"
-  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-discovery" || echo "NO_DISCOVERY"
+  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null | grep -A3 "solace-validate" || echo "NO_VALIDATION"
 fi
 ```
 
-Requires discovery complete. If not, tell the user to run `/solace-discovery` first.
+If progress.yaml shows solace-validate with status: complete, skip the validation
+warning and proceed directly to reading project state. No AskUserQuestion needed.
 
-Read all current project state:
+Otherwise, if validation has not run, warn: "Validation should pass before
+assembling the architecture blueprint. Run `/solace-validate` first."
+
+Use AskUserQuestion with the full D<N> format. Default recommendation: A.
+- **A) Run validation first** — ensures consistency before final assembly.
+- **B) Proceed without validation** — skip validation, accept the risk of
+  inconsistencies in the blueprint.
+
+Read all project state. Use only raw artifacts; do not rely on `12-blueprint/`
+existing.
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
+cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
-cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+echo ""
+echo "=== ALL RAW ARTIFACTS ==="
+find "projects/$ACTIVE/artifacts" -name "*.md" -o -name "*.yaml" -o -name "*.mermaid" 2>/dev/null \
+  | grep -v "/12-blueprint/" | grep -v "/15-arch-blueprint/" | sort
 ```
 
-If the plan skill was previously run and skills are already in progress, show the
-current state and offer to continue from where things left off.
+Read every raw artifact file. The view-by-view synthesis below depends on the
+full content of these artifacts.
 
 ---
 
-## Step 1: Determine relevant skills
-
-Based on the discovery brief, determine which skills this project needs:
-
-**Always include (design phase):**
-- `/solace-topic-design` — every project needs a topic taxonomy
-- `/solace-broker-select` — every project needs a broker type decision
-- `/solace-protocol-select` — every project needs protocol assignments
-- `/solace-event-portal` — every project needs Event Portal governance. Without it, the architecture exists only in documentation, not in a discoverable, enforceable catalog.
-
-**Conditional (design phase):**
-- `/solace-sam-design` — include if SAM, AI assistant, chatbot, agent orchestration mentioned
-- `/solace-mesh-design` — include if multi-site, multi-region, multi-cloud, or edge
-- `/solace-ha-dr` — include if HA/DR requirements mentioned, regulated environment, or multi-site
-- `/solace-integration` — include if backend systems need Micro-Integrations
-- `/solace-migration` — include if migrating from another messaging system
-- `/solace-ep-provision` — include **only** if `decisions.yaml` has `provision_event_portal: true` (set from `preferences.provision_event_portal` at intake). This writes to a live Solace Cloud tenant via the EP Designer MCP and is opt-in by design. Project type does not auto-trigger it. Must run after `/solace-event-portal`. If the gate is on but the EP Designer MCP is not loaded at run time, the skill records a BLOCKED status with the exact reason — surface that BLOCKED state in the final plan summary; never treat it as a silent skip.
-
-**Always at the end (finalize phase):**
-- Review skills (architect, ops, security, dev) — all four by default, user can skip
-- `/solace-validate` — consistency and completeness check
-- `/solace-blueprint` — final assembly (architecture document, diagrams, configs, runbook)
-- `/solace-architecture-blueprint` — 4+1 view repackaging (logical, process, development, physical, scenarios) optimized for the implementation team
-- `/solace-diagrams` — diagram generation and refinement (splits large diagrams, applies consistent styling, generates companion detail files)
-- `/solace-executive` — executive summary, business architecture visual, and ROI framework
-
----
-
-## Step 2: Present the plan
-
-Present the sequenced plan to the user:
-
-```
-Engagement Plan for: <project name>
-
-Based on discovery, here's the recommended skill sequence:
-
-  1. ✓ Discovery (complete)
-  2. → Topic taxonomy design (/solace-topic-design)
-  3. → Broker selection (/solace-broker-select)
-  4. → SAM agent design (/solace-sam-design)         [if applicable]
-  5. → Protocol selection (/solace-protocol-select)
-  6. → Mesh topology (/solace-mesh-design)            [if applicable]
-  7. → HA/DR design (/solace-ha-dr)                   [if applicable]
-  8. → Micro-Integration design (/solace-integration)
-  9. → Migration planning (/solace-migration)          [if applicable]
-  10. → Event Portal governance (/solace-event-portal)
-  11. → Event Portal provisioning (/solace-ep-provision)  [if applicable, requires EP Designer MCP]
-  12. → Architecture review (/solace-architect-review)
-  13. → Operations review (/solace-ops-review)
-  14. → Security review (/solace-security-review)
-  15. → Developer review (/solace-dev-review)
-  16. → Validation (/solace-validate)
-  17. → Blueprint assembly (/solace-blueprint)
-  18. → Architecture blueprint, 4+1 view (/solace-architecture-blueprint)
-  19. → Diagram generation (/solace-diagrams)
-  20. → Executive summary (/solace-executive)
-
-Estimated: <N> skills, <rough time estimate>
-```
-
-Mark already-completed skills with ✓. Mark the next skill with →.
-
-Check `decisions.yaml` for `execution_mode`. If already set (from discovery), show the
-current mode and skip the execution mode question. If not set, ask the user:
-
-```
-D1 — How should we run the remaining skills?
-Context: You have <N> skills to run. This decides whether they chain automatically
-or you confirm each transition. You can switch anytime.
-
-> **Recommended: A) Auto**
-> Why: <N> skills remaining — auto keeps momentum while still pausing for every
-> architecture decision inside each skill. Stops on critical validation issues.
-
-A) Auto — run the plan sequence back-to-back (recommended)
-  ✅ Fastest path to a complete blueprint — no pauses between skills
-  ✅ Still pauses for every architecture decision within each skill
-  ❌ Less visibility between skill transitions — one-line status, not a menu
-
-B) Interactive — confirm each skill before it runs
-  ✅ Full control at every transition — skip, reorder, or pick a different skill
-  ✅ Natural pause points to step away or review artifacts
-  ❌ More prompts to answer — each skill completion asks what to do next
-
-Net: Auto is "drive-through" — you still make every design decision, just without stopping
-at each traffic light between skills. Interactive is "park and walk" — you decide the pace.
-```
-
-Save the choice to `decisions.yaml` (same as discovery — `execution_mode: auto` or `interactive`).
-
-Then confirm the plan itself. Use AskUserQuestion with the full D<N> format.
-Default recommendation: A (Proceed). Guideline for the options:
-
-- **A) Proceed with this plan** — run the skills in the presented sequence.
-- **B) Skip specific skills** — ask which skills to remove, then proceed.
-- **C) Reorder skills** — ask for the new order, then proceed.
-- **D) Add skills** — ask which additional skills to include, then proceed.
-
----
-
-## Step 3: Execute the plan
-
-For each skill in the sequence, check `execution_mode` from `decisions.yaml`:
-
-**Auto mode:** Invoke the skill immediately via the Skill tool. Print a one-line
-transition before each: `"→ Running /solace-<skill> — <title>..."`. After the skill
-completes, read progress, confirm success, and move to the next.
-
-If the skill's progress status is not "complete" after execution:
-1. Print: "STOPPED: /solace-<skill> did not complete (status: <actual status>)."
-2. Fall back to interactive mode for the remainder of the plan.
-3. Tell the user which artifact is missing and suggest re-running the skill.
-Do not advance to the next skill with an incomplete status.
-
-Auto mode also stops
-(falls back to interactive) if `/solace-validate` finds critical issues or a skill
-completes with BLOCKED or NEEDS_CONTEXT status.
-
-**Interactive mode:**
-
-1. Announce which skill is next: "Next: `/solace-topic-design` — Topic Taxonomy Design"
-2. Tell the user to invoke the skill: "Run `/solace-topic-design` to start."
-3. After the skill completes, read the updated progress and decisions:
+## Step 1: Create the 4+1 directory structure
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+mkdir -p "projects/$ACTIVE/artifacts/15-arch-blueprint/diagrams"
+mkdir -p "projects/$ACTIVE/artifacts/15-arch-blueprint/appendices"
 ```
 
-4. Confirm the skill completed successfully. If it was interrupted, note the
-   interruption point and offer to resume or skip.
-5. Move to the next skill in the sequence.
+The output structure is:
 
-**Context threading:** Each skill writes to `decisions.yaml`. The next skill reads
-those decisions. This is how context flows across the engagement. The plan skill does
-not need to manually thread context — the project infrastructure handles it.
+```
+15-arch-blueprint/
+  00-executive-summary.md
+  01-logical-view.md
+  02-process-view.md
+  03-development-view.md
+  04-physical-view.md
+  05-scenarios.md
+  diagrams/
+    domain-model.mermaid
+    <entity>-state-machine.mermaid  (one per stateful domain entity)
+    seq-<scenario>.mermaid           (one per narrated scenario, 3-5 total)
+  appendices/
+    A-topic-taxonomy.md              (copied from 02-topic-design)
+    B-decision-log.md                (rendered from decisions.yaml)
+    C-validation-report.md           (copied from 11-validation)
+```
 
-**Handling interruptions:** If the user stops mid-plan, the plan's progress is saved.
-When the plan skill is re-invoked, it reads `progress.yaml`, identifies where things
-left off, and offers to continue.
+---
 
-### Artifact validation (after each finalize-phase skill)
+## Step 2: Executive summary
 
-After each finalize-phase skill completes (`/solace-blueprint`,
-`/solace-architecture-blueprint`, `/solace-diagrams`, `/solace-executive`),
-verify the skill produced its minimum expected artifacts. These skills are
-context-intensive and can truncate under pressure.
+Write `00-executive-summary.md`. Keep it under 2 pages. It must orient a reader
+who will then choose a view. Structure:
+
+```markdown
+# Architecture Blueprint: <Project Name>
+
+## Purpose
+<1 paragraph: what this system does, who uses it, what business outcome it
+enables>
+
+## Architectural shape
+<1 paragraph: the dominant Solace components in play — broker model, mesh
+topology if any, agent mesh if any, key Micro-Integrations. Name Solace
+components with their exact Solace terminology.>
+
+## How to read this document
+This blueprint follows the 4+1 view model:
+- **Logical view** (§1) — domain entities, events, schemas, topic taxonomy.
+  Start here if you are reasoning about *what* the system represents.
+- **Process view** (§2) — runtime flows, delivery modes, sequence of message
+  exchanges, error and retry paths. Start here for *how* messages move at
+  runtime.
+- **Development view** (§3) — environments, SDKs, source organization,
+  AsyncAPI pipeline, onboarding. Start here if you are about to write code.
+- **Physical view** (§4) — broker topology, HA/DR, queues, protocols, security
+  zones, capacity. Start here for operations or capacity planning.
+- **Scenarios** (§5) — end-to-end walkthroughs of critical user journeys that
+  cut across all four views.
+
+## Key architectural decisions
+<bullet list of 6-10 decisions from decisions.yaml, each one line. Format:
+"Decision — Rationale.">
+
+## Open risks
+<bullet list from validation report and review findings; cap at 5>
+```
+
+Write the file:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-echo "=== Artifact validation ==="
-echo "--- Reviews ---"
-for r in architect-review ops-review security-review dev-review; do
-  [ -f "projects/$ACTIVE/artifacts/10-reviews/${r}.md" ] && echo "OK: ${r}.md" || echo "MISSING: ${r}.md"
+cat > "projects/$ACTIVE/artifacts/15-arch-blueprint/00-executive-summary.md" << 'EOF'
+<paste executive summary>
+EOF
+```
+
+---
+
+## Step 3: Logical View — what the system represents
+
+Write `01-logical-view.md`. This view captures the static, behavior-independent
+structure: domain entities, the events that describe their lifecycle, schemas,
+and the topic taxonomy that names them.
+
+This is the view that fills the gap in `/solace-blueprint`'s current narrative,
+which jumps straight from systems to topics without first establishing the
+domain.
+
+Structure:
+
+```markdown
+# Logical View
+
+## §1.1 Domain entity model
+<Identify the core business entities — for a payments system this is Payment,
+FraudCheck, TwoFactorChallenge, Authorization, Capture, Settlement, etc.
+Describe the relationships between them in prose, then show them in the domain
+model Mermaid diagram (see Step 7 for diagram spec).>
+
+Reference: `diagrams/domain-model.mermaid`
+
+## §1.2 Entity state machines
+<For every stateful entity, describe the states and transitions in prose, and
+reference a state machine diagram. At minimum, generate a state machine for
+the *primary* entity (the one named first in the Event Portal application
+domains).>
+
+Reference: `diagrams/<entity>-state-machine.mermaid`
+
+## §1.3 Event objects
+<Render the Event Portal event inventory as a table:
+
+| Event | Producer Domain | Consumer Domains | Delivery Mode | Schema |
+| --- | --- | --- | --- | --- |
+
+Pull from the Event Portal artifacts under 08-event-portal/ if present; else
+from topic-taxonomy.md.>
+
+## §1.4 Schema inventory
+<List schemas with their key fields. Pull from Event Portal schemas if present;
+else from topic taxonomy artifacts. Format as a table:
+
+| Schema | Version | Key Fields | Compatibility |
+| --- | --- | --- | --- |
+>
+
+## §1.5 Topic taxonomy
+<Render the topic taxonomy in Domain/Noun/Verb/Version/Properties form. Group
+by domain. Show delivery mode (Guaranteed vs Direct) per topic. This is the
+*only* place the full taxonomy appears — Process, Physical, and Scenario
+views reference it, not duplicate it.>
+
+## §1.6 Cross-domain consumption matrix
+<Render the matrix of which systems consume which domains' events. Use a
+table with systems on rows and event domains on columns; mark cells with
+delivery mode (G or D) where consumption happens.>
+
+## §1.7 Application domain boundaries
+<From Event Portal application domains. One short paragraph per domain
+describing its responsibility and the events it owns. Do not list events
+again — reference §1.3.>
+```
+
+Source artifacts for this view:
+- `02-topic-design/` (taxonomy, schemas)
+- `08-event-portal/` (application domains, event objects)
+- `01-discovery/` (system landscape, business outcomes)
+
+Write the file with full content. Do not leave placeholders.
+
+---
+
+## Step 4: Process View — how messages move at runtime
+
+Write `02-process-view.md`. This view captures runtime behavior: who publishes
+what, who consumes what, in what sequence, with what delivery guarantees, and
+how failures are handled.
+
+Structure:
+
+```markdown
+# Process View
+
+## §2.1 Runtime data flows
+<Group by domain: payments flow, fraud/auth flow, settlement/notifications
+flow, etc. For each flow, describe in prose the producers, broker objects
+(topics, queues), consumers, and the ordering. Reference the existing
+data-flow mermaid files from the project (under 09-integration/ or wherever
+they live); do not regenerate them.>
+
+## §2.2 Delivery mode strategy
+<Show which event categories use Guaranteed vs Direct messaging and why.
+Format as a table:
+
+| Event Category | Delivery Mode | Reason |
+| --- | --- | --- |
+>
+
+## §2.3 Queue design
+<Render the queue inventory: name, partition key, spool size, consumer count,
+DMQ destination. Group by domain. Pull from topic taxonomy and integration
+design.>
+
+## §2.4 Request/reply pairs
+<List any synchronous request/reply patterns over the broker — e.g., fraud
+check requests, two-factor challenge responses. Show the topic pair and
+correlation strategy.>
+
+## §2.5 Sequence diagrams
+<Embed Mermaid sequence diagrams for the 3-5 most critical scenarios. These
+are the *runtime view* of the §5 scenarios. The fully narrated cross-view
+walkthrough lives in §5; the bare temporal ordering lives here.>
+
+Reference: `diagrams/seq-<scenario>.mermaid` files (one per scenario).
+
+## §2.6 Error handling and retry semantics
+<Render the 7 failure-handling playbook entries from ops review. For each:
+- Trigger condition
+- Detection mechanism
+- Retry policy (max attempts, backoff)
+- Dead letter destination
+- Operator action
+
+Format as a table or one subsection per failure mode.>
+
+## §2.7 Idempotency
+<Describe the idempotency strategy: which events are at-least-once, how
+consumers deduplicate, what fields identify a logical operation.>
+```
+
+Source artifacts for this view:
+- `02-topic-design/` (delivery modes)
+- `09-integration/` (data flows, queue design)
+- `06-ha-dr/` (failure semantics)
+- ops review under `10-architect-review/` or `10-ops-review/`
+
+Write the file with full content.
+
+---
+
+## Step 5: Development View — what a developer touches
+
+Write `03-development-view.md`. This view is for the team writing code against
+the architecture.
+
+Structure:
+
+```markdown
+# Development View
+
+## §3.1 Environment ladder
+<Describe the environments: sandbox → dev → staging → production. For each:
+broker service tier, data classification, who has access, what credentials
+look like. Pull from dev review under 10-dev-review/ if present.>
+
+## §3.2 SDK and protocol selection
+<For each system, name the language, SDK, and protocol. Format as a table:
+
+| System | Language | SDK | Protocol | Auth |
+| --- | --- | --- | --- | --- |
+
+Pull from protocol map under 04-protocol-select/.>
+
+## §3.3 Starter templates
+<List the starter templates available for new producers and consumers. From
+dev review. One short paragraph per template describing what it demonstrates.>
+
+## §3.4 AsyncAPI specification pipeline
+<Describe the AsyncAPI generation plan: how specs are derived from Event
+Portal, where they are published, whether code generation is wired up. Pull
+from dev review.>
+
+## §3.5 Source organization guidance
+<This is the gap noted by the gap analysis. Provide guidance:
+- Recommended repository structure (monorepo vs polyrepo)
+- Shared library for schemas (one library or per-domain libraries)
+- AsyncAPI-to-code generation: where generated code lives, how it is consumed
+- Deployment unit boundary (one repo per Event Portal application domain is
+  the default recommendation)>
+
+## §3.6 CI/CD considerations
+<From dev review: Docker broker sidecar for integration tests, contract
+testing against published schemas, schema compatibility gates.>
+
+## §3.7 New developer onboarding path
+<Numbered list of steps a new developer follows on day one. Pull from dev
+review.>
+```
+
+Source artifacts for this view:
+- `04-protocol-select/`
+- `10-dev-review/` (or wherever the developer review wrote its findings)
+- `08-event-portal/` (schema versioning)
+
+Write the file with full content.
+
+---
+
+## Step 6: Physical View — what runs where
+
+Write `04-physical-view.md`. This view is the strongest section in the existing
+blueprint. Repackage it intact, removing duplicates.
+
+Structure:
+
+```markdown
+# Physical View
+
+## §4.1 Broker topology
+<Describe the broker deployment: how many sites, broker type per site, HA
+redundancy group per site, service class. Reference the broker-topology
+mermaid diagram from the project (do not regenerate). Pull from broker
+selection under 03-broker-select/ and HA/DR under 06-ha-dr/.>
+
+## §4.2 Mesh topology (if multi-site)
+<DMR external links, link configuration, traffic class. Reference
+dmr-topology.mermaid. Pull from mesh design under 05-mesh-design/.>
+
+## §4.3 HA and DR
+<HA redundancy group per site (primary/backup/monitoring). DR strategy: cold
+standby, warm standby, active-active. RPO and RTO per data class. Pull from
+HA/DR design.>
+
+## §4.4 Queue inventory and spool sizing
+<Render the queue inventory with per-queue spool size, partition count,
+expected message rate, and retention. Total spool per region as a roll-up.
+Pull from integration design and HA/DR design.>
+
+## §4.5 Protocol stack
+<Render the protocol map: SMF, MQTT, AMQP, JMS, REST, WebSocket. For each:
+port, TLS version, authentication, which clients use it. Reference
+protocol-stack.mermaid.>
+
+## §4.6 Security boundaries
+<Render the security zones diagram in prose: TLS zone, OAuth zone, mobile
+MQTT5 zone, RDP zone, read-only zone. ACL profiles per zone. Reference
+security-boundaries.mermaid. Pull from security review.>
+
+## §4.7 Micro-Integration deployment
+<Render the Micro-Integration map: which Micro-Integration, cloud-managed
+vs self-managed, deployment location, backend system, protocol. Pull from
+integration design.>
+
+## §4.8 Capacity analysis
+<Render the capacity analysis: messages per second, peak vs sustained, spool
+headroom, network bandwidth. Roll up to per-region capacity totals.>
+
+## §4.9 Provisioning parameters
+<Reference the broker provisioning parameters file. Do not duplicate it
+inline; point readers to the appendix or to /solace-blueprint's
+config/broker/ directory if it has been generated.>
+```
+
+Source artifacts for this view:
+- `03-broker-select/`
+- `05-mesh-design/`
+- `06-ha-dr/`
+- `04-protocol-select/`
+- `09-integration/`
+- security review
+
+Write the file with full content.
+
+---
+
+## Step 7: Scenarios — end-to-end walkthroughs
+
+Write `05-scenarios.md`. This is the +1 view — narrated walkthroughs of the
+most important user journeys that cut across the other four views.
+
+Pick 3-5 scenarios. The right mix for most projects:
+1. **One happy path** — the primary user journey, success case.
+2. **One error path** — a meaningful failure (e.g., fraud decline, 2FA timeout).
+3. **One operational scenario** — failover, capacity event, or scaled
+   consumer rebalance.
+4. **One cross-region scenario** — if the project is multi-region.
+
+For each scenario, the narrative must crosscut all four views. Structure:
+
+```markdown
+# Scenarios
+
+## §5.1 <Scenario name>
+
+**Trigger:** <what initiates this scenario — user action, scheduled job,
+external event>
+
+**Actors:** <user role, systems involved>
+
+**Logical view crosscut**
+<which domain entities are touched, what state transitions occur, which
+events flow>
+
+**Process view crosscut**
+<runtime sequence: producer → topic → queue → consumer chain, with delivery
+modes. Reference the sequence diagram.>
+
+Reference: `diagrams/seq-<scenario>.mermaid`
+
+**Development view crosscut**
+<which code modules participate, which SDKs are in play, which AsyncAPI
+contracts are exercised>
+
+**Physical view crosscut**
+<which brokers carry the traffic, which queues persist messages, which
+Micro-Integrations relay to backends>
+
+**Success criteria**
+<observable signals that confirm the scenario completed correctly>
+
+**Failure modes for this scenario**
+<short list of things that can go wrong in this specific scenario and how
+they are handled>
+```
+
+Repeat for each scenario. Write the file with full content.
+
+---
+
+## Step 8: Generate the diagrams
+
+This skill generates **only** the diagrams that fill the gaps in the existing
+artifact set. It does **not** regenerate diagrams already produced by earlier
+skills (data-flow, broker-topology, queue-subscriptions, protocol-stack,
+security-boundaries, dmr-topology, etc.). Those are referenced in the views
+above; they continue to live in their original artifact directories.
+
+### Diagram style system
+
+Use the same `classDef` declarations as `/solace-blueprint`:
+
+```
+classDef guaranteed fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20
+classDef direct fill:#fff9c4,stroke:#f9a825,color:#f57f17
+classDef failure fill:#ffcdd2,stroke:#c62828,color:#b71c1c
+classDef broker fill:#bbdefb,stroke:#1565c0,color:#0d47a1
+classDef external fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+classDef mi fill:#ffe0b2,stroke:#e65100,color:#bf360c
+classDef agent fill:#e0f2f1,stroke:#00695c,color:#004d40
+```
+
+Apply with the `:::className` suffix. Layout rules from `/solace-blueprint`
+apply (max 25 nodes per diagram, max 60 chars per label, vertical for
+hierarchies, etc.).
+
+### Diagrams to generate
+
+**1. `domain-model.mermaid` — Entity relationships**
+
+- **Type:** `classDiagram` — entities are classes with relationships.
+- **Structure:** One class per domain entity (e.g., Payment, FraudCheck,
+  TwoFactorChallenge, Authorization, Capture, Settlement). Show only key
+  fields (3-5 per entity max). Use the standard relationship arrows
+  (`-->` association, `o--` aggregation, `*--` composition, `..>` dependency).
+- **Source artifacts:** Event Portal application domains, schemas, discovery
+  brief.
+
+**2. `<entity>-state-machine.mermaid` — Lifecycle per stateful entity**
+
+- **Type:** `stateDiagram-v2` — explicit state machines.
+- **Structure:** Initial pseudo-state `[*]` → states → terminal `[*]`.
+  Transitions labeled with the *event* that causes them (e.g.,
+  `initiated --> fraud_checking : FraudCheckRequested`). Use composite states
+  if a state has sub-states (e.g., `awaiting_2fa { pending, expired, verified }`).
+- **Coverage:** Generate one diagram for the primary stateful entity at
+  minimum. For projects with multiple stateful entities, generate one per
+  entity, up to 4.
+- **Source artifacts:** Event Portal events, topic taxonomy, discovery brief.
+
+**3. `seq-<scenario>.mermaid` — One per §5 scenario**
+
+- **Type:** `sequenceDiagram` — time-ordered message exchange.
+- **Participants:** Include client/user actor on the left, then systems in
+  the order they participate, then broker as a participant (named "Event
+  Broker"). For cross-region scenarios, include both brokers ("Broker:
+  mumbai", "Broker: us-east").
+- **Structure:** Each message arrow labeled with the topic name in
+  `Domain/Noun/Verb/Version/Properties` form, truncated as needed. Use
+  `Note over` for state changes or decisions ("Payment state: initiated →
+  fraud_checking"). Use `alt`/`else` for branching paths. Dashed arrows for
+  responses on reply topics.
+- **Naming:** Use kebab-case scenario names matching §5 (e.g.,
+  `seq-card-payment-happy.mermaid`, `seq-upi-fraud-decline.mermaid`,
+  `seq-2fa-timeout.mermaid`).
+- **Source artifacts:** topic taxonomy, integration design, discovery brief.
+
+Generate every diagram. Do not invent data — every entity, state, and message
+must trace to a project artifact.
+
+```bash
+ACTIVE=$(cat projects/.active)
+ls "projects/$ACTIVE/artifacts/15-arch-blueprint/diagrams/"
+```
+
+---
+
+## Step 9: Assemble appendices
+
+Copy supporting artifacts into the appendices directory:
+
+```bash
+ACTIVE=$(cat projects/.active)
+
+# A: Topic taxonomy (full reference)
+cp "projects/$ACTIVE/artifacts/02-topic-design/topic-taxonomy.md" \
+   "projects/$ACTIVE/artifacts/15-arch-blueprint/appendices/A-topic-taxonomy.md" 2>/dev/null
+
+# C: Validation report
+cp "projects/$ACTIVE/artifacts/11-validation/validation-report.md" \
+   "projects/$ACTIVE/artifacts/15-arch-blueprint/appendices/C-validation-report.md" 2>/dev/null
+```
+
+Render the decision log from `decisions.yaml` as `B-decision-log.md`. One row
+per decision: skill that made it, decision, rationale, alternatives considered.
+Markdown table format.
+
+---
+
+## Step 10: Self-validation and complete
+
+Verify every required artifact exists. Do not mark complete until self-validation
+passes.
+
+```bash
+ACTIVE=$(cat projects/.active)
+echo "=== Architecture blueprint self-validation ==="
+
+for f in 00-executive-summary.md 01-logical-view.md 02-process-view.md \
+         03-development-view.md 04-physical-view.md 05-scenarios.md; do
+  [ -f "projects/$ACTIVE/artifacts/15-arch-blueprint/$f" ] \
+    && echo "OK: $f" || echo "MISSING: $f"
 done
-echo "--- Validation ---"
-[ -f "projects/$ACTIVE/artifacts/11-validation/validation-report.md" ] && echo "OK: validation-report.md" || echo "MISSING: validation-report.md"
-echo "--- Blueprint ---"
-[ -f "projects/$ACTIVE/artifacts/12-blueprint/architecture.md" ] && echo "OK: architecture.md" || echo "MISSING: architecture.md"
-[ -f "projects/$ACTIVE/artifacts/12-blueprint/runbook.md" ] && echo "OK: runbook.md" || echo "MISSING: runbook.md"
-DIAGRAM_COUNT=$(find "projects/$ACTIVE/artifacts/12-blueprint/diagrams" -name "*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
-echo "DIAGRAMS: $DIAGRAM_COUNT (minimum 8 core expected)"
-echo "--- Architecture Blueprint (4+1) ---"
-for f in 00-executive-summary.md 01-logical-view.md 02-process-view.md 03-development-view.md 04-physical-view.md 05-scenarios.md; do
-  [ -f "projects/$ACTIVE/artifacts/15-arch-blueprint/$f" ] && echo "OK: $f" || echo "MISSING: $f"
+
+# Required diagrams
+for d in domain-model; do
+  MATCHES=$(find "projects/$ACTIVE/artifacts/15-arch-blueprint/diagrams" \
+            -name "${d}*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
+  [ "$MATCHES" -gt 0 ] && echo "OK: $d diagram" || echo "MISSING: $d diagram"
 done
-ARCH_DIAGRAM_COUNT=$(find "projects/$ACTIVE/artifacts/15-arch-blueprint/diagrams" -name "*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
-echo "DIAGRAMS: $ARCH_DIAGRAM_COUNT (minimum 5 expected — domain-model + state machine(s) + 3 sequence diagrams)"
-echo "--- Executive ---"
-[ -f "projects/$ACTIVE/artifacts/14-executive/executive-summary.md" ] && echo "OK: executive-summary.md" || echo "MISSING: executive-summary.md"
-[ -f "projects/$ACTIVE/artifacts/14-executive/business-architecture.mermaid" ] && echo "OK: business-architecture.mermaid" || echo "MISSING: business-architecture.mermaid"
-[ -f "projects/$ACTIVE/artifacts/14-executive/roi-framework.md" ] && echo "OK: roi-framework.md" || echo "MISSING: roi-framework.md"
+
+# At least one state machine
+SM=$(find "projects/$ACTIVE/artifacts/15-arch-blueprint/diagrams" \
+     -name "*-state-machine.mermaid" 2>/dev/null | wc -l | tr -d ' ')
+[ "$SM" -gt 0 ] && echo "OK: $SM state machine diagram(s)" \
+  || echo "MISSING: at least one *-state-machine.mermaid"
+
+# At least 3 sequence diagrams
+SEQ=$(find "projects/$ACTIVE/artifacts/15-arch-blueprint/diagrams" \
+      -name "seq-*.mermaid" 2>/dev/null | wc -l | tr -d ' ')
+[ "$SEQ" -ge 3 ] && echo "OK: $SEQ sequence diagram(s)" \
+  || echo "MISSING: need at least 3 seq-*.mermaid (have $SEQ)"
+
+# Appendices
+for f in A-topic-taxonomy.md B-decision-log.md C-validation-report.md; do
+  [ -f "projects/$ACTIVE/artifacts/15-arch-blueprint/appendices/$f" ] \
+    && echo "OK: appendix $f" || echo "MISSING: appendix $f"
+done
 ```
 
-**If any MISSING artifacts are detected:** Re-run the skill that owns the missing
-artifact. Do not mark the plan as complete with missing deliverables.
+**If any artifacts are MISSING:**
+- Missing view file -> go back to the step that produces it (Steps 2-7).
+- Missing `domain-model.mermaid` -> Step 8 diagram 1.
+- Missing state machine -> Step 8 diagram 2.
+- Missing sequence diagrams -> Step 8 diagram 3.
+- Missing appendix -> Step 9.
 
-**Minimum artifact counts by skill:**
+Only after all checks pass, present the summary:
 
-| Skill | Minimum artifacts | Key files |
-|-------|-------------------|-----------|
-| `/solace-blueprint` | 12+ files | architecture.md, runbook.md, 8 core diagrams, provisioning params, copied taxonomy + validation |
-| `/solace-architecture-blueprint` | 11+ files | 6 view files (00-05), domain-model.mermaid, ≥1 state machine, ≥3 sequence diagrams, 3 appendices |
-| `/solace-diagrams` | Varies by project | At least the 8 core diagrams regenerated with consistent styling |
-| `/solace-executive` | 3 files | executive-summary.md, business-architecture.mermaid, roi-framework.md |
-| `/solace-validate` | 1 file | validation-report.md |
-| Review skills | 4 files | architect-review.md, ops-review.md, security-review.md, dev-review.md |
+```
+Architecture Blueprint assembled for: <project name>
+
+Views:
+  00-executive-summary.md   — 2-page orientation
+  01-logical-view.md         — domains, entities, events, schemas, taxonomy
+  02-process-view.md         — runtime flows, delivery, errors, idempotency
+  03-development-view.md     — environments, SDKs, source layout, onboarding
+  04-physical-view.md        — broker topology, HA/DR, queues, security
+  05-scenarios.md            — <N> end-to-end walkthroughs
+
+Diagrams (new in this blueprint):
+  domain-model.mermaid               — entity relationships
+  <entity>-state-machine.mermaid     — lifecycle per stateful entity (<N>)
+  seq-<scenario>.mermaid             — sequence per scenario (<N>)
+
+Referenced diagrams (from earlier skills, not regenerated):
+  <list the data-flow/broker-topology/etc. files that the views reference>
+
+Appendices:
+  A-topic-taxonomy.md
+  B-decision-log.md
+  C-validation-report.md
+
+Total: <N> view files + <M> new diagrams + 3 appendices
+Self-validation: <PASS/FAIL count>
+```
+
+Ask the user to review. If they identify gaps, address them before marking
+complete.
+
+Update `progress.yaml` to mark `solace-architecture-blueprint` complete.
 
 ---
 
-## Step 4: Track plan progress
+## Notes on relationship to /solace-blueprint
 
-After each skill completion, update the plan's own progress entry:
+This skill is **independent** of `/solace-blueprint`. Both can run; both can
+coexist; either can be dropped without affecting the other. The two outputs
+overlap intentionally on the source data they read but produce different
+deliverables:
 
-```bash
-ACTIVE=$(cat projects/.active)
-python3 -c "
-import yaml, datetime
-with open('projects/$ACTIVE/progress.yaml', 'r') as f:
-    data = yaml.safe_load(f) or {}
-for entry in data.get('progress', []):
-    if entry.get('skill') == 'solace-plan':
-        entry['step_reached'] = '<N>/<total> — <last completed skill>'
-        entry['summary'] = '<skills completed so far>'
-        break
-with open('projects/$ACTIVE/progress.yaml', 'w') as f:
-    yaml.dump(data, f, default_flow_style=False)
-" 2>/dev/null || echo "Progress update requires PyYAML"
-```
+| `/solace-blueprint` | `/solace-architecture-blueprint` |
+| --- | --- |
+| Skill-sequence order (topic → broker → mesh → …) | 4+1 view order (logical → process → development → physical → scenarios) |
+| Optimized for traceability to the engagement workflow | Optimized for implementation team navigation |
+| Output under `artifacts/12-blueprint/` | Output under `artifacts/15-arch-blueprint/` |
+| Generates 8 core + conditional diagrams | Generates domain model, state machines, sequence diagrams only |
+| Runbook included | No runbook (lives in `/solace-blueprint` output) |
 
----
-
-## Step 5: Complete the plan
-
-When all skills in the sequence have been completed:
-
-1. Run the artifact validation check from Step 3. If any finalize-phase artifacts
-   are missing, re-run the owning skill before marking the plan complete.
-
-2. Check whether `/solace-ep-provision` was gated on. If `decisions.yaml` has
-   `provision_event_portal: true`:
-   - Read its progress entry. If status is `complete` — fine, list it among
-     completed skills and reference `provisioned.yaml` in the summary.
-   - If status is `blocked` (e.g., EP Designer MCP not loaded, expired token) —
-     do **not** silently treat the engagement as fully complete. Mark the plan
-     as `DONE_WITH_CONCERNS` and lead the summary with: "Event Portal
-     provisioning did not complete: <exact blocker from progress.yaml>. Resolve
-     the blocker and re-run `/solace-ep-provision` to materialize the catalog
-     into your Solace Cloud tenant."
-   - If there is no progress entry at all even though the gate is on — this is
-     a planning error; flag it and re-run the skill.
-
-3. Present a summary of the engagement:
-   - Skills completed
-   - Total artifacts produced (count all files across all artifact directories)
-   - Key decisions made
-   - Any open questions or concerns from review skills
-   - Any artifacts that required re-generation
-   - **Live-tenant state**: if `provision_event_portal: true`, state whether
-     Solace Cloud was actually written to (with the domain ID), or what blocked
-     it. If `false`, state "Design-only engagement — no tenant changes made."
-
-4. Update the plan's progress to complete.
-
-5. The finalize sequence is: `/solace-blueprint` (technical deliverable) ->
-   `/solace-diagrams` (diagram refinement) -> `/solace-executive` (business case
-   with ROI framework). All three must produce their full artifact set.
+If you find yourself maintaining the same fact in both blueprints, that fact
+belongs in **exactly one** appendix that both reference (most often the topic
+taxonomy in `02-topic-design/`).
