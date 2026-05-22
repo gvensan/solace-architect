@@ -21,7 +21,7 @@ The skills assume an expert operator who can verify "architectural inference, no
 
 ## What it does
 
-Solace Architect is a toolkit of 23 skills (prompt templates) that AI coding agents read at invocation time. You drive it with slash commands (`/solace-intake`, `/solace-discovery`, `/solace-plan`). Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and writing real artifacts to disk — markdown documents, Mermaid diagrams, YAML configs, and a runbook. See [Outputs and reports](#outputs-and-reports) for where everything lands and how to share it.
+Solace Architect is a toolkit of 24 skills (prompt templates) that AI coding agents read at invocation time. You drive it with slash commands (`/solace-intake`, `/solace-discovery`, `/solace-plan`), or capture requirements through a local HTML form (`bun run intake`). Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and writing real artifacts to disk — markdown documents, Mermaid diagrams, YAML configs, and a runbook. See [Outputs and reports](#outputs-and-reports) for where everything lands and how to share it.
 
 One skill, [`/solace-ep-provision`](#event-portal-provisioning-mcp), bridges the design output to a live Solace Cloud tenant via the [Solace Event Portal Designer MCP](https://github.com/SolaceLabs/solace-platform-mcp/tree/main/solace-event-portal-designer-mcp). See the **Event Portal provisioning (MCP)** section below for setup.
 
@@ -60,9 +60,9 @@ To wipe everything Solace Architect added — including the cloned repo — run 
 
 ## Getting started
 
-### Two ways to start
+### Three ways to start
 
-Pick the entry point that matches how much info you already have.
+Pick the entry point that matches how much info you already have and how you want to capture it.
 
 **A. Interactive discovery — no prep.**
 
@@ -80,7 +80,23 @@ The skill asks ~15 structured questions about systems, flows, reliability, topol
 /solace-intake import path/to/intake.yaml # imports and bootstraps the engagement
 ```
 
-Best when you're gathering info from a customer, a workshop, or async stakeholders. The completed intake skips discovery's interactive questions entirely.
+Best when you're gathering info from a customer, a workshop, or async stakeholders, and you want a portable file (YAML for engineers, DOCX for stakeholders). The completed intake skips discovery's interactive questions entirely.
+
+**C. Intake form — fill it in a browser.**
+
+```
+bun run intake          # serves http://localhost:3001
+```
+
+Launches a local HTTP server with an HTML intake form. Fill it in your browser; the form has autocomplete, a live engagement preview as you type, and a "Pre-fill from existing project" picker so you can clone and edit a prior intake instead of starting blank. Submission writes `intake/<slug>.yaml`. Bootstrap the engagement with:
+
+```
+/solace-intake import intake/<slug>.yaml
+```
+
+Best when you want offline-collection benefits without managing the YAML/DOCX file yourself, when stakeholders prefer a guided UI to a document, or when you're iterating on an intake and want to see the engagement scope update live.
+
+The same `/solace-intake import` command consumes the output from B and C — the only difference is where the YAML came from.
 
 ### Drive the full engagement
 
@@ -125,8 +141,9 @@ Use interactive when you want to drive the trade-offs. Use auto for fast end-to-
 ### What you can do across projects
 
 ```
-/solace-projects              # status of the active project
+/solace-projects              # status of the active project (also recommends what to run next)
 /solace-projects list         # all projects
+/solace-projects summary      # key decisions and findings for the active project
 /solace-projects switch       # change the active project
 /solace-projects compare      # decision diff between two projects
 /solace-help                  # workflow overview + skill index
@@ -221,17 +238,6 @@ The **Export** view in the dashboard has two buttons:
 | External review or archive | HTML Report (single self-contained file) |
 | Live walkthrough | Dashboard at `localhost:3000` |
 
-### Inspecting a project from the command line
-
-```bash
-/solace-projects             # status of the active project
-/solace-projects list        # all projects
-/solace-projects summary     # key decisions and findings
-/solace-projects compare     # side-by-side comparison of two projects
-```
-
-`/solace-projects` also surfaces what's recommended next, so you can pick up a paused engagement without re-reading the file tree.
-
 ## Skill reference
 
 Full catalog of every skill. For the recommended flow, see [Getting started](#getting-started). For per-skill scenarios, the dependency map, and detailed usage patterns, see [docs/slash-commands.md](docs/slash-commands.md).
@@ -257,10 +263,41 @@ Full catalog of every skill. For the recommended flow, see [Getting started](#ge
 | Orchestration | Plan | `/solace-plan` | Orchestrates skills in sequence for a complete engagement. |
 | Validation | Validate | `/solace-validate` | Consistency checks, antipattern detection, completeness verification. |
 | Assembly | Blueprint | `/solace-blueprint` | Final assembly into an engineering handoff package. |
+| Assembly | Architecture Blueprint (4+1) | `/solace-architecture-blueprint` | Repackages the engineering blueprint into Kruchten's 4+1 view (logical, process, development, physical, scenarios) for implementation teams onboarding to the design. |
 | Finalize | Executive | `/solace-executive` | Executive summary for CXO and business leaders: ROI, risk reduction, strategic value. |
 | Utility | Projects | `/solace-projects` | Project dashboard: status, timing, summary, compare, switch projects. |
 | Utility | Diagrams | `/solace-diagrams` | Regenerate Mermaid diagrams for the current project (all or by name). |
 | Utility | Help | `/solace-help` | Lists available skills, shows recommended workflow, displays active project status. |
+
+## Event Portal provisioning (MCP)
+
+The `/solace-ep-provision` skill materializes the Event Portal model designed by `/solace-event-portal` into a live Solace Cloud tenant via the [Solace Event Portal Designer MCP](https://github.com/SolaceLabs/solace-platform-mcp/tree/main/solace-event-portal-designer-mcp). The MCP is published and maintained by Solace.
+
+For installation, token creation, region configuration, verification, and troubleshooting, see **[docs/install-ep-designer-mcp.md](docs/install-ep-designer-mcp.md)**. This section covers only what's distinctive about how Solace Architect uses the MCP.
+
+> **Early Access caveat.** Solace labels the EP Designer MCP as Early Access. Per Solace's published guidance, the MCP is *"intended for use with AI assistants in a controlled environment with human oversight. Not designed for automated workflows like GitHub Actions or unattended automation systems."* The `/solace-ep-provision` skill honors this — auto mode pauses per-layer for confirmation, never silently mass-creates, and surfaces every API response.
+
+> **Opt-in only at intake.** `/solace-ep-provision` writes to a live Solace Cloud tenant, so it never auto-fires from project type. The intake form has an explicit **"Provision Event Portal model after design?"** field (`preferences.provision_event_portal`). Default is `false` — a design-only engagement leaves your tenant untouched. Set it to `true` only when you want the design materialized at the end of the run. If the MCP is not configured at run time, the skill records a `BLOCKED` status with the exact reason; it never writes silently or skips silently. The dashboard's project Overview surfaces an **EP Provisioning** card (`Live` / `Pending` / `Blocked`) so the live-tenant state is always visible alongside the design.
+
+### Workflow
+
+```
+/solace-intake             → user sets preferences.provision_event_portal: true (opt-in gate)
+/solace-event-portal       → designs domains, schemas, events, applications (paper artifacts)
+/solace-ep-provision       → reads the design, provisions live objects via the MCP,
+   (only if gate is true)    exports AsyncAPI per application, writes provisioned.yaml
+```
+
+When the intake gate is `false` (default), `/solace-plan` skips `/solace-ep-provision` — the engagement is design-only and no tenant writes happen. When the gate is `true`, the plan includes it after `/solace-event-portal`. If the MCP is unavailable at run time the skill ends with status `BLOCKED` and the plan summary surfaces the blocker explicitly rather than treating it as a silent skip.
+
+The skill creates objects in dependency order (domain → schemas → events → applications), records every object ID for traceability, and applies a **content-match verification** before reusing any existing object — see the [skill template](solace-ep-provision/SKILL.md) for full semantics. Auto mode pauses per layer; interactive mode allows finer-grained confirmation.
+
+### Operational notes
+
+- **Token hygiene.** Use separate tokens for dev and production tenants. Never reuse a production token for skill experimentation. Rotate quarterly (Solace tokens default to 12-month validity; the architecture's recommended posture is 90-day rotation).
+- **Idempotency is content-aware, not name-only.** A rerun against a tenant that already contains objects with matching names does *not* silently reuse them — it fetches the live object, compares semantic fields (schema content, topic addresses, produce/consume graphs), and hard-stops on mismatch. Safe to run on shared tenants.
+- **Partial-failure resume.** If a run fails mid-batch, re-invoke `/solace-ep-provision`. The same content-match flow detects what was already created and resumes from there.
+- **AsyncAPI export.** Every provisioned application emits an AsyncAPI document to `13-event-portal/asyncapi/<application-name>.yaml`. Wire these into your service repos for code generation and contract testing.
 
 ## Supported hosts
 
@@ -317,120 +354,9 @@ SKILL.md               Committed, auto-generated, ready for the agent to read
 
 Skills use a preamble tier system (T1–T4) that controls which shared sections are included. Every skill gets grounding rules and naming conventions. Interactive skills (T2+) also get the AskUserQuestion format, writing style, and completeness principle. Code-modifying skills (T3+) add search-before-building and repo ownership.
 
-## Event Portal provisioning (MCP)
-
-The `/solace-ep-provision` skill materializes the Event Portal model designed by `/solace-event-portal` into a live Solace Cloud tenant via the [Solace Event Portal Designer MCP](https://github.com/SolaceLabs/solace-platform-mcp/tree/main/solace-event-portal-designer-mcp). The MCP is published and maintained by Solace; this section covers what you need to configure it for use with Solace Architect.
-
-> **Early Access caveat.** Solace labels the EP Designer MCP as Early Access. Per Solace's published guidance, the MCP is *"intended for use with AI assistants in a controlled environment with human oversight. Not designed for automated workflows like GitHub Actions or unattended automation systems."* The `/solace-ep-provision` skill honors this — auto mode pauses per-layer for confirmation, never silently mass-creates, and surfaces every API response.
-
-> **Opt-in only at intake.** `/solace-ep-provision` writes to a live Solace Cloud tenant, so it never auto-fires from project type. The intake form (`/solace-intake`) has an explicit **"Provision Event Portal model after design?"** field (`preferences.provision_event_portal`). Default is `false` — a design-only engagement leaves your tenant untouched. Set it to `true` only when you want the design materialized at the end of the run. If the MCP is not configured at run time, the skill records a `BLOCKED` status with the exact reason; it never writes silently or skips silently. The dashboard's project Overview surfaces an **EP Provisioning** card (`Live` / `Pending` / `Blocked`) so the live-tenant state is always visible alongside the design.
-
-### Prerequisites
-
-| Requirement | Notes |
-|-------------|-------|
-| Solace Cloud account with Event Portal | Free tier at `https://console.solace.cloud/login/new-account` |
-| Python 3.10+ | Required by the MCP runtime |
-| [`uv`](https://docs.astral.sh/uv/) | Recommended — handles MCP install via `uvx`. Alternative: `pip install solace-event-portal-designer-mcp` |
-| Solace API token | Must have `Event Portal > Designer > Read` + `Event Portal > Designer > Write` scopes |
-
-### Setup steps
-
-**1. Create an API token** in [Solace Cloud Console → Token Management](https://console.solace.cloud/account/tokens). Required scopes:
-- `Event Portal > Designer > Read`
-- `Event Portal > Designer > Write`
-
-Copy the token immediately — Solace shows it once.
-
-**2. Install `uv`** (one-time, skips MCP install entirely since `uvx` downloads on demand):
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uvx --version    # verify
-```
-
-**3. Register the MCP with Claude Code.** Either use the `claude mcp add` CLI (positional syntax — the command and its args come after a `--` separator):
-
-```bash
-claude mcp add solace-event-portal-designer \
-  --env SOLACE_API_TOKEN="<your-token>" \
-  -- uvx --from solace-event-portal-designer-mcp solace-ep-designer-mcp
-```
-
-Or edit the MCP config file directly — more reliable across Claude Code versions (`~/.claude.json` user-level, or `.mcp.json` project-level — gitignore the latter if you use it):
-
-```json
-{
-  "mcpServers": {
-    "solace-event-portal-designer": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "solace-event-portal-designer-mcp",
-        "solace-ep-designer-mcp"
-      ],
-      "env": {
-        "SOLACE_API_TOKEN": "<your-token>"
-      }
-    }
-  }
-}
-```
-
-**4. Non-US region (optional).** Default base URL is `https://api.solace.cloud`. If you're on EU, AU, or SG, add `SOLACE_API_BASE_URL` to the `env` block:
-
-| Region | URL |
-|--------|-----|
-| United States (default) | `https://api.solace.cloud` |
-| Europe | `https://api.solacecloud.eu` |
-| Australia | `https://api.solacecloud.com.au` |
-| Singapore | `https://api.solacecloud.sg` |
-
-**5. Restart Claude Code.** MCP servers load on startup — fully quit and relaunch, not just close the window.
-
-### Verification
-
-In Claude Code, ask:
-
-> List all application domains in my Event Portal.
-
-| Response | Meaning |
-|----------|---------|
-| Returns a list (possibly empty) | MCP is configured correctly |
-| *"Tool not found"* | MCP didn't load — check config syntax, restart Claude Code |
-| *"Authentication failed"* | Token wrong, expired, or missing scope — re-create in Cloud Console |
-| *"Connection refused / timeout"* | Wrong region URL — set `SOLACE_API_BASE_URL` |
-
-When you next run `/solace-ep-provision`, its Step 1 makes this same read-only call automatically — failures here surface before any provisioning writes are attempted.
-
-### Workflow
-
-```
-/solace-intake             → user sets preferences.provision_event_portal: true (opt-in gate)
-/solace-event-portal       → designs domains, schemas, events, applications (paper artifacts)
-/solace-ep-provision       → reads the design, provisions live objects via the MCP,
-   (only if gate is true)    exports AsyncAPI per application, writes provisioned.yaml
-```
-
-When the intake gate is `false` (default), `/solace-plan` simply skips `/solace-ep-provision` — the engagement is design-only and no tenant writes happen. When the gate is `true`, the plan includes it after `/solace-event-portal`. If the MCP is unavailable at run time the skill ends with status `BLOCKED` and the plan summary surfaces the blocker explicitly rather than treating it as a silent skip.
-
-The skill creates objects in dependency order (domain → schemas → events → applications), records every object ID for traceability, and applies a **content-match verification** before reusing any existing object — see the [skill template](solace-ep-provision/SKILL.md) for full semantics. Auto mode pauses per layer; interactive mode allows finer-grained confirmation.
-
-### Operational notes
-
-- **Token hygiene.** Use separate tokens for dev and production tenants. Never reuse a production token for skill experimentation. Rotate quarterly (Solace tokens default to 12-month validity; the architecture's recommended posture is 90-day rotation).
-- **Idempotency is content-aware, not name-only.** A rerun against a tenant that already contains objects with matching names does *not* silently reuse them — it fetches the live object, compares semantic fields (schema content, topic addresses, produce/consume graphs), and hard-stops on mismatch. Safe to run on shared tenants.
-- **Partial-failure resume.** If a run fails mid-batch, re-invoke `/solace-ep-provision`. The same content-match flow detects what was already created and resumes from there.
-- **AsyncAPI export.** Every provisioned application emits an AsyncAPI document to `13-event-portal/asyncapi/<application-name>.yaml`. Wire these into your service repos for code generation and contract testing.
-
 ## Working principles
 
-1. **Boil the Lake.** AI makes completeness cheap. Do the complete thing.
-2. **Search Before Building.** Check Solace docs first, then community content, then reason from first principles. Three layers: documentation, community/labs, original reasoning.
-3. **Accuracy Over Fluency.** Ground every claim in Solace documentation. Say "I don't know" rather than fabricate.
-4. **User Sovereignty.** AI recommends, users decide. No skipping the verification step.
-
-See [docs/ethos.md](docs/ethos.md) for the full philosophy.
+Four principles drive every skill: **Boil the Lake** (completeness is cheap with AI), **Search Before Building** (Solace docs → community → first principles), **Accuracy Over Fluency** (say "I don't know" rather than fabricate), and **User Sovereignty** (AI recommends, users decide). See [docs/ethos.md](docs/ethos.md) for the full philosophy.
 
 ## Development
 
@@ -441,7 +367,7 @@ bun run skill:check  # health dashboard
 bun run dev:skill    # watch mode: auto-regen on change
 bun run url:check    # check grounding document URLs for health
 bun run dashboard    # project dashboard at localhost:3000
-./uninstall-sa.sh    # remove all skill symlinks
+bun run intake       # intake HTML form at localhost:3001
 ```
 
 The test suite checks terminology compliance (zero forbidden terms), structural validation (frontmatter, placeholders, preamble tiers), token budget enforcement (per-skill and total ceilings), and generation freshness (committed files match templates).
