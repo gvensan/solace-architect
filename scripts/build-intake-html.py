@@ -564,6 +564,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   </div>
 </header>
 
+<!-- Optional: pre-fill from an existing project. Populated at runtime if the
+     intake server detects projects with source: intake. Hidden if list empty
+     (the form also opens directly via file://, in which case the API is
+     unreachable and this banner stays hidden). -->
+<div id="load-existing-bar" style="display:none;background:#f0fdf9;border-bottom:1px solid #00C895;padding:10px 20px;font-size:14px;align-items:center;gap:10px">
+  <label for="load-existing-select" style="font-weight:600;color:#093B5F;white-space:nowrap">Pre-fill from existing project:</label>
+  <select id="load-existing-select" onchange="onLoadExistingChange()" style="flex:0 1 360px;max-width:360px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff">
+    <option value="">— Select project —</option>
+  </select>
+  <span id="load-existing-status" style="color:#5A7A94;font-style:italic"></span>
+</div>
+
 <div class="layout">
 <main>
 
@@ -1337,6 +1349,73 @@ function loadDraft() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+//  Load from existing project — fetches /api/intakable-projects on init and
+//  /api/intake/<slug> on selection. Both endpoints are only available when
+//  the form is served by scripts/intake-server.ts. When the form is opened
+//  as a static file (file://) the fetches fail silently and the bar stays
+//  hidden, leaving the standalone form behavior unchanged.
+// ───────────────────────────────────────────────────────────────────────────
+async function initLoadExistingBar() {
+  let projects;
+  try {
+    const res = await fetch('/api/intakable-projects');
+    if (!res.ok) return;
+    const body = await res.json();
+    projects = body.projects || [];
+  } catch (e) {
+    // No intake server running (form opened as static file). Bar stays hidden.
+    return;
+  }
+  if (!projects.length) return;
+  const sel = document.getElementById('load-existing-select');
+  if (!sel) return;
+  for (const p of projects) {
+    const opt = document.createElement('option');
+    opt.value = p.slug;
+    opt.textContent = p.display_name + ' (' + p.slug + ')';
+    opt.dataset.intakeFile = p.intake_file;
+    sel.appendChild(opt);
+  }
+  document.getElementById('load-existing-bar').style.display = 'flex';
+}
+
+async function onLoadExistingChange() {
+  const sel = document.getElementById('load-existing-select');
+  const statusEl = document.getElementById('load-existing-status');
+  const slug = sel.value;
+  if (!slug) { statusEl.textContent = ''; return; }
+
+  // Confirm overwrite if any form field already has data.
+  const current = collectData();
+  const hasUserData = current && Object.keys(current).length > 0;
+  if (hasUserData) {
+    const ok = window.confirm(
+      'Loading "' + slug + '" will replace anything you have entered. Continue?'
+    );
+    if (!ok) {
+      sel.value = '';
+      return;
+    }
+  }
+
+  statusEl.textContent = 'Loading…';
+  try {
+    const res = await fetch('/api/intake/' + encodeURIComponent(slug));
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      statusEl.textContent = 'Failed: ' + (err.error || res.statusText);
+      return;
+    }
+    const body = await res.json();
+    loadData(body.data || {});
+    statusEl.textContent = 'Loaded ' + body.intake_file +
+      ' — edit and submit will overwrite that file if the project name is unchanged.';
+  } catch (e) {
+    statusEl.textContent = 'Failed: ' + (e && e.message ? e.message : e);
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 //  YAML serializer (subset — handles strings, arrays of objects, scalars)
 // ───────────────────────────────────────────────────────────────────────────
 function toYAML(data, indent) {
@@ -1575,6 +1654,9 @@ function init() {
   updateProgress();
   updatePreview();
   updateCatalogSummary();
+
+  // Discover loadable existing projects (no-op when form runs as static file)
+  initLoadExistingBar();
 }
 
 document.addEventListener('DOMContentLoaded', init);
