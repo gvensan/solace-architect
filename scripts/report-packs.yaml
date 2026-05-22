@@ -1,6 +1,6 @@
 # Audience packs for the Export Report dashboard.
 #
-# Each pack filters the comprehensive Solace Blueprint into a focused subset
+# Each pack filters the comprehensive Master Architecture View into a focused subset
 # for a specific audience. The dashboard reads this file via /api/report-packs
 # and renders one tile per pack on the Export view.
 #
@@ -29,13 +29,28 @@ version: 1
 
 packs:
   - id: blueprint
-    label: Solace Blueprint
+    label: Master Architecture View
     description: Comprehensive engineering deliverable — full architecture, all artifacts.
     audience: Architects, platform leads, project owners
     filters: {}
 
+  - id: arch-blueprint
+    label: System & Engineering View
+    description: View-oriented architecture — logical, process, development, physical, and scenarios.
+    audience: Implementation team, engineering leads, new developers onboarding
+    filters:
+      dirs:
+        - 15-arch-blueprint
+      top_sections:
+        - summary
+        - scope
+        - decisions
+        - findings
+        - open-items
+        - artifacts
+
   - id: executive
-    label: Executive Team
+    label: Strategic Executive View
     description: Business case, ROI, and recommendation in plain language.
     audience: CXO, business sponsors, investment committee
     filters:
@@ -50,7 +65,7 @@ packs:
       finding_skills: []
 
   - id: ops
-    label: Admin & Ops
+    label: Infrastructure & Operations View
     description: Provisioning, monitoring, runbooks — full operational depth.
     audience: Solace admin, SRE, on-call engineer
     filters:
@@ -93,7 +108,7 @@ packs:
         - solace-ops-review
 
   - id: security
-    label: Security
+    label: Security & Governance View
     description: Auth, ACLs, encryption, audit, PII — full security posture.
     audience: Security architect, compliance, infosec, audit
     filters:
@@ -127,7 +142,7 @@ packs:
         - solace-security-review
 
   - id: developer
-    label: Developers
+    label: Application Developer View
     description: Topics, schemas, protocols, client patterns — build correct clients.
     audience: Application engineers, SRE writing client code
     filters:

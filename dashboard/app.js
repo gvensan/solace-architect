@@ -7,7 +7,7 @@ let state = { projects: [], active: null, current: null, data: null, reportPacks
  * The canonical definition lives in scripts/report-packs.yaml.
  */
 const DEFAULT_REPORT_PACKS = [
-  { id: 'blueprint', label: 'Solace Blueprint', description: 'Comprehensive engineering deliverable.', audience: 'Architects, platform leads', filters: {} }
+  { id: 'blueprint', label: 'Master Architecture View', description: 'Comprehensive engineering deliverable.', audience: 'Architects, platform leads', filters: {} }
 ];
 
 /**
@@ -97,7 +97,7 @@ const SKILL_ORDER = [
   'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-ep-provision',
   'solace-architect-review', 'solace-ops-review',
   'solace-security-review', 'solace-dev-review', 'solace-validate', 'solace-blueprint',
-  'solace-executive', 'solace-diagrams'
+  'solace-architecture-blueprint', 'solace-executive', 'solace-diagrams'
 ];
 
 const SKILL_LABELS = {
@@ -110,6 +110,7 @@ const SKILL_LABELS = {
   'solace-architect-review': 'Architect Review', 'solace-ops-review': 'Ops Review',
   'solace-security-review': 'Security Review', 'solace-dev-review': 'Dev Review',
   'solace-validate': 'Validation', 'solace-blueprint': 'Technical Blueprint',
+  'solace-architecture-blueprint': 'Architecture Blueprint (4+1)',
   'solace-executive': 'Business Case', 'solace-diagrams': 'Diagrams'
 };
 
@@ -123,6 +124,7 @@ const SKILL_PHASES = {
   'solace-architect-review': 'Review', 'solace-ops-review': 'Review',
   'solace-security-review': 'Review', 'solace-dev-review': 'Review',
   'solace-validate': 'Finalize', 'solace-blueprint': 'Finalize',
+  'solace-architecture-blueprint': 'Finalize',
   'solace-executive': 'Finalize', 'solace-diagrams': 'Utility'
 };
 
@@ -130,7 +132,7 @@ const SKILL_GROUPS = [
   { phase: 'discovery', label: 'Discovery', skills: ['solace-discovery'] },
   { phase: 'design', label: 'Design', skills: ['solace-topic-design', 'solace-broker-select', 'solace-sam-design', 'solace-protocol-select', 'solace-mesh-design', 'solace-ha-dr', 'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-ep-provision'] },
   { phase: 'review', label: 'Review', skills: ['solace-architect-review', 'solace-ops-review', 'solace-security-review', 'solace-dev-review'] },
-  { phase: 'finalize', label: 'Finalize', skills: ['solace-validate', 'solace-blueprint', 'solace-executive'] },
+  { phase: 'finalize', label: 'Finalize', skills: ['solace-validate', 'solace-blueprint', 'solace-architecture-blueprint', 'solace-executive'] },
   { phase: 'utility', label: 'Utility', skills: ['solace-diagrams'] },
 ];
 
@@ -1714,12 +1716,12 @@ function renderStatsSummary(totalWall, totalExec, totalWait, execPct, totalQuest
   const maxExec = sorted[0]?.timing?.execution_sec || 1;
 
   const designSkills = skills.filter(s =>
-    !['solace-discovery', 'solace-plan', 'solace-validate', 'solace-blueprint', 'solace-executive', 'solace-diagrams'].includes(s.skill) &&
+    !['solace-discovery', 'solace-plan', 'solace-validate', 'solace-blueprint', 'solace-architecture-blueprint', 'solace-executive', 'solace-diagrams'].includes(s.skill) &&
     !s.skill.endsWith('-review')
   );
   const reviewSkills = skills.filter(s => s.skill.endsWith('-review'));
   const otherSkills = skills.filter(s =>
-    ['solace-discovery', 'solace-plan', 'solace-validate', 'solace-blueprint'].includes(s.skill)
+    ['solace-discovery', 'solace-plan', 'solace-validate', 'solace-blueprint', 'solace-architecture-blueprint'].includes(s.skill)
   );
   const phaseExec = (list) => list.reduce((a, s) => a + (s.timing?.execution_sec || 0), 0);
   const designExec = phaseExec(designSkills);
@@ -1897,7 +1899,7 @@ async function exportView() {
 
   const designSkills = skills.filter(s =>
     s.status === 'complete' &&
-    !['solace-discovery', 'solace-plan', 'solace-validate', 'solace-blueprint', 'solace-executive', 'solace-diagrams'].includes(s.skill) &&
+    !['solace-discovery', 'solace-plan', 'solace-validate', 'solace-blueprint', 'solace-architecture-blueprint', 'solace-executive', 'solace-diagrams'].includes(s.skill) &&
     !s.skill.endsWith('-review')
   );
 
@@ -2184,11 +2186,11 @@ async function generateReport(pack, skills, items, files) {
     files = items;
     items = skills;
     skills = pack;
-    pack = { id: 'blueprint', label: 'Solace Blueprint', filters: {} };
+    pack = { id: 'blueprint', label: 'Master Architecture View', filters: {} };
   }
-  if (!pack) pack = { id: 'blueprint', label: 'Solace Blueprint', filters: {} };
+  if (!pack) pack = { id: 'blueprint', label: 'Master Architecture View', filters: {} };
   const packFilters = pack.filters || {};
-  const packLabel = pack.label || 'Solace Blueprint';
+  const packLabel = pack.label || 'Master Architecture View';
   const packId = pack.id || 'blueprint';
 
   const context = state.data.context;
@@ -2210,6 +2212,7 @@ async function generateReport(pack, skills, items, files) {
     'reviews': 'Reviews',
     'validation': 'Validation',
     'blueprint': 'Technical Blueprint',
+    'arch-blueprint': 'Architecture Blueprint (4+1)',
     'executive': 'Business Case',
     'diagrams': 'Diagrams'
   };
@@ -2267,7 +2270,7 @@ async function generateReport(pack, skills, items, files) {
   }
   const systemsList = rptSystemsList;
 
-  const SKILL_TO_GROUP = {'solace-discovery':'discovery','solace-topic-design':'topic-design','solace-broker-select':'broker-select','solace-sam-design':'sam-design','solace-protocol-select':'protocol-select','solace-mesh-design':'mesh-design','solace-ha-dr':'ha-dr','solace-integration':'integration','solace-migration':'migration','solace-event-portal':'event-portal','solace-architect-review':'reviews','solace-ops-review':'reviews','solace-security-review':'reviews','solace-dev-review':'reviews','solace-validate':'validation','solace-blueprint':'blueprint','solace-executive':'executive','solace-diagrams':'diagrams'};
+  const SKILL_TO_GROUP = {'solace-discovery':'discovery','solace-topic-design':'topic-design','solace-broker-select':'broker-select','solace-sam-design':'sam-design','solace-protocol-select':'protocol-select','solace-mesh-design':'mesh-design','solace-ha-dr':'ha-dr','solace-integration':'integration','solace-migration':'migration','solace-event-portal':'event-portal','solace-architect-review':'reviews','solace-ops-review':'reviews','solace-security-review':'reviews','solace-dev-review':'reviews','solace-validate':'validation','solace-blueprint':'blueprint','solace-architecture-blueprint':'arch-blueprint','solace-executive':'executive','solace-diagrams':'diagrams'};
   const xref = (text, anchor) => `<a href="#${anchor}" class="xref-link">${text}</a>`;
   const skillLink = (skill) => { const g = SKILL_TO_GROUP[skill]; const label = SKILL_LABELS[skill]||skill||''; return g ? xref(label, 'grp-' + g) : label; };
   const artRefLink = (ref) => { if (!ref) return ''; const id = 'art-' + ref.replace(/^artifacts\//, '').replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').toLowerCase(); return xref('source', id); };
@@ -2551,7 +2554,8 @@ ${roiSum('Total annual value', 'v')}
   const GROUP_SORT_ORDER = {
     'discovery': 0, 'topic-design': 10, 'broker-select': 20, 'sam-design': 25, 'protocol-select': 30,
     'mesh-design': 40, 'ha-dr': 50, 'integration': 60, 'migration': 70,
-    'event-portal': 75, 'reviews': 80, 'validation': 90, 'blueprint': 100, 'executive': 110, 'diagrams': 115
+    'event-portal': 75, 'reviews': 80, 'validation': 90, 'blueprint': 100, 'arch-blueprint': 105,
+    'executive': 110, 'diagrams': 115
   };
   sections.sort((a, b) => (GROUP_SORT_ORDER[a.group] ?? 999) - (GROUP_SORT_ORDER[b.group] ?? 999));
   let prevG2 = null;
@@ -2574,7 +2578,8 @@ ${roiSum('Total annual value', 'v')}
     'topic-design': 'Design', 'broker-select': 'Design', 'sam-design': 'Design', 'protocol-select': 'Design',
     'mesh-design': 'Design', 'ha-dr': 'Design', 'integration': 'Design', 'migration': 'Design', 'event-portal': 'Design',
     'reviews': 'Reviews',
-    'validation': 'Finalize', 'blueprint': 'Finalize', 'executive': 'Finalize', 'diagrams': 'Finalize'
+    'validation': 'Finalize', 'blueprint': 'Finalize', 'arch-blueprint': 'Finalize',
+    'executive': 'Finalize', 'diagrams': 'Finalize'
   };
   const artId = (f) => 'art-' + f.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').toLowerCase();
   const artLabel = (f) => {
