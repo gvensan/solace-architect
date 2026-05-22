@@ -211,13 +211,15 @@ solace-architect/
   install-sa.sh           # Install script
   uninstall-sa.sh         # Remove script
   VERSION                 # Current version tag
-  ARCHITECTURE.md         # How the template pipeline works
-  GETTING-STARTED.md      # Full walkthrough of a complete engagement
-  ETHOS.md                # Working principles
-  SLASH-COMMANDS.md       # Slash command reference
-  docs/                   # Strategy and planning docs
+  docs/                   # Strategy, architecture, and reference docs
+    architecture.md       # How the template pipeline works
+    ethos.md              # Working principles
+    getting-started.md    # Full walkthrough of a complete engagement
     improvements.md       # Skill improvement tracking from feedback
+    install-ep-designer-mcp.md  # EP Designer MCP install guide (used by /solace-ep-provision)
+    litellm-use.md        # Routing model calls through a LiteLLM proxy
     saas-strategy.md      # Forward-looking SaaS design discussion
+    slash-commands.md     # Slash command reference
   conductor.json          # Conductor configuration
   package.json            # Build scripts
 ```
@@ -298,5 +300,5 @@ infrastructure, or anything where the runtime/framework might have a built-in:
 3. Check official runtime/framework docs
 
 Three layers of knowledge: tried-and-true (Layer 1), new-and-popular (Layer 2),
-first-principles (Layer 3). Prize Layer 3 above all. See ETHOS.md for the full
+first-principles (Layer 3). Prize Layer 3 above all. See docs/ethos.md for the full
 philosophy.
