@@ -167,6 +167,12 @@ skills:
     trigger: always
     outcome: Engineering blueprint — architecture, diagrams, configs, runbook
 
+  - name: solace-architecture-blueprint
+    command: /solace-architecture-blueprint
+    phase: finalize
+    trigger: always
+    outcome: Architecture blueprint — 4+1 view repackaging for the implementation team
+
   - name: solace-diagrams
     command: /solace-diagrams
     phase: finalize
