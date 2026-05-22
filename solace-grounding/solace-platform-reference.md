@@ -34,6 +34,8 @@ Brokers of all three types can participate in a single event mesh. Solace event 
 
 ### Message VPNs
 
+Sources: docs.solace.com → `Features/VPN/Managing-Message-VPNs.htm` (verified 2026-05-22). Per the doc: "Message VPNs allow for the segregation of topic space and messaging space by creating fully separate messaging domains" and "messages published within a particular group are only visible to clients that belong to that group." On Solace Cloud, each broker service is provisioned with a Message VPN whose name derives from the service name; self-managed brokers carry a Message VPN named `default` out of the box.
+
 A message VPN (Virtual Private Network) is a virtual partition within a Solace event broker that provides network-level separation for messaging. Each message VPN is an isolated messaging domain with its own:
 
 1. **Client usernames, client profiles, and ACL profiles** — authentication and authorization are scoped per VPN.
@@ -48,12 +50,40 @@ Every client connection is to a specific message VPN. Broker-level HA (primary/b
 
 Solace Cloud event broker services include a default message VPN. Self-managed brokers can host multiple VPNs on a single broker instance.
 
+#### Multiple VPNs vs. multiple brokers
+
+Use multiple VPNs on the same broker for tenants or applications that can share broker capacity, share an upgrade window, and tolerate sharing a single failure domain. Use multiple brokers when tenants need independent failure isolation, independent service classes or sizing, separate HA pairs, or different regulatory / data-residency boundaries.
+
+The doc-supported framing: the VPN is the isolation boundary for *messaging* (topics, queues, ACL profiles, client profiles, subscriptions); the broker is the isolation boundary for *capacity and lifecycle*. Clients in one VPN cannot subscribe to topics published in another VPN on the same broker. To share messages across VPNs, use **Message VPN bridges** (point-to-point bridge between two VPNs) or DMR (mesh-level routing).
+
+#### Naming
+
+The docs do not prescribe a naming convention beyond the default `default` and the cloud-service-derived names. For multi-tenant designs, a `domain-tenant-purpose` convention (e.g., `retail-banking-prod-trading`) is the recommended pattern. Avoid environment names inside the VPN name when the VPN is intended to be portable across environments.
+
+#### VPN-level quotas
+
+The Managing Message VPNs overview page does not enumerate quotas in detail; for the specific quota list (max connections, max subscriptions, max spool, max ingress/egress rates) consult `Admin/Configuring-Message-VPNs.htm` and the VPN-level Guaranteed-messaging configuration page. (This reference does not yet enumerate quota defaults verbatim — a future revision should pull them from the configuration pages with explicit numbers.)
+
 ### Smart Topic Architecture
 
 Topics are hierarchical strings (`a/b/c/.../n`) attached to messages as metadata, used for both event description and routing. Solace topics support:
 
 1. Hierarchical levels with variables substitutable from event properties.
-2. Wildcard subscriptions: `*` matches a single level; `>` matches one or more trailing levels.
+2. Wildcard subscriptions (source: docs.solace.com → Wildcard Characters in Topic Subscriptions, `Messaging/Wildcard-Charaters-Topic-Subs.htm`, verified 2026-05-22):
+   - **`*` (single-level wildcard)** — has two valid placements within a level:
+     - **Standalone at a level** (`animals/*/cats`) — matches exactly one level.
+     - **Trailing a prefix at a level** (`animals/red*/wild`) — matches "prefix and 0 or more" characters at that level.
+     - `*` placed *inside* or at the *start* of a level (`animals/*bro`, `animals/br*wn`) is treated as a literal character, not a wildcard.
+     - Examples: ✓ `airport/*/passengerUpdate/v1/>`, ✓ `airport/passenger/*/v1/>`, ✓ `*/*/passengerUpdate/v1`, ✓ `orders/cust*/created/v1` (prefix).
+   - **`>` (multi-level wildcard)** — matches one or more trailing levels. **MUST appear by itself at the last level of the subscription.** Per the doc: "A `>` that appears anywhere other than by itself at the last level … is treated as the `>` character rather than a wildcard" — so misplaced `>` is silently demoted to a literal, not rejected.
+     - ✓ `airport/passenger/>`, ✓ `airport/>`
+     - ✗ `airport/>/v1` — `>` is not at the last level (treated as literal)
+     - ✗ `airport/{noun}/>/v1/>` — `>` not by itself at the last level on either occurrence
+     - ✗ `>/passenger/v1` — `>` is not at the last level
+     - ✗ `animals>`, ✗ `animals/domestic>` — `>` not by itself at its level (treated as literal)
+   - **Combination is allowed:** `*` and `>` can be combined in the same subscription (e.g., `animals/*/cats/>`).
+   - **Reserved-prefix restrictions:** wildcards never match the `#P2P` prefix (protects per-client inboxes), and a standalone `*` or `>` at the first level does not match topics beginning with `$` (protects system topics).
+   - If you need "any number of middle levels but a specific trailing pattern," it cannot be expressed in a single subscription. Either restructure the topic taxonomy or use multiple subscriptions.
 3. Negative subscriptions (Guaranteed messaging only): `!` prefix to exclude topics from a larger subscription set.
 4. Routing decisions made by the broker without deserializing or interpreting the payload.
 5. Per-subscription policies for priority, replay eligibility, replication, and access control.
@@ -167,9 +197,18 @@ Semantics differ across protocols: MQTT uses `$share` groups, SMF uses shared su
 
 ### Message Priority
 
-Messages carry a priority level (0-255 in the native SMF API, mapped to 0-9 for JMS clients, where 0 is lowest) as a message header property. The broker delivers higher-priority messages before lower-priority messages within a queue.
+Source: docs.solace.com → `Messaging/Guaranteed-Msg/Message-Priority.htm`, verified 2026-05-22.
 
-Use cases: control messages before data messages, premium customers before standard. Priority is per-message, not per-topic — set by the publisher in the message header.
+Solace event brokers support **ten levels of priority from 0 (lowest) to 9 (highest)**. A priority field on the received message greater than 9 is clamped to 9. Messages lacking a priority field default to level 4.
+
+The broker honors priority when loading the per-consumer prefetch pipeline from the queue: high-priority messages are fed into the pipeline ahead of low-priority ones. Once messages are loaded into the prefetch pipeline, new high-priority messages added to the pipeline will never jump ahead of lower-priority messages already in the pipeline — i.e., priority biases queue-to-pipeline ordering, not pipeline-to-consumer delivery.
+
+**Where priority does not apply:**
+- Queue browsers, message-VPN bridges, and **partitioned queues** ignore message priority.
+- MQTT queues cannot be configured to respect message priority.
+- Last-value queues store messages regardless of priority.
+
+Priority is per-message, not per-topic — set by the publisher in the message header. Use cases: control messages before data messages, premium customers before standard.
 
 ### Message VPN Bridges
 
