@@ -562,6 +562,22 @@ Jargon list, gloss on first use if the term appears:
 - exactly-once delivery
 - at-least-once delivery
 - at-most-once delivery
+- failover
+- split-brain
+- mate link
+- monitoring node
+- redundancy group
+- config-sync
+- replay log
+- spool
+- subscriber
+- endpoint
+- selector
+- DMR bridge
+- partitioned queue
+- message eliding
+- CacheInstance
+- substitution expression
 
 
 ## Completeness Principle — Boil the Lake
