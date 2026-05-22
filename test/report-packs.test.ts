@@ -142,10 +142,10 @@ for (const p of packs) packsById[p.id] = p;
 // ───── Tests ─────
 
 describe('report-packs.yaml structure', () => {
-  test('contains all 5 expected packs', () => {
-    expect(packs).toHaveLength(5);
+  test('contains all 6 expected packs', () => {
+    expect(packs).toHaveLength(6);
     const ids = packs.map((p: any) => p.id).sort();
-    expect(ids).toEqual(['blueprint', 'developer', 'executive', 'ops', 'security']);
+    expect(ids).toEqual(['arch-blueprint', 'blueprint', 'developer', 'executive', 'ops', 'security']);
   });
 
   test('every pack has label, description, audience', () => {
