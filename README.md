@@ -140,7 +140,7 @@ Each engagement is a self-contained folder under `projects/<slug>/`, so parallel
 2. `/solace-plan` — let the orchestrator run the rest in auto mode.
 3. `bun run dashboard` — open `http://localhost:3000` and click **Export** for the HTML report.
 
-For a full guided walkthrough of a real engagement (retail banking AI assistant scenario, every skill explained step-by-step), see [GETTING-STARTED.md](GETTING-STARTED.md).
+For a full guided walkthrough of a real engagement (retail banking AI assistant scenario, every skill explained step-by-step), see [docs/getting-started.md](docs/getting-started.md).
 
 Next: read [Outputs and reports](#outputs-and-reports) to see exactly what gets produced and how to share it.
 
@@ -234,7 +234,7 @@ The **Export** view in the dashboard has two buttons:
 
 ## Skill reference
 
-Full catalog of every skill. For the recommended flow, see [Getting started](#getting-started). For per-skill scenarios, the dependency map, and detailed usage patterns, see [SLASH-COMMANDS.md](SLASH-COMMANDS.md).
+Full catalog of every skill. For the recommended flow, see [Getting started](#getting-started). For per-skill scenarios, the dependency map, and detailed usage patterns, see [docs/slash-commands.md](docs/slash-commands.md).
 
 | Category | Skill | Command | Description |
 |----------|-------|---------|-------------|
@@ -430,7 +430,7 @@ The skill creates objects in dependency order (domain → schemas → events →
 3. **Accuracy Over Fluency.** Ground every claim in Solace documentation. Say "I don't know" rather than fabricate.
 4. **User Sovereignty.** AI recommends, users decide. No skipping the verification step.
 
-See [ETHOS.md](ETHOS.md) for the full philosophy.
+See [docs/ethos.md](docs/ethos.md) for the full philosophy.
 
 ## Development
 
@@ -446,7 +446,7 @@ bun run dashboard    # project dashboard at localhost:3000
 
 The test suite checks terminology compliance (zero forbidden terms), structural validation (frontmatter, placeholders, preamble tiers), token budget enforcement (per-skill and total ceilings), and generation freshness (committed files match templates).
 
-See [CLAUDE.md](CLAUDE.md) for full development instructions and [ARCHITECTURE.md](ARCHITECTURE.md) for how the template pipeline works.
+See [CLAUDE.md](CLAUDE.md) for full development instructions and [docs/architecture.md](docs/architecture.md) for how the template pipeline works.
 
 ## Origin
 

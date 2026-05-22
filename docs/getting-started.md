@@ -1317,8 +1317,8 @@ The `projects/retail-banking-chat-agent/` directory contains everything: the dis
 
 ## Next steps
 
-- Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand how the template pipeline works
-- Read [ETHOS.md](ETHOS.md) for the working principles behind Solace Architect
+- Read [architecture.md](architecture.md) to understand how the template pipeline works
+- Read [ethos.md](ethos.md) for the working principles behind Solace Architect
 - Run `bun run skill:check` for a health dashboard of all skills
 - Run `bun run url:check` to verify grounding document URLs are current
 - Run `bun run dashboard` to explore the web dashboard
