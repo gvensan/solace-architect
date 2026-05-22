@@ -20,6 +20,30 @@ skill and technical domain skill should check output against these patterns.
 **What to do instead:** Use fine-grained subscriptions that filter by instrument, asset class, or region. Each wildcard is a real bandwidth cost across DMR external links.
 **Source:** Pattern 2 key design decisions (subscription hygiene).
 
+### Misplaced multi-level wildcard (`>`)
+**What's wrong:** Writing subscriptions like `airport/>/v1` or `airport/{noun}/>/v1/>` where `>` is not by itself at the last level of the subscription. Per the Solace docs ("Wildcard Characters in Topic Subscriptions"), a `>` that appears anywhere other than by itself at the last level is **treated as the literal `>` character rather than a wildcard**. The subscription is accepted by the broker but it matches a literal `>` at that position rather than expanding multi-level — so the subscription silently matches nothing or the wrong topics. Examples:
+- `airport/{noun}/>/v1/>` — both `>` characters demoted to literals
+- `airport/>/v1/>` — both `>` characters demoted to literals
+- `>/passenger/v1` — first `>` demoted to a literal
+- `animals/domestic>` — `>` is not by itself at the level (demoted to a literal)
+
+**What to do instead:** Restructure so the wildcard portion is at the end of the topic. If the design needs both a flexible middle and a fixed trailing pattern, either:
+1. **Re-order the taxonomy** so the variable parts come last (`airport/v1/passenger/>` instead of `airport/passenger/>/v1`).
+2. **Use multiple narrower subscriptions** (one per known middle value).
+3. **Use `*` for middle levels** — `*` matches a single level anywhere in the subscription: `airport/*/passengerUpdate/v1/>` works, `airport/>/v1/>` does not.
+
+**Source:** docs.solace.com → `Messaging/Wildcard-Charaters-Topic-Subs.htm` (verified 2026-05-22).
+
+### Topic exceeds broker hard limits
+**What's wrong:** Generating topics that exceed Solace's hard limits — more than **250 characters** total, or more than **128 levels**. These are broker-enforced, not advisory.
+**What to do instead:** Keep topics compact. Long property tails should be shortened (use IDs, not human-readable names) or moved out of the topic and into the payload. Reviewers should flag any generated example or schema that approaches the limits.
+**Source:** docs.solace.com → `Messaging/Topic-Architecture-Best-Practices.htm` (verified 2026-05-22): "A topic is limited to a maximum of 250 characters and 128 topic levels."
+
+### Reserved characters in published topics
+**What's wrong:** Publishing on topics that contain `*`, `>`, or `!`, or contain spaces / non-alphanumeric characters. The wildcard and negation characters have subscription semantics and must not appear in produced topics. Spaces and most special characters are simply unsupported in topic strings.
+**What to do instead:** Use camelCase or PascalCase. Restrict topic characters to alphanumerics, `-`, `_`, and `/` (the level separator). Move any free-text values into the message payload.
+**Source:** docs.solace.com → `Messaging/Topic-Architecture-Best-Practices.htm` (verified 2026-05-22) and `Messaging/Wildcard-Charaters-Topic-Subs.htm`.
+
 ### Plant/line/machine ID in topic root instead of properties
 **What's wrong:** Structuring topics as `plant01/line03/machine07/temperature/read/v1` instead of using the recommended taxonomy.
 **What to do instead:** Topic root should be `Domain/Noun/Verb/Version`. Plant, line, and machine are properties ordered least-specific to most-specific: `manufacturing/temperature/read/v1/plant01/line03/machine07`.
@@ -85,6 +109,11 @@ skill and technical domain skill should check output against these patterns.
 **What's wrong:** Designing per-subscriber heartbeats, acknowledgments, or round trips for high-volume fan-out data like market data or telemetry.
 **What to do instead:** Fan-out data is one-to-many by nature. Use Direct messaging with topic-based subscriptions. Per-subscriber interactions collapse under volume.
 **Source:** Pattern 2 antipatterns.
+
+### Stale telemetry queued through Guaranteed messaging
+**What's wrong:** Sending high-rate telemetry (sensor readings, market ticks, position updates) through a Guaranteed queue without bounding TTL or using a last-value queue. Slow consumers cause queue depth to grow; the broker accumulates stale data that has no business value.
+**What to do instead:** For last-value-wins flows, use **Direct messaging with message eliding** (consumer-pace-limited Direct delivery), **Last-Value Queues** (queue max-spool-usage = 0, broker keeps only the most recent message), or **Solace Cache** (external last-value cache). Reserve Guaranteed queues for flows where every message matters.
+**Source:** docs.solace.com → `Messaging/Direct-Msg/Direct-Messages.htm` (eliding) and `Features/Replay/Replay-Cache-Compare.htm` (verified 2026-05-22).
 
 ## General integration antipatterns
 
