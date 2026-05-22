@@ -25,6 +25,8 @@ dist/
 .claude/skills/
 .claude/scheduled_tasks.lock
 .claude/*.lock
+.claude/mcp.json
+.mcp.json
 .context/
 
 # Project data — local to each user, not committed
