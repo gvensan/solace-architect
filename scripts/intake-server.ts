@@ -12,15 +12,79 @@
  * Mirrors scripts/dashboard.ts in style — same conventions, different scope.
  */
 
-import { readFile, writeFile, stat, mkdir } from "fs/promises";
-import { join, resolve } from "path";
+import { readFile, writeFile, stat, mkdir, readdir } from "fs/promises";
+import { existsSync } from "fs";
+import { join, resolve, basename } from "path";
 import { spawnSync } from "child_process";
 
 const PORT = parseInt(process.env.INTAKE_PORT || "3001", 10);
 const ROOT = process.cwd();
 const INTAKE_DIR = join(ROOT, "intake");
+const PROJECTS_DIR = join(ROOT, "projects");
 const FORM_PATH = join(INTAKE_DIR, "solace-intake-template.html");
 const BUILDER = join(ROOT, "scripts", "build-intake-html.py");
+
+// ---------------------------------------------------------------------------
+// YAML parsing — shell to python3 so we stay consistent with build-intake-html.py
+// and avoid adding a JS YAML dependency. Each load is a one-shot user action,
+// so the spawn cost is acceptable.
+// ---------------------------------------------------------------------------
+function parseYamlFile(absPath: string): unknown {
+  // datetime values in YAML (e.g. context.yaml 'created:') aren't JSON-serializable
+  // by default — stringify them with `default=str` for safe round-tripping.
+  const result = spawnSync(
+    "python3",
+    [
+      "-c",
+      "import sys, yaml, json; json.dump(yaml.safe_load(open(sys.argv[1])), sys.stdout, default=str)",
+      absPath,
+    ],
+    { encoding: "utf-8" }
+  );
+  if (result.status !== 0) {
+    throw new Error(result.stderr || "YAML parse failed");
+  }
+  return JSON.parse(result.stdout || "null");
+}
+
+interface IntakableProject {
+  slug: string;
+  display_name: string;
+  intake_file: string; // intake/-relative path
+}
+
+async function listIntakableProjects(): Promise<IntakableProject[]> {
+  if (!existsSync(PROJECTS_DIR)) return [];
+  const slugs = await readdir(PROJECTS_DIR).catch(() => [] as string[]);
+  const out: IntakableProject[] = [];
+  for (const slug of slugs) {
+    if (slug.startsWith(".")) continue;
+    const ctxPath = join(PROJECTS_DIR, slug, "context.yaml");
+    if (!existsSync(ctxPath)) continue;
+    let ctx: any;
+    try {
+      ctx = parseYamlFile(ctxPath);
+    } catch {
+      continue;
+    }
+    if (!ctx || ctx.source !== "intake") continue;
+    // Resolve the intake file: prefer context.yaml's intake_file, else fall back to intake/<slug>.yaml
+    let intakeRel: string | null = null;
+    if (typeof ctx.intake_file === "string" && ctx.intake_file.startsWith("intake/")) {
+      intakeRel = ctx.intake_file;
+    } else {
+      const fallback = `intake/${slug}.yaml`;
+      if (existsSync(join(ROOT, fallback))) intakeRel = fallback;
+    }
+    if (!intakeRel || !existsSync(join(ROOT, intakeRel))) continue;
+    out.push({
+      slug,
+      display_name: ctx.display_name || slug,
+      intake_file: intakeRel,
+    });
+  }
+  return out.sort((a, b) => a.display_name.localeCompare(b.display_name));
+}
 
 // ---------------------------------------------------------------------------
 // Form generation — ensure the HTML exists and is fresh on startup.
@@ -137,6 +201,33 @@ async function main() {
 
       if (req.method === "GET" && path === "/api/submissions") {
         return json({ submissions: await listSubmissions() });
+      }
+
+      if (req.method === "GET" && path === "/api/intakable-projects") {
+        try {
+          return json({ projects: await listIntakableProjects() });
+        } catch (e: any) {
+          return json({ error: e?.message || String(e) }, 500);
+        }
+      }
+
+      if (req.method === "GET" && path.startsWith("/api/intake/")) {
+        const slug = decodeURIComponent(path.slice("/api/intake/".length));
+        if (!slug || /[/\\\.]{2,}/.test(slug) || slug.includes("/")) {
+          return json({ error: "invalid slug" }, 400);
+        }
+        const projects = await listIntakableProjects().catch(() => [] as IntakableProject[]);
+        const match = projects.find((p) => p.slug === slug);
+        if (!match) return json({ error: "not found" }, 404);
+        const absPath = resolve(ROOT, match.intake_file);
+        if (!absPath.startsWith(INTAKE_DIR)) {
+          return json({ error: "path escapes intake directory" }, 400);
+        }
+        try {
+          return json({ slug: match.slug, intake_file: match.intake_file, data: parseYamlFile(absPath) });
+        } catch (e: any) {
+          return json({ error: e?.message || String(e) }, 500);
+        }
       }
 
       if (req.method === "POST" && path === "/api/submit") {
