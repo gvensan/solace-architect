@@ -1,8 +1,10 @@
 # Audience packs for the Export Report dashboard.
 #
-# Each pack filters the comprehensive Master Architecture View into a focused subset
-# for a specific audience. The dashboard reads this file via /api/report-packs
-# and renders one tile per pack on the Export view.
+# The "blueprint" pack (id: blueprint) is the Comprehensive Report — every skill,
+# every artifact, every decision and finding. The other packs filter that
+# comprehensive content into a focused subset for a specific audience. The
+# dashboard reads this file via /api/report-packs and renders one tile per pack
+# on the Export view (Comprehensive as the hero card; audience packs below).
 #
 # Pack fields:
 #   id          — internal identifier (used in JS and URLs)
@@ -29,9 +31,9 @@ version: 1
 
 packs:
   - id: blueprint
-    label: Master Architecture View
-    description: Comprehensive engineering deliverable — full architecture, all artifacts.
-    audience: Architects, platform leads, project owners
+    label: Comprehensive Report
+    description: The full deliverable — every artifact, every decision, every review finding. Start here if you don't know which audience pack to pick.
+    audience: Everyone — architects, engineers, ops, security, executives
     filters: {}
 
   - id: arch-blueprint
@@ -72,7 +74,9 @@ packs:
       dirs:
         - 02-topic-design
         - 03-broker-select
+        - 07-ha-dr
       files:
+        - 08-integration/micro-integration-map.md
         - 10-reviews/ops-review.md
         - 11-validation/validation-report.md
         - 12-blueprint/architecture.md
@@ -80,12 +84,15 @@ packs:
         - 12-blueprint/topic-taxonomy.md
         - 12-blueprint/validation-report.md
         - 12-blueprint/config/broker/provisioning-parameters.md
+        # EP-provisioning artifacts only exist when /solace-ep-provision runs.
+        # If provisioning was skipped at intake, the matcher silently drops these.
         - 13-event-portal/provisioned.yaml
         - 13-event-portal/provisioning-report.md
       globs:
         - "12-blueprint/diagrams/broker-topology*.mermaid"
         - "12-blueprint/diagrams/dlq-flow*.mermaid"
         - "12-blueprint/diagrams/failure-modes*.mermaid"
+        - "12-blueprint/diagrams/ha-*.mermaid"
         - "12-blueprint/diagrams/queue-subscriptions*.mermaid"
         - "12-blueprint/diagrams/queue-subscriptions-detail*.md"
       top_sections:
@@ -150,9 +157,11 @@ packs:
         - 02-topic-design
         - 05-protocol-select
       files:
+        - 08-integration/micro-integration-map.md
         - 10-reviews/dev-review.md
         - 13-event-portal/event-portal-design.md
         - 13-event-portal/provisioning-plan.md
+        # EP-provisioning artifacts only exist when /solace-ep-provision runs.
         - 13-event-portal/provisioned.yaml
         - 13-event-portal/provisioning-report.md
       globs:

@@ -79,12 +79,16 @@ and blueprint skills automatically.
 | Review | Operations Review | `/solace-ops-review` |
 | Review | Security Review | `/solace-security-review` |
 | Review | Developer Review | `/solace-dev-review` |
-| Finalize | Validate | `/solace-validate` |
-| Finalize | Blueprint | `/solace-blueprint` |
-| Finalize | Architecture Blueprint (4+1) | `/solace-architecture-blueprint` |
+| Finalize | Final Validation | `/solace-validate` |
+| Finalize | Engineering Handoff (incl. 4+1 views) | `/solace-blueprint` + `/solace-architecture-blueprint` |
 | Finalize | Executive Summary | `/solace-executive` |
-| Utility | Diagrams | `/solace-diagrams` |
+| Finalize | Diagram Refresh | `/solace-diagrams` |
 | Utility | Help | `/solace-help` |
+
+Engineering Handoff is presented as a single dashboard tile. Under the hood it
+runs `/solace-blueprint` (comprehensive engineering package → `12-blueprint/`)
+followed by `/solace-architecture-blueprint` (4+1 views → `15-arch-blueprint/`).
+Both skills remain independently invokable for re-runs.
 
 ## Skill routing
 
