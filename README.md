@@ -88,15 +88,25 @@ Best when you're gathering info from a customer, a workshop, or async stakeholde
 bun run intake          # serves http://localhost:3001
 ```
 
-Launches a local HTTP server with an HTML intake form. Fill it in your browser; the form has autocomplete, a live engagement preview as you type, and a "Pre-fill from existing project" picker so you can clone and edit a prior intake instead of starting blank. Submission writes `intake/<slug>.yaml`. Bootstrap the engagement with:
+Best when stakeholders prefer a guided UI to a document, or when you want offline-collection benefits without hand-managing a YAML/DOCX file. See [Intake form](#intake-form) below for what it offers and how to import the result.
+
+The same `/solace-intake import` command consumes the output from B and C — the only difference is where the YAML came from.
+
+### Intake form
+
+For browser-based capture, run the intake server:
+
+```bash
+bun run intake          # serves http://localhost:3001 (auto-opens on macOS)
+```
+
+It opens an HTML intake form with autocomplete, a live engagement preview as you type, and a "Pre-fill from existing project" picker so you can clone and edit a prior intake instead of starting from blank. Submitting writes `intake/<slug>.yaml` (the slug is derived from the project name). Bootstrap the engagement from it with:
 
 ```
 /solace-intake import intake/<slug>.yaml
 ```
 
-Best when you want offline-collection benefits without managing the YAML/DOCX file yourself, when stakeholders prefer a guided UI to a document, or when you're iterating on an intake and want to see the engagement scope update live.
-
-The same `/solace-intake import` command consumes the output from B and C — the only difference is where the YAML came from.
+This is the input-side counterpart to the [Dashboard](#dashboard): `bun run intake` captures requirements into a project, `bun run dashboard` renders and exports what the engagement produces.
 
 ### Drive the full engagement
 
@@ -207,7 +217,7 @@ Open any of these in your editor. Mermaid diagrams render in GitHub, VS Code, Ob
 For interactive browsing, run the dashboard:
 
 ```bash
-bun run dashboard    # serves http://localhost:3000 and opens it
+bun run dashboard    # serves http://localhost:3000 (auto-opens on macOS)
 ```
 
 Sidebar views:
@@ -218,24 +228,36 @@ Sidebar views:
 - **Open Items** — Unresolved questions, risks, and follow-ups across the engagement.
 - **Artifacts** — File tree browser. Click any file to view rendered content. Mermaid diagrams render inline.
 - **Stats** — Execution time, user wait time, decision counts, artifact counts.
-- **Export** — One-click HTML report or print-to-PDF (see below).
+- **Export** — One-click HTML report (comprehensive or audience-specific) or print-to-PDF (see below).
 
 ### Single-file report — share, archive, print
 
-The **Export** view in the dashboard has two buttons:
+The **Export** view turns the engagement into a self-contained HTML file — one document with the executive summary, business case, architecture diagrams, decision log, and engagement history. No server is required to view it: email it, drop it in a repo, or attach it to a ticket.
 
-- **View / Download HTML Report** — generates a self-contained HTML file with the executive summary, business case, architecture diagrams, decision log, and full engagement history. One file, no server required to view it. Email it, drop it in a repo, attach it to a ticket.
-- **Print / Save as PDF** — triggers the browser print dialog. Pick "Save as PDF" for handoff packages or stakeholder distribution. The styles are print-aware so diagrams and tables format cleanly.
+The view opens with the **Comprehensive Report** as the default (every artifact, decision, and review finding). Below it, audience packs filter that content down to what a single reader role needs:
+
+| Report pack | For | Contains |
+|-------------|-----|----------|
+| **Comprehensive Report** | Everyone — start here if unsure | Full deliverable: every artifact, decision, and finding |
+| **System & Engineering View** | Implementation team, eng leads, onboarding devs | 4+1 architecture views (logical, process, development, physical, scenarios) |
+| **Strategic Executive View** | CXO, sponsors, investment committee | Business case, ROI, recommendation in plain language |
+| **Infrastructure & Operations View** | Solace admin, SRE, on-call | Provisioning params, monitoring, runbooks, HA/DR |
+| **Security & Governance View** | Security architect, compliance, audit | Auth, ACLs, encryption, PII, audit posture |
+| **Application Developer View** | App engineers writing client code | Topics, schemas, protocols, AsyncAPI exports |
+
+Each tile generates an HTML report scoped to its audience. The packs are defined in [`scripts/report-packs.yaml`](scripts/report-packs.yaml) — edit that file to retune what each pack includes. Inside any generated report, **Print / Save as PDF** triggers the browser print dialog; the styles are print-aware, so diagrams and tables format cleanly for handoff packages.
 
 ### What to share with whom
 
 | Audience | Hand them this |
 |----------|----------------|
-| Engineering team (implementing) | `12-blueprint/architecture.md`, `runbook.md`, `diagrams/`, `config/` |
-| Solace ops / cloud provisioning | `12-blueprint/config/broker/provisioning-parameters.md` |
+| Engineering team (implementing) | **System & Engineering View** report, or raw `12-blueprint/` (`architecture.md`, `runbook.md`, `diagrams/`, `config/`) |
+| Solace ops / cloud provisioning | **Infrastructure & Operations View** report, or `12-blueprint/config/broker/provisioning-parameters.md` |
+| Security / compliance / audit | **Security & Governance View** report |
+| Application developers | **Application Developer View** report |
 | Event Portal admin / governance | `13-event-portal/` (provisioning plan + design) |
-| CXO / business stakeholders | HTML Report, or `14-executive/executive-summary.md` |
-| External review or archive | HTML Report (single self-contained file) |
+| CXO / business stakeholders | **Strategic Executive View** report, or `14-executive/executive-summary.md` |
+| External review or archive | **Comprehensive Report** (single self-contained file) |
 | Live walkthrough | Dashboard at `localhost:3000` |
 
 ## Skill reference
