@@ -228,6 +228,48 @@ Read `projects/.active` to determine the current project slug. If it exists, tel
 - On clean completion: status `complete`, completion timestamp
 - If the skill never writes `complete`, the status stays `in-progress` (interrupted)
 
+**Single entry per skill.** Upsert by skill name — replace the existing entry on
+each subsequent write, never append a second row for the same skill. The dashboard
+groups timeline and stats by skill name; duplicate rows render ambiguously.
+
+**Writing checkpoint entries — canonical snippet.** Use a *quoted* heredoc and
+pass values via env vars. Do not interpolate shell variables inside Python
+f-strings via brace-quote (e.g. `f'.../{"$VAR"}/...'`) — that pattern reads as
+shell-obfuscation to safety scanners and will trip permission prompts on every
+run. Substitute the skill name, status, step, and one-line summary for the run:
+
+```bash
+ACTIVE=$(cat projects/.active) SKILL="solace-<this-skill>" \
+  TS=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  STATUS="in-progress" STEP="1/N" SUMMARY="<one-line>" \
+  python3 << 'PYEOF'
+import os, yaml
+path = f"projects/{os.environ['ACTIVE']}/progress.yaml"
+with open(path) as f:
+    data = yaml.safe_load(f) or {"progress": []}
+entry = {
+    "skill": os.environ["SKILL"],
+    "status": os.environ["STATUS"],
+    "started": os.environ["TS"],
+    "summary": os.environ["SUMMARY"],
+    "step_reached": os.environ["STEP"],
+    "artifacts": [],
+}
+progress = data.setdefault("progress", [])
+for i, e in enumerate(progress):
+    if e.get("skill") == entry["skill"]:
+        progress[i] = entry
+        break
+else:
+    progress.append(entry)
+with open(path, "w") as f:
+    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+PYEOF
+```
+
+For completion writes, add `completed`, set `status: complete`, and include the
+`artifacts` list and `timing` block (see Timing Instrumentation).
+
 **Resume behavior.** When a skill is invoked and `progress.yaml` shows that same skill was previously `in-progress` for the active project:
 1. Read the progress entry and the project's `decisions.yaml`
 2. Present a summary: "Last time we ran this skill, we got through step X of Y. Here's what was completed. Here's what's pending."
