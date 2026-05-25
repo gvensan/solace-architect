@@ -7,7 +7,7 @@ let state = { projects: [], active: null, current: null, data: null, reportPacks
  * The canonical definition lives in scripts/report-packs.yaml.
  */
 const DEFAULT_REPORT_PACKS = [
-  { id: 'blueprint', label: 'Master Architecture View', description: 'Comprehensive engineering deliverable.', audience: 'Architects, platform leads', filters: {} }
+  { id: 'blueprint', label: 'Comprehensive Report', description: 'The full deliverable — every artifact, decision, and finding.', audience: 'Everyone — architects, engineers, ops, security, executives', filters: {} }
 ];
 
 /**
@@ -109,9 +109,9 @@ const SKILL_LABELS = {
   'solace-ep-provision': 'EP Provisioning',
   'solace-architect-review': 'Architect Review', 'solace-ops-review': 'Ops Review',
   'solace-security-review': 'Security Review', 'solace-dev-review': 'Dev Review',
-  'solace-validate': 'Validation', 'solace-blueprint': 'Technical Blueprint',
-  'solace-architecture-blueprint': 'Architecture Blueprint (4+1)',
-  'solace-executive': 'Business Case', 'solace-diagrams': 'Diagrams'
+  'solace-validate': 'Final Validation', 'solace-blueprint': 'Engineering Handoff',
+  'solace-architecture-blueprint': 'Architecture Views (4+1)',
+  'solace-executive': 'Executive Summary', 'solace-diagrams': 'Diagram Refresh'
 };
 
 const SKILL_PHASES = {
@@ -125,16 +125,25 @@ const SKILL_PHASES = {
   'solace-security-review': 'Review', 'solace-dev-review': 'Review',
   'solace-validate': 'Finalize', 'solace-blueprint': 'Finalize',
   'solace-architecture-blueprint': 'Finalize',
-  'solace-executive': 'Finalize', 'solace-diagrams': 'Utility'
+  'solace-executive': 'Finalize', 'solace-diagrams': 'Finalize'
 };
 
 const SKILL_GROUPS = [
   { phase: 'discovery', label: 'Discovery', skills: ['solace-discovery'] },
   { phase: 'design', label: 'Design', skills: ['solace-topic-design', 'solace-broker-select', 'solace-sam-design', 'solace-protocol-select', 'solace-mesh-design', 'solace-ha-dr', 'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-ep-provision'] },
   { phase: 'review', label: 'Review', skills: ['solace-architect-review', 'solace-ops-review', 'solace-security-review', 'solace-dev-review'] },
-  { phase: 'finalize', label: 'Finalize', skills: ['solace-validate', 'solace-blueprint', 'solace-architecture-blueprint', 'solace-executive'] },
-  { phase: 'utility', label: 'Utility', skills: ['solace-diagrams'] },
+  { phase: 'finalize', label: 'Finalize', skills: ['solace-validate', 'solace-blueprint', 'solace-executive', 'solace-diagrams'] },
 ];
+
+// Sub-skills folded into a parent tile. The parent stays in SKILL_GROUPS;
+// the child is rendered as a sub-line on the parent tile (status, count) and
+// suppressed from its own tile. Both still run independently via the
+// orchestrator — this is a presentation merge only.
+const TILE_SUB_SKILLS = {
+  'solace-blueprint': [
+    { skill: 'solace-architecture-blueprint', label: '4+1 architecture views' },
+  ],
+};
 
 const SKIP_REASONS = {
   'solace-sam-design': 'No Agent Mesh components in scope',
@@ -873,11 +882,27 @@ async function overview() {
               cls = 'in-progress clickable';
               badge = `<span class="badge badge-in-progress">${entry.step_reached || 'IN PROGRESS'}</span>`;
             }
+            let subSkillsHtml = '';
+            const subs = TILE_SUB_SKILLS[sk];
+            if (subs && subs.length) {
+              subSkillsHtml = '<div class="skill-substeps">' + subs.map(sub => {
+                const subEntry = skills.find(s => s.skill === sub.skill);
+                const subSkipped = skipped.includes(sub.skill);
+                let subBadge = '<span class="badge badge-pending">PENDING</span>';
+                if (subSkipped) subBadge = '<span class="badge badge-skipped">N/A</span>';
+                else if (subEntry?.status === 'complete') subBadge = '<span class="badge badge-complete">COMPLETE</span>';
+                else if (subEntry?.status === 'in-progress') subBadge = '<span class="badge badge-in-progress">IN PROGRESS</span>';
+                const subAc = subEntry?.artifacts?.length || 0;
+                const subCount = subAc > 0 ? ` · ${subAc} artifact${subAc > 1 ? 's' : ''}` : '';
+                return `<div class="skill-substep">+ ${escHtml(sub.label)} ${subBadge}${subCount}</div>`;
+              }).join('') + '</div>';
+            }
             return `<div class="skill-card ${cls}" data-skill="${sk}" data-group="${gi}">
               <div class="skill-name">${SKILL_LABELS[sk] || sk}</div>
               <div class="skill-status">${badge}</div>
               ${skipReason ? `<div class="skill-skip-reason">${escHtml(skipReason)}</div>` : ''}
               ${timing || artifactCount ? `<div class="skill-timing">${[timing, artifactCount].filter(Boolean).join(' · ')}</div>` : ''}
+              ${subSkillsHtml}
             </div>`;
           }).join('')}
         </div>
@@ -924,11 +949,27 @@ async function overview() {
               badge = `<span class="badge badge-in-progress">${entry.step_reached || 'IN PROGRESS'}</span>`;
             }
             if (selectedSkill === sk) cls += ' expanded';
+            let subSkillsHtml = '';
+            const subs = TILE_SUB_SKILLS[sk];
+            if (subs && subs.length) {
+              subSkillsHtml = '<div class="skill-substeps">' + subs.map(sub => {
+                const subEntry = skills.find(s => s.skill === sub.skill);
+                const subSkipped = skipped.includes(sub.skill);
+                let subBadge = '<span class="badge badge-pending">PENDING</span>';
+                if (subSkipped) subBadge = '<span class="badge badge-skipped">N/A</span>';
+                else if (subEntry?.status === 'complete') subBadge = '<span class="badge badge-complete">COMPLETE</span>';
+                else if (subEntry?.status === 'in-progress') subBadge = '<span class="badge badge-in-progress">IN PROGRESS</span>';
+                const subAc = subEntry?.artifacts?.length || 0;
+                const subCount = subAc > 0 ? ` · ${subAc} artifact${subAc > 1 ? 's' : ''}` : '';
+                return `<div class="skill-substep">+ ${escHtml(sub.label)} ${subBadge}${subCount}</div>`;
+              }).join('') + '</div>';
+            }
             return `<div class="skill-card ${cls}" data-skill="${sk}">
               <div class="skill-name">${SKILL_LABELS[sk] || sk}</div>
               <div class="skill-status">${badge}</div>
               ${skipReason ? `<div class="skill-skip-reason">${escHtml(skipReason)}</div>` : ''}
               ${timing || artifactCount ? `<div class="skill-timing">${[timing, artifactCount].filter(Boolean).join(' · ')}</div>` : ''}
+              ${subSkillsHtml}
             </div>`;
           }).join('')}
         </div>
@@ -2119,21 +2160,39 @@ async function exportView() {
 
   const reportPacks = await loadReportPacks();
 
+  const primaryPack = reportPacks.find(p => p.id === 'blueprint');
+  const secondaryPacks = reportPacks.filter(p => p.id !== 'blueprint');
+
   document.getElementById('view').innerHTML = `
     <div class="section export-controls no-print">
       <span class="overline">EXPORT</span>
       <h1>Export Report</h1>
-      <p style="color:var(--text-dim);margin-bottom:20px">Choose an audience-specific report below. Each pack filters the full architecture into a focused view. Print / Save as PDF is available inside the generated HTML report.</p>
-      <div class="pack-tiles">
-        ${reportPacks.map(p => `
-          <div class="pack-tile pack-${p.id}">
-            <div class="pack-tile-audience">${escHtml(p.audience || '')}</div>
-            <h3 class="pack-tile-title">${escHtml(p.label)}</h3>
-            <p class="pack-tile-description">${escHtml(p.description || '')}</p>
-            <button class="btn" data-pack="${p.id}">View / Download HTML Report</button>
+      <p style="color:var(--text-dim);margin-bottom:20px">The default download below covers the full architecture. The audience-specific packs filter it for a single reader role.</p>
+      ${primaryPack ? `
+        <div class="pack-tile pack-tile-primary pack-${primaryPack.id}">
+          <div class="pack-tile-primary-body">
+            <div class="pack-tile-audience">${escHtml(primaryPack.audience || '')}</div>
+            <h2 class="pack-tile-title">${escHtml(primaryPack.label)}</h2>
+            <p class="pack-tile-description">${escHtml(primaryPack.description || '')}</p>
           </div>
-        `).join('')}
-      </div>
+          <button class="btn pack-tile-primary-btn" data-pack="${primaryPack.id}">View / Download HTML Report</button>
+        </div>
+      ` : ''}
+      ${secondaryPacks.length ? `
+        <div class="pack-secondaries-header">
+          <span class="overline">FOR A SPECIFIC READER</span>
+        </div>
+        <div class="pack-tiles pack-tiles-secondary">
+          ${secondaryPacks.map(p => `
+            <div class="pack-tile pack-tile-secondary pack-${p.id}">
+              <div class="pack-tile-audience">${escHtml(p.audience || '')}</div>
+              <h3 class="pack-tile-title">${escHtml(p.label)}</h3>
+              <p class="pack-tile-description">${escHtml(p.description || '')}</p>
+              <button class="btn btn-outline" data-pack="${p.id}">View / Download</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>
     ${sections.map((s, i) => `
       <div class="export-section" data-section="${s.id}"${i > 0 ? ' style="display:none"' : ''}>
@@ -2186,11 +2245,11 @@ async function generateReport(pack, skills, items, files) {
     files = items;
     items = skills;
     skills = pack;
-    pack = { id: 'blueprint', label: 'Master Architecture View', filters: {} };
+    pack = { id: 'blueprint', label: 'Comprehensive Report', filters: {} };
   }
-  if (!pack) pack = { id: 'blueprint', label: 'Master Architecture View', filters: {} };
+  if (!pack) pack = { id: 'blueprint', label: 'Comprehensive Report', filters: {} };
   const packFilters = pack.filters || {};
-  const packLabel = pack.label || 'Master Architecture View';
+  const packLabel = pack.label || 'Comprehensive Report';
   const packId = pack.id || 'blueprint';
 
   const context = state.data.context;
@@ -2210,11 +2269,11 @@ async function generateReport(pack, skills, items, files) {
     'migration': 'Migration',
     'event-portal': 'Event Portal',
     'reviews': 'Reviews',
-    'validation': 'Validation',
-    'blueprint': 'Technical Blueprint',
-    'arch-blueprint': 'Architecture Blueprint (4+1)',
-    'executive': 'Business Case',
-    'diagrams': 'Diagrams'
+    'validation': 'Final Validation',
+    'blueprint': 'Engineering Handoff',
+    'arch-blueprint': 'Architecture Views (4+1)',
+    'executive': 'Executive Summary',
+    'diagrams': 'Diagram Refresh'
   };
   const grpLabel = (g) => GROUP_LABELS[g] || g.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 

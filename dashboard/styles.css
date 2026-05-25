@@ -573,6 +573,24 @@ h3 {
   color: var(--text-muted);
 }
 
+.skill-substeps {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.skill-substep {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.skill-substep .badge { font-size: 9px; padding: 1px 6px; }
+
 /* Status badges */
 .badge {
   display: inline-block;
@@ -1210,6 +1228,86 @@ tr:hover td {
 
 .pack-tile.pack-blueprint {
   border-left: 3px solid var(--accent);
+}
+
+/* Primary (hero) card: bigger, full width, dominant button */
+.pack-tile-primary {
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 28px;
+  margin-bottom: 28px;
+  border-left-width: 4px;
+  background: linear-gradient(135deg, rgba(0,200,149,0.05) 0%, var(--surface) 60%);
+}
+.pack-tile-primary .pack-tile-primary-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.pack-tile-primary .pack-tile-title {
+  font-size: 20px;
+}
+.pack-tile-primary .pack-tile-description {
+  font-size: 14px;
+  max-width: 720px;
+}
+.pack-tile-primary-btn {
+  align-self: center !important;
+  padding: 12px 22px !important;
+  font-size: 14px !important;
+  white-space: nowrap;
+}
+
+/* Secondary header */
+.pack-secondaries-header {
+  margin: 8px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pack-secondaries-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Secondary grid: smaller tiles, tighter columns */
+.pack-tiles-secondary {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.pack-tile-secondary {
+  padding: 14px 16px;
+  gap: 6px;
+}
+.pack-tile-secondary .pack-tile-title {
+  font-size: 13px;
+}
+.pack-tile-secondary .pack-tile-description {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pack-tile-secondary .pack-tile-audience {
+  font-size: 9px;
+}
+.pack-tile-secondary .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .pack-tile-primary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .pack-tile-primary-btn {
+    align-self: flex-start !important;
+  }
 }
 
 .pack-tile-title {
