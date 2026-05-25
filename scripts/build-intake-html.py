@@ -1049,7 +1049,12 @@ function loadData(data) {
     }
     if (cur == null) return;
     if (el.type === 'radio') {
-      if (el.value === cur) el.checked = true;
+      // data-bool="1" radios store booleans in the draft; coerce back to the
+      // string form ("true"/"false") so `el.value === target` matches.
+      // Without this, a saved `true` silently reverts to the HTML default
+      // checked radio (typically "false") on draft reload.
+      const target = el.dataset.bool === '1' ? String(cur) : cur;
+      el.checked = (el.value === target);
     } else {
       el.value = cur;
     }
