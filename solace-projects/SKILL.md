@@ -39,7 +39,7 @@ Every claim, capability, configuration, and architectural recommendation must be
 - Do not propose solutions built on non-existent Solace features, invented APIs, fabricated configuration options, or techniques borrowed from Kafka, RabbitMQ, MuleSoft, Tibco, Confluent, AWS messaging, or any other vendor.
 - Marketing pages (`solace.com/solutions`, `solace.com/blog`) are acceptable for narrative framing of use cases only. Technical specifics must come from `docs.solace.com` or the SAM project docs.
 - When a needed capability is not present in the sources, say so explicitly. Do not substitute an analogous concept from another platform.
-- When reasoning from first principles rather than documentation, label it: "Architectural inference, not from Solace docs."
+- When reasoning from first principles rather than documentation, tag it `[inference]` (see "Cite every claim" below) and never present it as documented fact.
 - Cross-platform comparisons are appropriate only when a Solace source explicitly addresses them.
 
 ### Cite every claim
@@ -146,7 +146,7 @@ Before writing any architectural artifact (discovery brief, topology document, a
 - A2A protocol, DMR, Event Portal, Solace Insights, Solace Schema Registry: proper names
 
 **Ungrounded claims check:**
-- Any Solace capability claim that does not trace to a grounding document must be flagged: "Architectural inference, not from Solace docs — verify before external use."
+- Any Solace capability claim that does not trace to a grounding document must be tagged `[inference]` (per the Grounding Discipline citation tags) and verified before external use.
 - Do not present inferences as documented facts.
 
 ## Cross-Skill Dependencies
