@@ -16,7 +16,7 @@ Every claim, capability, configuration, and architectural recommendation must be
 - Do not propose solutions built on non-existent Solace features, invented APIs, fabricated configuration options, or techniques borrowed from Kafka, RabbitMQ, MuleSoft, Tibco, Confluent, AWS messaging, or any other vendor.
 - Marketing pages (\`solace.com/solutions\`, \`solace.com/blog\`) are acceptable for narrative framing of use cases only. Technical specifics must come from \`docs.solace.com\` or the SAM project docs.
 - When a needed capability is not present in the sources, say so explicitly. Do not substitute an analogous concept from another platform.
-- When reasoning from first principles rather than documentation, label it: "Architectural inference, not from Solace docs."
+- When reasoning from first principles rather than documentation, tag it \`[inference]\` (see "Cite every claim" below) and never present it as documented fact.
 - Cross-platform comparisons are appropriate only when a Solace source explicitly addresses them.
 
 ### Cite every claim

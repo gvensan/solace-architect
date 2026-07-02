@@ -32,6 +32,11 @@ The bank chat agent is the working example use case for prototyping and validati
 
 ## Accuracy and grounding discipline
 
+> **Runtime source of truth:** a condensed version of this discipline is baked into every
+> generated `SKILL.md` via `scripts/resolvers/preamble/generate-grounding-rules.ts` (citation
+> tags, confidence flagging, claim classification). This document is the fuller rationale and
+> reference. When you change the rules here, update that resolver too, or the two will drift.
+
 This section governs how every skill output handles truth claims. The rules are non-negotiable. They apply to all output that could be read as authoritative — comparison tables, architectural recommendations, blueprints, validation findings, and any structured deliverable handed to the user.
 
 ### Foundational rules

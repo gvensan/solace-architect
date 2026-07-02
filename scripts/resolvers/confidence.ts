@@ -10,9 +10,10 @@
 import type { TemplateContext } from './types';
 
 export function generateConfidenceCalibration(_ctx: TemplateContext): string {
-  return `## Confidence Calibration
+  return `## Finding Confidence
 
-Score every finding 1–10 in its header, grounded in the artifact/doc that supports it:
-8–10 verified · 6–7 strong inference · 4–5 show with a "verify" caveat · 1–3 omit unless
-severity would be Critical (then state what would confirm it).`;
+Score every finding 1–10 in its header — this grades the *finding* and is distinct from the
+Grounding Discipline's confidence flagging, which grades how well a *claim* is sourced. Ground
+the score in the artifact/doc that supports it: 8–10 verified · 6–7 strong inference · 4–5 show
+with a "verify" caveat · 1–3 omit unless severity would be Critical (then state what would confirm it).`;
 }
