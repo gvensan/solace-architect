@@ -1,8 +1,9 @@
 # Uplift plan: absorbing `sam-solace-architect` sophistication into the skill toolkit
 
-**Status:** Phases 0 ✅, 1 ✅, 2 ✅, 3 ✅ implemented and committed (280 tests pass).
-Phase 4 (managed grounding) not started. See §5 for phase definitions.
-Note: Phase 3 raised the total-token ceiling to 300k to fit the promoted grounding discipline.
+**Status:** All phases 0 ✅ 1 ✅ 2 ✅ 3 ✅ 4 ✅ implemented and committed (283 tests pass).
+Phase 4 is the minimal skill-native managed grounding (maintainer-edited digest, no server).
+Note: Phase 3 raised the total-token ceiling to 300k; the shared preamble now sits ~2.2k under it,
+so further preamble growth needs trimming or another bump.
 **Author:** Drafted with Claude Code during a review session.
 **Goal:** Bring this skill-based toolkit (`solace-architect-v1`) up to parity with the more
 advanced reference project `sam-solace-architect` (a SAM agentic system, internally "V2"),
