@@ -13,7 +13,11 @@ const ROOT = path.resolve(import.meta.dir, '..');
 const SKILL_FILES = discoverSkillFiles(ROOT).map(f => path.join(ROOT, f));
 
 const PER_SKILL_TOKEN_CEILING = 40_000;
-const TOTAL_TOKEN_WARNING = 275_000;
+// Raised from 275k when the grounding discipline (citation tags, confidence
+// flagging, claim classification) was promoted into the shared preamble — a
+// deliberate, per-skill-useful addition, not runaway preamble growth. The guard
+// still catches genuinely unbounded growth; per-skill files stay far under 40k.
+const TOTAL_TOKEN_WARNING = 300_000;
 
 function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);
