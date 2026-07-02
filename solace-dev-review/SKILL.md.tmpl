@@ -42,6 +42,7 @@ Requires at least one technical skill complete. Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 for dir in 02-topic-design 04-sam-design 05-protocol-select 08-integration; do
   for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
@@ -51,6 +52,15 @@ done
 ```
 
 ---
+
+## Candidate checks (verify first)
+
+From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+
+- **No schema version in topics:** if the topic taxonomy has no version level (e.g. `v{N}`)
+  → Important (blocks schema evolution and blue-green rollout).
+- **Schema governance gap:** if `landscape.schemas` is non-empty but no artifact addresses a
+  schema registry or per-event versioning policy → Advisory.
 
 ## Step 1: Topic taxonomy usability
 
@@ -135,6 +145,10 @@ After completing steps 1–4, classify every finding by developer impact:
   the confirmation block only.
 
 Each finding should include a concrete recommendation for improvement.
+
+---
+
+{{CONFIDENCE_CALIBRATION}}
 
 ---
 

@@ -164,7 +164,9 @@ All project outputs go to `projects/<project-slug>/`. Each project has:
 ```
 projects/<project-slug>/
   context.yaml          # project name, display name, creation date, status
-  decisions.yaml        # accumulated design decisions across skills
+  intake.yaml           # canonical structured intake — source of truth for routing/reviews/validation
+  decisions.yaml        # design decisions across skills (review findings = entries with a source)
+  open-items.yaml       # deferred findings + unaddressed requirements; blocking items gate blueprint
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
     01-discovery/
@@ -760,6 +762,8 @@ Read ALL project artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+echo "=== INTAKE (canonical requirements for tracing) ==="
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 echo "=== DECISIONS ==="
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 echo ""
@@ -928,6 +932,27 @@ assembled system actually delivers what was asked for.
 If any requirement traces to FAIL, the architecture is **not ready for blueprint**.
 Flag it as a critical issue in the validation report.
 
+**Record open items for anything unaddressed.** For each requirement that traces to FAIL, and
+each open question that resolved to "No" (silently assumed away), append a tracked open item to
+`projects/<slug>/open-items.yaml` (create with `open_items: []` if absent). Assign the next
+`OI-NNN` id. A FAILed requirement is `severity: blocking` (it gates blueprint); a silently-assumed
+open question is `severity: high` unless it materially blocks design, in which case `blocking`.
+
+```yaml
+- id: OI-<NNN>
+  description: "<requirement or open question that is unaddressed>"
+  source: solace-validate
+  source_ref: "artifacts/11-validation/validation-report.md"
+  severity: "<blocking|high>"
+  resolution: "<what would satisfy it — the missing design or the fact to confirm>"
+  status: open
+  created: "<UTC timestamp>"
+  updated: "<UTC timestamp>"
+```
+
+Do not duplicate an item that already exists in `open-items.yaml` (e.g. a deferred review
+finding covering the same gap) — read the file first and skip if the same description is present.
+
 ---
 
 ## Step 4: Decision conflict analysis
@@ -975,8 +1000,12 @@ Structure the report:
 ## Decision Conflicts
 <any contradictions found>
 
+## Open Items Recorded
+<list any OI-NNN items this validation added to open-items.yaml, with severity — or "none">
+
 ## Risk Summary
 <overall assessment: is this architecture ready for blueprint assembly?>
+<if any blocking open items are open, state that blueprint is gated until they are resolved>
 
 ## Recommendations
 <specific actions to take before proceeding to /solace-blueprint>

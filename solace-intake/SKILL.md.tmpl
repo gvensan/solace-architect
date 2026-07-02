@@ -1063,6 +1063,72 @@ cat > "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" << 'BRIEFEOF'
 BRIEFEOF
 ```
 
+**Persist the canonical structured intake.** In addition to the human-readable brief,
+write `projects/$ACTIVE/intake.yaml` — the machine-readable single source of truth that
+`/solace-plan`, the review skills, and `/solace-validate` key off. This is a **verbatim
+canonical mirror** of all collected data (the imported intake plus any follow-up answers
+from Steps I4–I5), using the exact field paths and value vocabulary below. Do not
+paraphrase into prose here — downstream skills evaluate these fields directly, so the keys
+and values must match the schema exactly (`skill-routing.yaml` is the routing contract that
+reads them).
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/intake.yaml" << 'INTAKEEOF'
+# Canonical structured intake — single source of truth for routing, reviews, validation.
+# Field paths/values must match scripts/skill-routing.yaml and the intake HTML form data-paths.
+source: intake
+project:
+  name: <project.name>
+  type: <new_build|migration|extension|sam>
+landscape:
+  vertical: <banking|capital_markets|manufacturing|healthcare|other>
+  existing_messaging: "<free text, verbatim>"
+  volumes: "<free text, verbatim>"
+  schemas: "<free text, verbatim>"
+  protocols_in_use: [<list>]
+  systems:
+    - name: <system name>
+      role: <producer|consumer|producer_consumer>
+      protocol: "<protocol(s)>"
+      owner: <owner>
+  events:
+    - name: <event name>
+      rate: "<rate>"
+      delivery: <guaranteed|direct>
+      payload: <format>
+      payload_size: "<size>"
+requirements:
+  delivery_mode: <guaranteed|direct|mixed>
+  ordering: <value>
+  processing_guarantee: <at_least_once|exactly_once|best_effort>
+  latency_tier: <value>
+  topology: <single_site|multi_region|hybrid_cloud|edge>
+  sites_and_regions: "<free text, verbatim>"
+  it_ot_boundary: "<free text, verbatim>"
+  growth_expectations: "<free text, verbatim>"
+  data_residency: "<free text, verbatim — empty string if none>"
+  operations_team: "<free text, verbatim>"
+  solace_experience: "<free text, verbatim>"
+  observability: "<free text, verbatim>"
+  cicd: "<free text, verbatim>"
+# domain.<vertical>.* — include only the block matching landscape.vertical, verbatim
+domain: {}
+goals:
+  driver: "<free text, verbatim>"
+  timeline: "<free text, verbatim>"
+  budget: "<free text, verbatim>"
+  team_size: "<free text, verbatim>"
+  organizational_constraints: "<free text, verbatim>"
+preferences:
+  execution_mode: <auto|interactive>
+  provision_event_portal: <true|false>
+INTAKEEOF
+```
+
+Omit only keys you genuinely have no value for; never invent values. For list fields with
+no entries, use `[]`. Quote any value containing `*` or `>` so the YAML parses.
+
 Record decisions from the intake in `decisions.yaml`. Map each selection to a decision
 entry with the format:
 

@@ -47,6 +47,7 @@ Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 for dir in 02-topic-design 04-sam-design 03-broker-select 05-protocol-select 06-mesh-design 07-ha-dr 08-integration 09-migration; do
@@ -57,6 +58,14 @@ done
 ```
 
 ---
+
+## Candidate checks (verify first)
+
+From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+
+- **Over-engineered mesh:** if `requirements.topology == single_site` but a mesh/DMR artifact
+  specifies DMR, federation, multi-region, or external links → likely over-engineered (Important).
+  A single site rarely needs DMR. Do not infer multi-site from the free-text `sites_and_regions`.
 
 ## Step 1: Structural review
 
@@ -132,6 +141,10 @@ Each finding must:
 - Be specific (name the component, topic, agent, or link)
 - Reference the relevant Solace documentation or antipattern
 - Propose a concrete alternative
+
+---
+
+{{CONFIDENCE_CALIBRATION}}
 
 ---
 

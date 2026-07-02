@@ -163,7 +163,9 @@ All project outputs go to `projects/<project-slug>/`. Each project has:
 ```
 projects/<project-slug>/
   context.yaml          # project name, display name, creation date, status
-  decisions.yaml        # accumulated design decisions across skills
+  intake.yaml           # canonical structured intake — source of truth for routing/reviews/validation
+  decisions.yaml        # design decisions across skills (review findings = entries with a source)
+  open-items.yaml       # deferred findings + unaddressed requirements; blocking items gate blueprint
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
     01-discovery/
@@ -760,6 +762,7 @@ Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 for dir in 02-topic-design 04-sam-design 03-broker-select 05-protocol-select 06-mesh-design 07-ha-dr 08-integration 09-migration; do
@@ -770,6 +773,14 @@ done
 ```
 
 ---
+
+## Candidate checks (verify first)
+
+From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+
+- **Over-engineered mesh:** if `requirements.topology == single_site` but a mesh/DMR artifact
+  specifies DMR, federation, multi-region, or external links → likely over-engineered (Important).
+  A single site rarely needs DMR. Do not infer multi-site from the free-text `sites_and_regions`.
 
 ## Step 1: Structural review
 
@@ -848,6 +859,14 @@ Each finding must:
 
 ---
 
+## Confidence Calibration
+
+Score every finding 1–10 in its header, grounded in the artifact/doc that supports it:
+8–10 verified · 6–7 strong inference · 4–5 show with a "verify" caveat · 1–3 omit unless
+severity would be Critical (then state what would confirm it).
+
+---
+
 ## Step 5: Resolve findings interactively
 
 ## Interactive Finding Resolution
@@ -875,7 +894,7 @@ Walk through each issue one at a time using AskUserQuestion. Present in severity
 For each issue, present:
 
 ```
-Finding <N>/<total> — <severity>
+Finding <N>/<total> — <severity> (confidence: <X>/10) — <artifact>:<section>
 
   Issue:    <one-sentence description of the problem>
   Impact:   <what happens if this is not addressed>
@@ -908,6 +927,27 @@ recording what was changed, why, and which review surfaced it:
   action: deferred
 ```
 
+Then **also record an open item** so the deferral is tracked in one place and can gate
+downstream steps. Append to `projects/<slug>/open-items.yaml` (create it with `open_items: []`
+if absent). Assign the next `OI-NNN` id (read the file, take the highest existing number + 1,
+zero-padded to 3 digits; start at OI-001). Map the finding severity to the open-item ladder:
+**critical → blocking, important → high, advisory → advisory**.
+
+```yaml
+- id: OI-<NNN>
+  description: "<finding description>"
+  source: "<review skill name>"
+  source_ref: "artifacts/10-reviews/<review>.md"
+  severity: "<blocking|high|advisory>"
+  resolution: "<the proposed fix from the finding — what would resolve it>"
+  status: open
+  created: "<UTC timestamp>"
+  updated: "<UTC timestamp>"
+```
+
+A **blocking** open item (from a deferred *critical* finding) will pause the affected design
+step in `/solace-plan` until it is resolved; high/advisory items are surfaced but never block.
+
 **Discuss:** Answer the user's questions. After discussion, re-present the same finding
 with the Apply/Defer choice. Do not advance to the next finding until this one is resolved.
 
@@ -928,6 +968,7 @@ Finding Resolution Summary
   Deferred: <count> findings (<list severity breakdown>)
   No issue: <count> areas confirmed
 
+  Open items created: <count> (<N blocking, N high, N advisory>)
   Artifacts updated: <list of modified artifact files>
 ```
 

@@ -454,6 +454,73 @@ cat > "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" << 'BRIEFEOF'
 BRIEFEOF
 ```
 
+**Persist the canonical structured intake.** The prose brief above is for humans;
+downstream skills (`/solace-plan` routing, the review skills, `/solace-validate`) evaluate
+a machine-readable schema instead. Write `projects/$ACTIVE/intake.yaml` from the interview
+answers using the exact field paths and value vocabulary below — the identical schema the
+`/solace-intake` import produces, so both entry paths converge on one source of truth
+(`scripts/skill-routing.yaml` is the routing contract that reads these fields). Use the
+canonical values exactly (e.g. `topology: single_site|multi_region|hybrid_cloud|edge`,
+`processing_guarantee: at_least_once`, `data_residency` as a free-text string, empty if none;
+`role: producer|consumer|producer_consumer`). Do not paraphrase into prose here.
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/intake.yaml" << 'INTAKEEOF'
+# Canonical structured intake — single source of truth for routing, reviews, validation.
+# Field paths/values must match scripts/skill-routing.yaml and the intake HTML form data-paths.
+source: discovery
+project:
+  name: <project name>
+  type: <new_build|migration|extension|sam>
+landscape:
+  vertical: <banking|capital_markets|manufacturing|healthcare|other>
+  existing_messaging: "<free text>"
+  volumes: "<free text>"
+  schemas: "<free text>"
+  protocols_in_use: [<list>]
+  systems:
+    - name: <system name>
+      role: <producer|consumer|producer_consumer>
+      protocol: "<protocol(s)>"
+      owner: <owner>
+  events:
+    - name: <event name>
+      rate: "<rate>"
+      delivery: <guaranteed|direct>
+      payload: <format>
+      payload_size: "<size>"
+requirements:
+  delivery_mode: <guaranteed|direct|mixed>
+  ordering: <value>
+  processing_guarantee: <at_least_once|exactly_once|best_effort>
+  latency_tier: <value>
+  topology: <single_site|multi_region|hybrid_cloud|edge>
+  sites_and_regions: "<free text>"
+  it_ot_boundary: "<free text>"
+  growth_expectations: "<free text>"
+  data_residency: "<free text — empty string if none>"
+  operations_team: "<free text>"
+  solace_experience: "<free text>"
+  observability: "<free text>"
+  cicd: "<free text>"
+# domain.<vertical>.* — include only the block matching landscape.vertical
+domain: {}
+goals:
+  driver: "<free text>"
+  timeline: "<free text>"
+  budget: "<free text>"
+  team_size: "<free text>"
+  organizational_constraints: "<free text>"
+preferences:
+  execution_mode: <auto|interactive>
+  provision_event_portal: <true|false>
+INTAKEEOF
+```
+
+Omit only keys you genuinely have no value for; never invent values. Use `[]` for empty
+lists. Quote any value containing `*` or `>` so the YAML parses.
+
 Present the brief to the user. Ask if anything is missing or incorrect.
 
 ---

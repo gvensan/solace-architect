@@ -42,6 +42,7 @@ Requires at least one technical skill complete. Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 for dir in 02-topic-design 04-sam-design 03-broker-select 05-protocol-select 06-mesh-design 07-ha-dr 08-integration 09-migration; do
   for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
@@ -51,6 +52,16 @@ done
 ```
 
 ---
+
+## Candidate checks (verify first)
+
+From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+
+- **No HA under guaranteed delivery:** if `requirements.delivery_mode` is `guaranteed` or `mixed`
+  (or `requirements.processing_guarantee: at_least_once`) but the HA/DR artifact describes no
+  redundancy group, replication, standby, or failover → Important.
+- **No broker sizing:** if the broker recommendation has no explicit sizing block (spool,
+  throughput band, service class) → Important.
 
 ## Step 1: Monitoring and observability
 
@@ -140,6 +151,10 @@ After completing steps 1–4, classify every finding by operational risk:
   trajectory. Scaling risk.
 - **Advisory** — Missing automation, manual processes that should be
   automated, incomplete documentation. Operational debt.
+
+---
+
+{{CONFIDENCE_CALIBRATION}}
 
 ---
 
