@@ -42,6 +42,7 @@ Requires at least one technical skill complete. Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 for dir in 02-topic-design 03-broker-select 04-sam-design 05-protocol-select 06-mesh-design 07-ha-dr 08-integration; do
@@ -60,6 +61,17 @@ cat {{GROUNDING_DIR}}/solace-canonical-sources.md | grep -i -A2 "security\|authe
 ```
 
 ---
+
+## Candidate checks (verify first)
+
+From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+
+- **No transport encryption:** if no design artifact mentions TLS/SSL/encryption → Important.
+- **No auth/authorization:** if no artifact defines client profiles, ACLs, OAuth, or client
+  authentication → Important.
+- **Residency not enforced:** if `requirements.data_residency` is non-empty but the mesh/DMR
+  artifact shows no selective replication or residency filter (events may cross regions)
+  → **Critical**.
 
 ## Step 1: Authentication model
 
@@ -140,6 +152,10 @@ a concrete remediation.
 
 ---
 
+{{CONFIDENCE_CALIBRATION}}
+
+---
+
 ## Step 6: Resolve findings interactively
 
 {{FINDING_RESOLUTION}}
@@ -148,13 +164,22 @@ a concrete remediation.
 
 ## Step 7: Write findings and complete
 
-Save the review document with resolution status on each finding:
+Save the review document. Beyond the findings list, leave a reusable **posture record** (omit a
+section only if there is genuinely no surface for it, and say so):
+
+1. **Findings** — with status (APPLIED/DEFERRED), severity, confidence, `<artifact>:<section>`.
+2. **ACL matrix** — per client: topics it may publish/subscribe, deny-by-default.
+3. **Auth + encryption** — per client: auth method (mTLS / OAuth-JWT / basic), credential source,
+   rotation; TLS in transit (clients, DMR, replication), spool-at-rest, certificate lifecycle.
+4. **Regulatory mapping** — for each regime in `requirements.data_residency` / vertical `domain.*`
+   fields (PCI-DSS, HIPAA, …), a requirement→control table. Ground claims in the regulation itself.
 
 ```bash
 ACTIVE=$(cat projects/.active)
 mkdir -p "projects/$ACTIVE/artifacts/10-reviews"
 cat > "projects/$ACTIVE/artifacts/10-reviews/security-review.md" << 'EOF'
-<paste the structured review findings with APPLIED/DEFERRED status>
+<paste the structured review: findings (with APPLIED/DEFERRED status) followed by the
+ACL matrix, client-profile table, encryption posture, and regulatory mapping sections>
 EOF
 ```
 

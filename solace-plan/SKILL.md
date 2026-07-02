@@ -163,7 +163,9 @@ All project outputs go to `projects/<project-slug>/`. Each project has:
 ```
 projects/<project-slug>/
   context.yaml          # project name, display name, creation date, status
-  decisions.yaml        # accumulated design decisions across skills
+  intake.yaml           # canonical structured intake — source of truth for routing/reviews/validation
+  decisions.yaml        # design decisions across skills (review findings = entries with a source)
+  open-items.yaml       # deferred findings + unaddressed requirements; blocking items gate blueprint
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
     01-discovery/
@@ -757,10 +759,17 @@ Read all current project state:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null || echo "NO_INTAKE_YAML"
 cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null || echo "NO_BRIEF"
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
 ```
+
+`intake.yaml` is the **canonical structured source** written by `/solace-intake` or
+`/solace-discovery`. When present, evaluate the conditional routing in Step 1 against its
+fields directly (they match `scripts/skill-routing.yaml`). If it prints `NO_INTAKE_YAML`
+(older project created before this artifact existed), fall back to interpreting the prose
+discovery brief and `decisions.yaml` choices.
 
 If the plan skill was previously run and skills are already in progress, show the
 current state and offer to continue from where things left off.
@@ -777,13 +786,24 @@ Based on the discovery brief, determine which skills this project needs:
 - `/solace-protocol-select` — every project needs protocol assignments
 - `/solace-event-portal` — every project needs Event Portal governance. Without it, the architecture exists only in documentation, not in a discoverable, enforceable catalog.
 
-**Conditional (design phase):**
-- `/solace-sam-design` — include if SAM, AI assistant, chatbot, agent orchestration mentioned
-- `/solace-mesh-design` — include if multi-site, multi-region, multi-cloud, or edge
-- `/solace-ha-dr` — include if HA/DR requirements mentioned, regulated environment, or multi-site
-- `/solace-integration` — include if backend systems need Micro-Integrations
-- `/solace-migration` — include if migrating from another messaging system
+**Conditional (design phase).** When `intake.yaml` is present, evaluate these against its
+canonical fields (the conditions mirror `scripts/skill-routing.yaml` exactly — same field
+paths, same value vocabulary). Otherwise fall back to the prose brief.
+
+- `/solace-sam-design` — include if `project.type == sam`, OR any `landscape.systems[].name`
+  contains any of [chat, chatbot, assistant, agent, copilot, llm, rag, ai], OR `goals.driver`
+  mentions a chat/AI agent, assistant, copilot, or SAM.
+- `/solace-mesh-design` — include if `requirements.topology` is in [multi_region, hybrid_cloud, edge].
+- `/solace-ha-dr` — include if `requirements.topology` is in [multi_region, hybrid_cloud], OR
+  `requirements.delivery_mode` is in [guaranteed, mixed], OR `landscape.vertical` is in
+  [banking, capital_markets, healthcare].
+- `/solace-integration` — include if `landscape.systems` is non-empty.
+- `/solace-migration` — include if `project.type == migration`, OR `landscape.existing_messaging`
+  mentions any of [kafka, ibm mq, rabbitmq, tibco, activemq, mq series, jms].
 - `/solace-ep-provision` — include **only** if `decisions.yaml` has `provision_event_portal: true` (set from `preferences.provision_event_portal` at intake). This writes to a live Solace Cloud tenant via the EP Designer MCP and is opt-in by design. Project type does not auto-trigger it. Must run after `/solace-event-portal`. If the gate is on but the EP Designer MCP is not loaded at run time, the skill records a BLOCKED status with the exact reason — surface that BLOCKED state in the final plan summary; never treat it as a silent skip.
+
+Note: `requirements.topology == single_site` is not a countable site list — do not infer
+multi-site from `requirements.sites_and_regions` (free text). Use `topology` for routing.
 
 **Always at the end (finalize phase):**
 - Review skills (architect, ops, security, dev) — all four by default, user can skip
@@ -908,6 +928,43 @@ not need to manually thread context — the project infrastructure handles it.
 **Handling interruptions:** If the user stops mid-plan, the plan's progress is saved.
 When the plan skill is re-invoked, it reads `progress.yaml`, identifies where things
 left off, and offers to continue.
+
+### Open-item gate (before blueprint assembly)
+
+Blocking open items must not pass silently into the blueprint. After the review and
+validation skills have run — and **before** invoking `/solace-blueprint` — check for
+unresolved blocking items:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 - "$ACTIVE" << 'PYEOF'
+import sys, yaml, os
+path = f"projects/{sys.argv[1]}/open-items.yaml"
+items = (yaml.safe_load(open(path)) or {}).get("open_items", []) if os.path.exists(path) else []
+blocking = [i for i in items if str(i.get("severity","")).lower() == "blocking"
+            and str(i.get("status","open")).lower() != "resolved"]
+if blocking:
+    print(f"BLOCKING_OPEN_ITEMS: {len(blocking)}")
+    for i in blocking:
+        print(f"  {i.get('id')} — {i.get('description')} (source: {i.get('source')})")
+else:
+    print("NO_BLOCKING_OPEN_ITEMS")
+PYEOF
+```
+
+If this prints `BLOCKING_OPEN_ITEMS`, do **not** proceed to `/solace-blueprint`. Surface each
+one and ask the user (AskUserQuestion) how to handle it:
+
+- **Resolve** — the user addresses it now (e.g. re-run the relevant design skill or confirm a
+  fact); then set that item's `status: resolved` in `open-items.yaml` and re-check.
+- **Downgrade to advisory** — the user accepts the risk; change `severity` to `advisory` and
+  record the acceptance in `decisions.yaml`. The blueprint's "Open Questions and Risks" section
+  will carry it forward.
+- **Discuss** — answer questions, then re-present.
+
+In **auto mode**, a blocking open item forces a fall-back to interactive for this gate — never
+auto-blueprint over an unresolved blocking item. `high` and `advisory` items do not gate; note
+them in the transition but proceed.
 
 ### Artifact validation (after each finalize-phase skill)
 

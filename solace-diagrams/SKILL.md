@@ -164,7 +164,9 @@ All project outputs go to `projects/<project-slug>/`. Each project has:
 ```
 projects/<project-slug>/
   context.yaml          # project name, display name, creation date, status
-  decisions.yaml        # accumulated design decisions across skills
+  intake.yaml           # canonical structured intake — source of truth for routing/reviews/validation
+  decisions.yaml        # design decisions across skills (review findings = entries with a source)
+  open-items.yaml       # deferred findings + unaddressed requirements; blocking items gate blueprint
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
     01-discovery/
