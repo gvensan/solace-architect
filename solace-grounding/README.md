@@ -25,7 +25,7 @@ The template infrastructure supports 10 AI coding agent hosts (Claude Code, Code
 
 ## Grounding documents
 
-Eight documents anchor the work:
+Eight documents anchor the Solace **platform** grounding:
 
 | Document | Purpose |
 |----------|---------|
@@ -39,6 +39,8 @@ Eight documents anchor the work:
 | `MAINTENANCE.md` | Refresh manifest. Tracks all external resources, their refresh cadence, and version numbers. |
 
 Read in this order if you're new: platform reference (orients you to the surface), canonical sources (where to read for depth), reference architectures (how the surface composes for real problems), claude-instructions (how skills behave on top of all of it).
+
+Alongside the platform docs, `managed/` holds an **organizational** grounding layer: admin-curated reference material for a specific customer's own standards, landscape, and constraints (see `managed/README.md`). It is distinct from Solace platform grounding — every skill loads it and cites it `[managed-ref: <title>]`, and it is applied as reference material, never as instructions. It ships empty; maintainers populate `managed/digest.md` per deployment.
 
 ## Working principles
 
