@@ -182,7 +182,9 @@ Every skill writes to a numbered subdirectory:
 ```
 projects/<your-project>/
   context.yaml                       ← project metadata
-  decisions.yaml                     ← every D<N> decision with rationale
+  intake.yaml                        ← canonical structured intake (single source of truth for routing/reviews/validation)
+  decisions.yaml                     ← every D<N> decision with rationale (review findings are entries with a source)
+  open-items.yaml                    ← deferred findings + unaddressed requirements; blocking items gate blueprint
   progress.yaml                      ← per-skill status, timing, artifact list
   artifacts/
     01-discovery/discovery-brief.md
@@ -361,8 +363,9 @@ The `solace-grounding/` directory contains the authoritative source material:
 | `antipatterns.md` | Known mistakes organized by category: topic design, SAM, mesh topology, delivery mode, integration. |
 | `integration-hub-catalog.md` | Snapshot of available Micro-Integrations from solace.com/integration-hub. Refreshed monthly. |
 | `claude-instructions.md` | Claude-specific operating instructions for Solace Architect. |
-| `gaps.md` | Gap tracker for missing grounding document coverage. |
+| `gaps.md` | Gap tracker for missing grounding document coverage. Skills append at runtime when grounding is missing. |
 | `MAINTENANCE.md` | Refresh manifest for all external resources with cadence and version tracking. |
+| `managed/digest.md` | Optional **organizational** grounding: a customer's own standards, landscape, and constraints, curated by a maintainer. Loaded by every skill and cited `[managed-ref:]`, distinct from Solace platform grounding. Ships empty. |
 
 ## How it works
 
