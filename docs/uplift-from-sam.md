@@ -1,7 +1,8 @@
 # Uplift plan: absorbing `sam-solace-architect` sophistication into the skill toolkit
 
-**Status:** Phase 0 ✅ and Phase 1 ✅ implemented (working tree, uncommitted; 277 tests pass).
-Phases 2–4 not started. See §5 for phase definitions.
+**Status:** Phases 0 ✅, 1 ✅, 2 ✅, 3 ✅ implemented and committed (280 tests pass).
+Phase 4 (managed grounding) not started. See §5 for phase definitions.
+Note: Phase 3 raised the total-token ceiling to 300k to fit the promoted grounding discipline.
 **Author:** Drafted with Claude Code during a review session.
 **Goal:** Bring this skill-based toolkit (`solace-architect-v1`) up to parity with the more
 advanced reference project `sam-solace-architect` (a SAM agentic system, internally "V2"),
