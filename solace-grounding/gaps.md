@@ -16,12 +16,6 @@ Format:
 
 ### Platform Services (Layer 3) — highest impact
 
-- **Solace Cloud Console:** Not referenced in any skill template. No guidance on Console-based provisioning, management workflows, or team/role configuration.
-  - Skill: none
-  - Workaround: None
-  - Priority: Medium
-  - Date: 2026-05-03
-
 - **Event Mesh Visualizer:** Not mentioned anywhere in grounding docs or skills.
   - Skill: none
   - Workaround: None
@@ -34,67 +28,6 @@ Format:
   - Skill: /solace-integration, /solace-migration
   - Workaround: Generic MI guidance applied
   - Priority: Medium
-  - Date: 2026-05-03
-
-### Event Mesh (Layer 1)
-
-- **Topic Endpoints:** No guidance on when to use topic endpoints vs. queues. Platform reference defines them but no skill recommends or designs them.
-  - Skill: /solace-topic-design
-  - Workaround: All durable subscriptions default to queues
-  - Priority: Medium
-  - Date: 2026-05-03
-
-- **Transactions (XA, local):** Platform reference now documents transaction types. No skill asks about transactional requirements or designs transaction boundaries.
-  - Skill: /solace-discovery, /solace-architect-review
-  - Workaround: Grounding available; skill extension needed (Phase 5)
-  - Priority: Medium
-  - Date: 2026-05-03
-
-- **Queue configuration parameters:** No per-queue sizing recommendations — max spool, max redelivery, max TTL, reject-on-max-spool, partition count. Broker provisioning artifact is generic.
-  - Skill: /solace-blueprint
-  - Workaround: Default values assumed
-  - Priority: Medium
-  - Date: 2026-05-03
-
-- **Priority messaging:** Platform reference now documents message priority (0-9). No skill asks about or designs priority-based message flows.
-  - Skill: /solace-topic-design, /solace-protocol-select
-  - Workaround: Grounding available; skill extension needed (Phase 5)
-  - Priority: Low
-  - Date: 2026-05-03
-
-- **Message VPN Bridges:** Platform reference now documents bridge topology. No skill designs bridge topology between VPNs.
-  - Skill: /solace-mesh-design
-  - Workaround: Grounding available; skill extension needed (Phase 5)
-  - Priority: Low
-  - Date: 2026-05-03
-
-- **Distributed Tracing / OpenTelemetry strategy:** Checklist item only — no tracing design. Which spans to capture, which backends to forward to, OpenTelemetry Collector with Solace receiver, context propagation patterns.
-  - Skill: /solace-ops-review
-  - Workaround: "Is Distributed Tracing configured?" question
-  - Priority: Medium
-  - Date: 2026-05-03
-
-### Security
-
-- **Kerberos, LDAP, RADIUS authentication:** Platform reference documents all three. No skill asks about enterprise identity provider integration or recommends configuration.
-  - Skill: /solace-security-review
-  - Workaround: OAuth and client certificate auth covered; enterprise IdP patterns missing
-  - Priority: Medium
-  - Phase: 4 (extend /solace-security-review)
-  - Date: 2026-05-03
-
-- **Rate limiting / Connection limits:** Platform reference mentions per-VPN quotas and client profile rate limits. No skill designs rate limiting strategy.
-  - Skill: /solace-security-review, /solace-ops-review
-  - Workaround: None
-  - Priority: Medium
-  - Phase: 4 (extend /solace-security-review)
-  - Date: 2026-05-03
-
-- **Client profile configuration:** Mentioned in security review but no skill generates specific client profile configs (max connections, max subscriptions, rate limits, guaranteed messaging properties).
-  - Skill: /solace-security-review, /solace-blueprint
-  - Workaround: Generic "per-client profile" recommendation
-  - Priority: Medium
-  - Phase: 4 (extend /solace-security-review)
   - Date: 2026-05-03
 
 ### Operational
@@ -111,39 +44,45 @@ Format:
   - Priority: Medium
   - Date: 2026-05-03
 
-- **Kubernetes Operator:** Platform reference expanded with Operator details, Helm chart config, and canonical URLs. No skill references the Operator for deployment design.
-  - Skill: /solace-broker-select
-  - Workaround: Grounding available; skill extension needed (Phase 3)
-  - Priority: Medium
-  - Date: 2026-05-03
-
 - **Upgrade / patching procedures:** Asked about but no specific Solace upgrade path guidance (rolling upgrades, version compatibility, K8s Operator upgrade flows).
   - Skill: /solace-ops-review
   - Workaround: Generic "how are upgrades performed?" question
   - Priority: Medium
   - Date: 2026-05-03
 
-### Integration Patterns
-
-- **Request-reply topology:** Platform reference now documents request-reply patterns. No skill designs reply-to topics, temporary topics, correlation IDs, timeout handling.
-  - Skill: /solace-protocol-select, /solace-topic-design
-  - Workaround: Grounding available; skill extension needed (Phase 5)
-  - Priority: Medium
-  - Date: 2026-05-03
-
-- **Event sourcing / CQRS:** Platform reference now documents event sourcing and CQRS patterns. No skill asks about or designs these patterns.
-  - Skill: /solace-discovery, /solace-topic-design
-  - Workaround: Grounding available; skill extension needed (Phase 5)
-  - Priority: Low
-  - Date: 2026-05-03
-
-- **Saga / Choreography patterns:** Platform reference now documents saga and choreography patterns. No skill designs distributed transaction patterns using Solace topics and Guaranteed messaging.
-  - Skill: /solace-discovery, /solace-integration
-  - Workaround: Grounding available; skill extension needed (Phase 5)
-  - Priority: Low
-  - Date: 2026-05-03
-
 ## Resolved gaps
+- **~~Topic Endpoints~~:** /solace-topic-design Step 3 now chooses queue vs topic endpoint per Guaranteed consumer (queue default; topic endpoint only for the single-subscription case).
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Priority messaging~~:** /solace-topic-design assigns priority (0-9, default 4) as a flow property for fast-lane cases; /solace-protocol-select confirms protocol/SDK support and that priority is queue-scoped.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Request-reply topology~~:** /solace-topic-design and /solace-protocol-select now lay out reply-to (temporary) topics + correlation IDs in message properties (not in the topic), REST native support, client-side timeout handling.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Event sourcing / CQRS~~ and ~~Saga / Choreography~~:** /solace-discovery elicits the pattern signals; /solace-topic-design lays out the topic namespaces (CQRS command vs query; saga compensating-event topics + DMQ) per the Integration patterns grounding.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Transactions (XA, local)~~:** /solace-discovery now probes atomic multi-message / XA requirements and carries the signal into the brief for downstream design.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Message VPN Bridges~~:** /solace-mesh-design Step 2 covers bridges vs DMR (bridge only for connecting specific VPNs / older deployments; DMR is the default; don't scale a web of bridges).
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Kerberos, LDAP, RADIUS authentication~~:** /solace-security-review Step 1 now recommends the matching enterprise-IdP method when the brief names an existing directory/realm, per-VPN.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Rate limiting / Connection limits~~ and ~~Client profile configuration~~:** /solace-security-review recommends concrete client-profile values (max connections/subscriptions, GM permissions, ingress/egress rates) + per-VPN quotas as the two rate-limiting levers; /solace-blueprint emits per-client-profile provisioning parameters.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Queue configuration parameters~~:** /solace-blueprint now enumerates per-queue provisioning params (max spool, redelivery, DMQ, TTL, reject-on-discard, partition count) instead of a generic queues line.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
+
+- **~~Distributed Tracing / OpenTelemetry strategy~~:** /solace-ops-review Step 1 designs the tracing strategy (OTel Collector + Solace receiver, which flows to trace, production-key and local-transaction caveats).
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3 — collector config specifics still verified at runtime)
+
+- **~~Kubernetes Operator~~ and ~~Solace Cloud Console~~:** /solace-broker-select names the PubSub+ Kubernetes Operator (StatefulSets, Helm, rolling upgrades) for self-managed K8s deployments and the Solace Cloud Console for event broker service management.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
 
 - **~~Sizing and capacity planning in skills~~:** /solace-broker-select Step 4 now computes the sizing methodology from the platform reference (connection count, peak rate × size, spool = size × retention × rate, service-class/edition mapping) and writes an explicit `sizing` block; /solace-ops-review Step 3 now produces a capacity baseline table (need vs limit vs headroom vs scaling trigger).
   - Resolved: 2026-07-03 (uplift/sam-parity — skill extensions consuming existing grounding)

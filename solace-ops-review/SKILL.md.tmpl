@@ -87,6 +87,13 @@ Software Event Brokers too; the alternative is SEMP Monitor API polling into the
 - Are message latency metrics tracked end-to-end?
 - Can the ops team trace a message from producer through broker to consumer?
 
+Design the **tracing strategy**, not just its presence: Solace Distributed Tracing emits message
+lifecycle spans via **OpenTelemetry**, collected through an OpenTelemetry Collector with the
+Solace receiver and forwarded to the team's tracing backend (the brief's observability answer
+names it). Decide which flows are traced (tracing everything is costly — target the critical /
+regulated paths), and note the caveats from grounding: production use needs a production key
+(demo mode is time-limited), and local-transaction messages do not generate trace messages.
+
 **SAM-specific monitoring (if applicable):**
 - Agent health checks — are agents responding?
 - OrchestratorAgent queue depth — is work backing up?

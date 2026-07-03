@@ -144,6 +144,13 @@ and when multiple brokers beat multiple VPNs (HA fails over all VPNs together â€
 failover granularity is not supported). Single-app single-site projects usually need one VPN;
 say so explicitly rather than skipping the question.
 
+**Deployment mechanism.** If the recommendation is a self-managed Software Event Broker on
+Kubernetes, name the **Solace PubSub+ Kubernetes Operator** as the deployment path (manages
+broker pods as StatefulSets, persistent volumes for spool, ConfigMaps for config; supports HA
+setup and rolling upgrades; Helm charts are the primary install mechanism) rather than raw
+manifests. For event broker services, note the **Solace Cloud Console** as the provisioning and
+management pane.
+
 Save the broker recommendation artifact:
 
 ```bash
