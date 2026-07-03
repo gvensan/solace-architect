@@ -14,20 +14,20 @@ Format:
 
 ## Known gaps
 
-> Wave-4 status (2026-07-03): these need grounding fetched into the platform reference before a
-> skill can consume them. The exact docs.solace.com URLs were not resolvable in a quick pass
-> (backup/restore, default-port-numbers) or live outside the grounding allowlist (the standalone
-> Kafka Connect connectors are on github.com/SolaceProducts; Event Mesh Visualizer is a Cloud UI).
-> Left open deliberately rather than fabricated — a maintainer with the canonical URLs should
-> fetch → ground → then extend the named skill.
+> Wave-4 status (2026-07-03): the remaining gaps need grounding fetched into the platform
+> reference before a skill can consume them. **Backup / restore** — the canonical docs.solace.com
+> URL wasn't resolvable in a quick pass (needs a maintainer to grab it from docs search).
+> **Kafka Connect connectors** — config lives on github.com/SolaceProducts, outside the grounding
+> allowlist (a maintainer decision on whether to widen the allowlist). **Network architecture** —
+> the ports/firewall portion is now grounded; only LB / DNS-failover / NAT-for-DMR remain, and
+> those are deployment-environment specifics. Left open deliberately rather than fabricated.
 
 ### Platform Services (Layer 3) — highest impact
 
-- **Event Mesh Visualizer:** Not mentioned anywhere in grounding docs or skills.
-  - Skill: none
-  - Workaround: None
-  - Priority: Low
-  - Date: 2026-05-03
+<!-- Resolved 2026-07-03 (Wave 4): "Event Mesh Visualizer" is not a standalone doc topic —
+     topology visualization is delivered through Event Portal (Designer / Runtime Event Manager
+     graph) and Solace Insights, both already grounded and skill-covered. No separate grounding
+     needed. Moved to Resolved. -->
 
 ### Application Services (Layer 2)
 
@@ -45,13 +45,19 @@ Format:
   - Priority: Medium
   - Date: 2026-05-03
 
-- **Network architecture:** No skill addresses load balancer configuration, DNS failover, firewall rules for broker ports, or NAT traversal for DMR links.
+- **Network architecture (partial):** Firewall rules for broker ports are now grounded (platform reference "Default ports and firewall" + canonical URL) and /solace-mesh-design references them for external links. Still open: load-balancer configuration, DNS failover, and NAT traversal for DMR links — these are deployment-environment specifics needing the customer's network context or dedicated Solace networking docs.
   - Skill: /solace-mesh-design, /solace-ha-dr
-  - Workaround: None
-  - Priority: Medium
-  - Date: 2026-05-03
+  - Workaround: Ports/firewall grounded; LB/DNS/NAT stated as requirements, deferred to the network team
+  - Priority: Low (was Medium — ports portion closed)
+  - Date: 2026-05-03 (updated 2026-07-03)
 
 ## Resolved gaps
+- **~~Event Mesh Visualizer~~:** Not a standalone grounding topic — topology visualization is delivered through Event Portal (Designer / Runtime Event Manager graph) and Solace Insights, both already grounded and skill-covered. No separate work needed.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 4 — reclassified as covered)
+
+- **~~Network architecture: firewall/ports~~ (partial):** Platform reference gained a "Default ports and firewall" subsection (SW + Appliance default ports, DMR-over-SMF, privileged-port note) with a canonical URL; /solace-mesh-design references it for external-link firewall rules. Remaining LB/DNS-failover/NAT sub-parts stay open as a downgraded Low gap.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 4 — ports portion grounded from docs.solace.com Default-Port-Numbers)
+
 - **~~Upgrade / patching procedures~~:** Platform reference gained an "Upgrade and patching" subsection (redundant/HA upgrade, version-compatibility rules, two-sequential-HA-upgrade caveat for large/old deployments, spool/config preserved, Operator rolling upgrade) with a canonical URL; /solace-ops-review Step 4 now applies it.
   - Resolved: 2026-07-03 (uplift/sam-parity, Wave 4 — grounded from docs.solace.com SW-Broker-Upgrade)
 - **~~Topic Endpoints~~:** /solace-topic-design Step 3 now chooses queue vs topic endpoint per Guaranteed consumer (queue default; topic endpoint only for the single-subscription case).

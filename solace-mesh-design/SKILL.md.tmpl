@@ -126,6 +126,11 @@ Based on the selected pattern, design the specific topology:
 - For each link: what is the direction of data flow? (Unidirectional vs bidirectional)
 - Subscription propagation strategy: which subscriptions propagate across which links?
 - Flag asymmetric vs symmetric traffic patterns.
+- **Network/firewall:** external links carry broker-to-broker traffic over the SMF port(s)
+  (default `55555`, or the TLS port when links are encrypted). Call out the firewall rules that
+  must permit them between sites, and prefer compressed external links over WAN. Load-balancer,
+  DNS-failover, and NAT-traversal specifics are deployment-environment concerns to confirm with
+  the network team — state the requirement, don't invent the config.
 
 **For hybrid:**
 - Cluster sizing per site
