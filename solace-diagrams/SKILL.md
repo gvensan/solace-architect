@@ -393,6 +393,7 @@ timing:
 - **execution_sec** = wall_sec - user_wait_sec
 - **Per-step execution_sec** = step end - step start - any user waits within that step
 - If a step has no AskUserQuestion, its execution_sec = step end - step start
+- **Clamp negatives:** every timing value is ≥ 0 — write 0 for any negative result (skewed clocks or a rewritten/resumed entry), and on resume keep the original `started`.
 
 ### When not to track
 
