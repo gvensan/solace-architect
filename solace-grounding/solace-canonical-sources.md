@@ -29,6 +29,7 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - Solace Cloud landing: `https://docs.solace.com/Cloud/cloud-lp.htm`
 - Solace Software Broker landing: `https://docs.solace.com/Software-Broker/software-lp.htm`
 - Kubernetes Operator: `https://docs.solace.com/Software-Broker/sw-broker-kubernetes-operator.htm`
+- Software broker upgrade (version compatibility, HA upgrade): `https://docs.solace.com/Software-Broker/SW-Broker-Upgrade/SW-Broker-Upgrade.htm`
 - Solace Appliance landing: `https://docs.solace.com/Appliance/appliance-lp.htm`
 
 ---

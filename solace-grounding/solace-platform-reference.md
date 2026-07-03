@@ -294,6 +294,14 @@ Requires a product key for production. Demo mode (7 days) available without a pr
 
 Behaves correctly across DMR links, Message VPN bridges, and partitioned queues. Local-transaction messages do not generate trace messages.
 
+### Upgrade and patching
+
+Source: docs.solace.com → `Software-Broker/SW-Broker-Upgrade/SW-Broker-Upgrade.htm` (verified 2026-07-03).
+
+Software Event Brokers upgrade as a standalone instance or as a **redundant (HA) group** — the redundant procedure is what keeps a service available during the upgrade, run either manually or via orchestration tooling. Version-compatibility rules for any upgrade: the target must be (1) a numerically higher version, (2) released after the current version, and (3) released while the current version still had active support. **Downgrade is not supported.** Spool and configuration are preserved across the upgrade.
+
+Large or old deployments cannot always jump directly to the newest release — e.g. 200K-scaling-tier HA groups on 10.10.1 or earlier, and HA groups on 10.2.1 or earlier, must perform **two sequential HA upgrades** (an intermediate version, then the target) rather than one. Always check the release-specific upgrade notes for the exact intermediate version before planning a jump. On Kubernetes, the PubSub+ Operator manages the rolling upgrade of the broker pods.
+
 ---
 
 ## Layer 2: Application Services

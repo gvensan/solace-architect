@@ -896,8 +896,13 @@ does. Recommend SDKPerf to validate the baseline before production.
 
 Evaluate readiness for ongoing operations:
 
-- **Upgrade path** — how are broker upgrades performed? Rolling upgrades with DMR?
-  Maintenance windows?
+- **Upgrade path** — how are broker upgrades performed? For an HA redundancy group, the
+  redundant upgrade procedure keeps the service available (manual or orchestration-driven; the
+  Kubernetes Operator handles the rolling pod upgrade). Confirm the version-compatibility rules
+  hold (target numerically higher, released after current, released while current still had
+  active support; downgrade unsupported) and flag that large/old deployments may need two
+  sequential HA upgrades through an intermediate version rather than a direct jump — the
+  release-specific upgrade notes give the intermediate version. Spool and config are preserved.
 - **Certificate rotation** — TLS certificates have expiration dates. What is the
   renewal process?
 - **Schema evolution** — how are breaking schema changes handled? Version in topics?
