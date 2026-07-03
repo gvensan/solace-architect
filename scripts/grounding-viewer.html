@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grounding viewer — Solace Architect</title>
+<style>
+  :root { --navy:#093B5F; --green:#00C895; --muted:#5A7A94; --bg:#f6f9fb; --border:#d6e0e8; --code:#eef3f6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:#1f2937; background:var(--bg); }
+  header { background:var(--navy); color:#fff; padding:14px 24px; position:sticky; top:0; display:flex; align-items:center; gap:14px; }
+  header a { color:#b9d2e2; text-decoration:none; font-size:13px; }
+  header a:hover { color:#fff; }
+  header .name { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:14px; }
+  header .ro { margin-left:auto; font-size:11px; background:#0d4d78; padding:3px 9px; border-radius:999px; color:#cfe6f2; }
+  article { max-width:920px; margin:26px auto; padding:0 24px 80px; background:#fff; border:1px solid var(--border); border-radius:8px; }
+  article > div { padding:26px 30px; }
+  h1,h2,h3,h4 { color:var(--navy); line-height:1.25; margin:1.4em 0 .5em; }
+  h1 { font-size:26px; border-bottom:2px solid var(--border); padding-bottom:.3em; }
+  h2 { font-size:20px; border-bottom:1px solid var(--border); padding-bottom:.25em; }
+  h3 { font-size:16px; } h4 { font-size:14px; }
+  p, li { line-height:1.6; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:.9em; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { background:#0d2536; color:#e6edf3; padding:14px 16px; border-radius:6px; overflow:auto; }
+  pre code { background:none; color:inherit; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:1em 0; font-size:13.5px; display:block; overflow-x:auto; }
+  th, td { border:1px solid var(--border); padding:7px 10px; text-align:left; vertical-align:top; }
+  th { background:#eef3f6; color:var(--navy); }
+  tr:nth-child(even) td { background:#fafcfd; }
+  blockquote { border-left:3px solid var(--green); margin:1em 0; padding:.2em 1em; color:#37506180; color:var(--muted); background:#f3faf8; }
+  a { color:#0a6ebd; }
+  hr { border:none; border-top:1px solid var(--border); margin:1.6em 0; }
+  .err { color:#b3261e; padding:30px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">&larr; Console</a>
+  <span class="name" id="docname">…</span>
+  <span class="ro" id="ro">read-only</span>
+</header>
+<article><div id="content">Loading…</div></article>
+<script>
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function splitRow(r){ return r.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(s=>s.trim()); }
+function inline(t){
+  t = esc(t);
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return t;
+}
+function render(md){
+  const lines = md.replace(/\r\n/g,'\n').split('\n');
+  let html = '', i = 0;
+  const isBlockStart = l => /^(#{1,6}\s|```|>\s?)/.test(l) || /^\s*([-*+]|\d+\.)\s+/.test(l) || /^(\s*[-*_]\s*){3,}$/.test(l) || /^\s*$/.test(l);
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) {
+      i++; let code = '';
+      while (i < lines.length && !/^```/.test(lines[i])) { code += lines[i] + '\n'; i++; }
+      i++; html += '<pre><code>' + esc(code.replace(/\n$/,'')) + '</code></pre>'; continue;
+    }
+    if (/\|/.test(line) && i+1 < lines.length && /-/.test(lines[i+1]) && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i+1])) {
+      const header = splitRow(line); i += 2; const rows = [];
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') { rows.push(splitRow(lines[i])); i++; }
+      html += '<table><thead><tr>' + header.map(h=>'<th>'+inline(h)+'</th>').join('') +
+        '</tr></thead><tbody>' + rows.map(r=>'<tr>'+r.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>').join('') +
+        '</tbody></table>'; continue;
+    }
+    const hm = line.match(/^(#{1,6})\s+(.*)$/);
+    if (hm) { const l = hm[1].length; html += '<h'+l+'>'+inline(hm[2].replace(/\s+#+\s*$/,''))+'</h'+l+'>'; i++; continue; }
+    if (/^(\s*[-*_]\s*){3,}$/.test(line) && line.trim().replace(/\s/g,'').length>=3) { html += '<hr>'; i++; continue; }
+    if (/^>\s?/.test(line)) {
+      let bq = '';
+      while (i<lines.length && /^>\s?/.test(lines[i])) { bq += lines[i].replace(/^>\s?/,'') + '\n'; i++; }
+      html += '<blockquote>' + render(bq) + '</blockquote>'; continue;
+    }
+    if (/^\s*([-*+]|\d+\.)\s+/.test(line)) {
+      const ordered = /^\s*\d+\.\s+/.test(line); const items = [];
+      while (i<lines.length && /^\s*([-*+]|\d+\.)\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*([-*+]|\d+\.)\s+/,'')); i++; }
+      html += (ordered?'<ol>':'<ul>') + items.map(it=>'<li>'+inline(it)+'</li>').join('') + (ordered?'</ol>':'</ul>'); continue;
+    }
+    if (line.trim()==='') { i++; continue; }
+    let para = line; i++;
+    while (i<lines.length && !isBlockStart(lines[i])) { para += ' ' + lines[i]; i++; }
+    html += '<p>' + inline(para) + '</p>';
+  }
+  return html;
+}
+(async function(){
+  const params = new URLSearchParams(location.search);
+  const doc = params.get('doc') || '';
+  document.getElementById('docname').textContent = doc;
+  if (!/^[a-z0-9._-]+\.md$/i.test(doc)) { document.getElementById('content').innerHTML = '<p class="err">Invalid document.</p>'; return; }
+  try {
+    const r = await fetch('/api/platform/' + encodeURIComponent(doc));
+    if (!r.ok) { document.getElementById('content').innerHTML = '<p class="err">Could not load ('+r.status+').</p>'; return; }
+    const md = await r.text();
+    document.title = doc + ' — Grounding viewer';
+    document.getElementById('content').innerHTML = render(md);
+  } catch(e) { document.getElementById('content').innerHTML = '<p class="err">'+esc(String(e))+'</p>'; }
+})();
+</script>
+</body>
+</html>

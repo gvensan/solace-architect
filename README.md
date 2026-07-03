@@ -393,6 +393,7 @@ bun run dev:skill    # watch mode: auto-regen on change
 bun run url:check    # check grounding document URLs for health
 bun run dashboard    # project dashboard at localhost:3000
 bun run intake       # intake HTML form at localhost:3001
+bun run grounding    # managed-grounding admin console at localhost:3002
 ```
 
 The test suite checks terminology compliance (zero forbidden terms), structural validation (frontmatter, placeholders, preamble tiers), token budget enforcement (per-skill and total ceilings), and generation freshness (committed files match templates).
