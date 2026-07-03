@@ -73,6 +73,15 @@ Evaluate the monitoring posture:
   replication/mate status, DMR link health)
 - What alert thresholds should be set?
 
+Do not stop at "is monitoring configured?" — **design the monitoring strategy** and put it in
+the review: which Insights dashboard tier applies (account-level, service-level, Advanced
+Monitoring via Datadog), which monitor categories from the 50+ pre-built monitors to enable
+(log-based, metric-based, status-based — fetch the canonical Insights source for the current
+list), a threshold table for the critical metrics above tied to this project's sizing numbers,
+who is notified, and whether metrics/logs forward to the team's own observability platform
+(the brief's observability answer names it). For self-managed brokers, note Insights supports
+Software Event Brokers too; the alternative is SEMP Monitor API polling into the existing stack.
+
 **Application-level monitoring:**
 - Is Distributed Tracing configured? (Requires product key on some service classes)
 - Are message latency metrics tracked end-to-end?
@@ -121,8 +130,11 @@ Evaluate current capacity against requirements:
 - **Spool size** — how much Guaranteed messaging storage is needed for peak queuing?
 - **DMR bandwidth** — what is the WAN bandwidth requirement for external links?
 
-Identify the first scaling limit the architecture will hit and what the plan is
-when it does.
+Produce a **capacity baseline table** in the review — Dimension | Current need | Broker limit |
+Headroom | Scaling trigger — using the sizing numbers from the broker recommendation (compute
+them from the brief if that artifact lacks a sizing block, and flag that as a finding). Identify
+the first scaling limit the architecture will hit, the observable trigger, and the plan when it
+does. Recommend SDKPerf to validate the baseline before production.
 
 ---
 
@@ -138,6 +150,11 @@ Evaluate readiness for ongoing operations:
   Schema Registry governance?
 - **Configuration management** — how is broker configuration versioned and deployed?
   Config-Sync across HA pairs?
+- **Infrastructure-as-code via SEMP v2** — broker objects (VPNs, queues, client profiles,
+  ACL profiles, REST delivery points) should be provisioned through the SEMP Config API from
+  version-controlled definitions in the CI/CD pipeline (the brief's cicd answer names the
+  tooling), not hand-configured. The SEMP Monitor API feeds custom dashboards and operational
+  scripts. If the design has no config-as-code story, that is an Important finding.
 
 ---
 
