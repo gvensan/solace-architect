@@ -18,6 +18,7 @@ bun run dev:skill    # watch mode: auto-regen + validate on change
 bun run url:check    # check all grounding document URLs for health
 bun run dashboard    # launch project dashboard at http://localhost:3000
 bun run intake       # launch interactive intake HTML form at http://localhost:3001
+bun run grounding    # launch managed-grounding admin console at http://localhost:3002
 ./install-sa.sh      # full install: deps + generate + symlink into ~/.claude/skills/
 ./uninstall-sa.sh    # remove all skill symlinks from ~/.claude/skills/
 ```
@@ -157,6 +158,7 @@ solace-architect/
     build-intake-docx.py  # DOCX intake builder (template + export: YAML -> .docx)
     build-intake-html.py  # HTML intake form builder (standalone with autocomplete + live engagement preview)
     intake-server.ts      # Local HTTP server for hosted intake form (mirrors dashboard.ts)
+    grounding-admin.ts    # Local HTTP admin console for managed grounding (SSRF-guarded URL/paste ingest -> digest.md)
     skill-routing.yaml    # Single source of truth for which skills run per intake (consumed by build-intake-html.py)
     resolvers/            # Template resolver modules
       index.ts            # Resolver registry (9 entries)

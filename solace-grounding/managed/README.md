@@ -21,11 +21,30 @@ server, no ingestion pipeline, no approval workflow.
 
 ## Adding a reference
 
-1. Edit `digest.md`.
-2. Add a `## <Title>` section. Paste the text, or summarize a URL and record `Source:` + fetch date.
-3. Delete the `_No managed references configured._` line once the first reference is in.
-4. Keep the whole file under ~16 KB — it loads into all ~25 skills, so size multiplies. Summarize
+**Option A — admin console (recommended).** Run:
+
+```bash
+bun run grounding
+```
+
+This opens a local web console (`scripts/grounding-admin.ts`, port 3002) where you add a
+reference by pasting text or fetching a URL, and enable/disable/remove entries. It keeps a
+structured `manifest.json` (the source of truth, gitignored — it holds *your* org's material)
+and regenerates `digest.md` from the active entries. The console also shows the vendored
+**platform grounding** docs read-only (with a View link), so you can see the full grounding
+picture in one place — your org references applied on top of the authoritative Solace docs. URL fetches are **SSRF-guarded** (public
+hosts only; private/loopback/link-local/cloud-metadata addresses are refused) and HTML-stripped.
+The digest is capped at 16 KB (oldest-first when over budget).
+
+**Option B — edit `digest.md` by hand.** If you're not using the console:
+
+1. Add a `## <Title>` section. Paste the text, or summarize a URL and record `Source:` + fetch date.
+2. Delete the `_No managed references configured._` line once the first reference is in.
+3. Keep the whole file under ~16 KB — it loads into all ~25 skills, so size multiplies. Summarize
    long documents rather than pasting them wholesale.
+
+Pick one mode: the console overwrites `digest.md` from `manifest.json`, so it will replace hand
+edits (it backs up a hand-written `digest.md` to `digest.md.bak` the first time it takes over).
 
 ## Guardrails
 
@@ -41,19 +60,10 @@ server, no ingestion pipeline, no approval workflow.
 
 ## Not included (deliberately)
 
-The reference SAM implementation had a hosted admin console: URL ingestion (SSRF-guarded), a
-review/approve workflow, per-reference audit history, and admin-gated API routes. This minimal
-version omits it **because hand-editing `digest.md` already works** — the console is convenience,
-not a requirement.
-
-It is not omitted for lack of a server. The toolkit already runs local HTTP servers
-(`scripts/dashboard.ts`, `scripts/intake-server.ts`, both `Bun.serve`), and an admin page for
-managed grounding would be a third one in that family — the server, the URL fetch, and the SSRF
-guard all port cleanly. What genuinely does *not* map is the reference's **multi-user auth layer**:
-admin-vs-non-admin gating and review-before-active approval only make sense with multiple users
-and authentication, whereas these servers are single-user and local, where those concepts are moot.
-
-If a non-technical maintainer ever needs the UI, the v1 is small: a `scripts/grounding-admin.ts`
-server plus a static page with add (paste/URL) and enable/disable, writing to this directory. The
-approval workflow and audit history are the expensive extras and can stay dropped. Tracked as an
-optional future enhancement.
+The console (`bun run grounding`) covers add (paste/URL), enable/disable/remove, the SSRF-guarded
+fetch, and the 16 KB digest cap. It intentionally omits the parts of the reference SAM
+implementation that only make sense as a **multi-user hosted app**: admin-vs-non-admin route
+gating, a review-before-active approval workflow, and per-reference audit history. These servers
+are single-user and local (like the dashboard and intake servers), so authentication and approval
+have nothing to gate. If this ever moves to a shared/hosted deployment, that's when the auth layer
+would be worth adding.
