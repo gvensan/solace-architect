@@ -6,7 +6,7 @@ Solace Architect is an open-source toolkit for Claude Code that closes that gap.
 
 ## What it does
 
-Solace Architect is a set of 17 skills that compose into an interview-style architectural session. The skills cover six categories:
+Solace Architect is a set of 24 skills that compose into an interview-style architectural session. The skills cover six categories:
 
 1. **Discovery.** Eliciting the business problem clearly. Surfacing latency, throughput, regulatory, organizational, and budget constraints. Inventorying the existing landscape.
 2. **Technical domain.** Solace platform knowledge: topic taxonomy design, broker selection, SAM agent topology, protocol selection, DMR mesh design, HA/DR, migration planning, and Micro-Integration strategy.
