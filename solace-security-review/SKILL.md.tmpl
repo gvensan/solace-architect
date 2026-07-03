@@ -77,7 +77,13 @@ From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, t
 
 Evaluate how clients authenticate to the event broker:
 
-- **Client authentication:** Basic auth, client certificates, OAuth 2.0, LDAP, RADIUS?
+- **Client authentication:** Basic auth, client certificates (mTLS with CRL/OCSP revocation),
+  or OAuth 2.0 (JWT/opaque tokens validated against a JWKS or introspection endpoint)?
+- **Enterprise identity integration:** If the org runs an enterprise IdP, the broker supports
+  **Kerberos** (GSSAPI/SPNEGO), **LDAP** (delegated directory auth), and **RADIUS**. Auth is
+  configured per Message VPN — different VPNs can use different methods. If the brief names an
+  existing IdP (Active Directory, LDAP, Kerberos realm), recommend the matching method rather
+  than defaulting to basic auth.
 - **Per-VPN vs per-broker:** Are authentication domains scoped to message VPNs?
 - **Service account management:** How are service accounts for Micro-Integrations and
   SAM agents provisioned and rotated?
@@ -92,8 +98,14 @@ For SAM projects:
 
 Evaluate the ACL (Access Control List) model:
 
-- **Client profiles** — are client profiles defined per application or role?
-- **ACL profiles** — do ACL profiles restrict topic publish/subscribe per client?
+- **Client profiles** — are client profiles defined per application or role? Recommend concrete
+  values, not just "defined": max connections, max subscriptions, Guaranteed messaging
+  permissions (publish/subscribe/consume), and **max ingress/egress rates + connection
+  throttling** as the rate-limiting control (client-profile rate limits and per-VPN quotas are
+  the two levers — use both: VPN quota caps the tenant, client profile caps the app/role).
+- **ACL profiles** — do ACL profiles restrict topic publish/subscribe per client? Use
+  substitution expressions (e.g. `${clientUsername}`) for per-client entitlements where flows
+  are symmetric across many clients.
 - **Topic-level authorization** — can each producer only publish to its authorized topics?
   Can each consumer only subscribe to its authorized topics?
 

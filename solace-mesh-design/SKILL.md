@@ -843,6 +843,14 @@ ground the recommendation. Guideline for the options:
 Default recommendation: A for single-site, C for multi-site, D for high-scale multi-site.
 Tie the recommendation Why to the specific site count and throughput from discovery.
 
+**Message VPN Bridges vs DMR.** DMR is the default for connecting brokers. Reach for a Message
+VPN Bridge only in the specific cases it fits: connecting two individual Message VPNs (same or
+different brokers) with explicit per-topic bridging, or interoperating with an older/appliance
+deployment where DMR is not in use. Bridges are point-to-point and manually configured per
+topic, so they do not scale like a DMR mesh — do not propose a web of bridges where DMR is the
+right tool. If the design connects specific VPNs rather than whole brokers, note the bridge
+option and why DMR was or wasn't chosen.
+
 Reference Pattern 2 (market data) for multi-site examples, Pattern 3 (manufacturing)
 for edge-to-cloud patterns:
 

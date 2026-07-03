@@ -102,6 +102,13 @@ Document any cross-protocol considerations:
   different semantics across protocols.
 - **REST delivery points:** If REST consumers need Guaranteed messaging, a REST delivery
   point (webhook) configuration is needed. Document these.
+- **Request-reply:** For synchronous request-reply integration points, note the mechanics —
+  a reply-to topic (typically a temporary topic) plus correlation IDs in message properties.
+  REST supports request-reply natively; other protocols implement it with the reply-to +
+  correlation-ID pattern. Flag timeout handling as a client responsibility.
+- **Message priority:** If a flow needs priority (0–9) handling, confirm the chosen protocol
+  and client SDK expose the priority field; note that priority applies within a queue, so it
+  is only meaningful for Guaranteed consumers.
 
 ---
 

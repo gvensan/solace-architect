@@ -1114,8 +1114,14 @@ format** — print the list and wait:
 > • **Solace/EDA experience:** What is the team's experience with event-driven systems and Solace specifically?
 > • **Observability:** What observability is in place? (Metrics, tracing, log aggregation)
 > • **CI/CD:** Is there an existing CI/CD pipeline for infrastructure?
+> • **Transactional boundaries:** Do any flows need atomic multi-message operations — several messages committed as a unit (local transactions), or coordination with a database/JMS in one commit (XA)? Common in payments and order processing.
+> • **Coordination patterns:** Are there patterns the design should account for — synchronous request-reply, event sourcing / replay, CQRS (separate command and query paths), or a saga / choreography across services?
 >
 > Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
+
+Carry any transactional or coordination-pattern signals into the brief so downstream design
+(topic taxonomy, protocol selection, architecture review) can act on them rather than
+rediscovering them.
 
 ---
 

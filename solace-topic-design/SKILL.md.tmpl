@@ -138,9 +138,29 @@ Use AskUserQuestion for delivery mode decisions where there is genuine ambiguity
 (the user needs to choose based on business requirements). Present Direct messaging
 vs Guaranteed messaging with clear trade-offs.
 
+**Message priority.** If any flow has a fast-lane requirement (e.g. control/cancel events
+ahead of a bulk stream on the same queue), assign a priority level — Solace supports 10 levels,
+0 (lowest) to 9 (highest); unset defaults to 4. Record it as a property of the flow, not a
+separate topic. Do not invent priority where the brief shows no contention.
+
+**Request-reply and pattern topics.** When the landscape has synchronous request-reply or an
+event-sourcing / CQRS / saga pattern (from discovery), lay the topics out per the platform
+reference Integration patterns section: request-reply uses a reply-to topic (typically a
+temporary topic) with correlation IDs in message properties — never encode the correlation in
+the topic hierarchy; CQRS uses separate command vs query namespaces; saga/choreography uses
+compensating-event topics with a DMQ for poison messages. Keep these in the taxonomy so they
+are governed, not ad hoc.
+
 ---
 
-## Step 3: Design wildcard subscriptions
+## Step 3: Design endpoints and wildcard subscriptions
+
+**Queue vs topic endpoint.** For each Guaranteed consumer, choose the endpoint type: a **queue**
+(the default — durable, supports multiple subscriptions, partitioning, redelivery) or a **topic
+endpoint** (bound to exactly one topic subscription; use only when a single subscription defines
+the stream). Prefer queues unless the single-subscription case is clear.
+
+
 
 For each consumer identified in Step 2, design its subscription set:
 
