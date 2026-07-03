@@ -14,44 +14,27 @@ Format:
 
 ## Known gaps
 
-> Wave-4 status (2026-07-03): the remaining gaps need grounding fetched into the platform
-> reference before a skill can consume them. **Backup / restore** — the canonical docs.solace.com
-> URL wasn't resolvable in a quick pass (needs a maintainer to grab it from docs search).
-> **Kafka Connect connectors** — config lives on github.com/SolaceProducts, outside the grounding
-> allowlist (a maintainer decision on whether to widen the allowlist). **Network architecture** —
-> the ports/firewall portion is now grounded; only LB / DNS-failover / NAT-for-DMR remain, and
-> those are deployment-environment specifics. Left open deliberately rather than fabricated.
-
-### Platform Services (Layer 3) — highest impact
-
-<!-- Resolved 2026-07-03 (Wave 4): "Event Mesh Visualizer" is not a standalone doc topic —
-     topology visualization is delivered through Event Portal (Designer / Runtime Event Manager
-     graph) and Solace Insights, both already grounded and skill-covered. No separate grounding
-     needed. Moved to Resolved. -->
-
-### Application Services (Layer 2)
-
-- **Kafka Connect (PubSub+ Connector) configuration:** Listed in Integration Hub catalog but no specific configuration guidance for Source/Sink connectors.
-  - Skill: /solace-integration, /solace-migration
-  - Workaround: Generic MI guidance applied
-  - Priority: Medium
-  - Date: 2026-05-03
+> Status (2026-07-03): the backlog is one parked item. Everything else from the original 26 is
+> resolved or reclassified (see below).
 
 ### Operational
 
-- **Backup / restore:** Not addressed by any skill. No mention of broker configuration backup, spool backup, or disaster recovery procedures beyond replication.
+- **Backup / restore** *(parked)*: broker configuration / spool backup beyond DR replication.
+  Parked by maintainer decision — the canonical docs.solace.com URL was not resolved in a quick
+  pass and it is not being chased for now. To close: grab the backup/restore doc URL from docs
+  search, fetch → ground in the platform reference → extend /solace-ha-dr and /solace-ops-review.
   - Skill: /solace-ha-dr, /solace-ops-review
-  - Workaround: DR replication covers data loss; configuration backup is missing
-  - Priority: Medium
+  - Workaround: DR replication covers data loss; configuration backup remains manual/undesigned
+  - Priority: Medium (parked)
   - Date: 2026-05-03
 
-- **Network architecture (partial):** Firewall rules for broker ports are now grounded (platform reference "Default ports and firewall" + canonical URL) and /solace-mesh-design references them for external links. Still open: load-balancer configuration, DNS failover, and NAT traversal for DMR links — these are deployment-environment specifics needing the customer's network context or dedicated Solace networking docs.
-  - Skill: /solace-mesh-design, /solace-ha-dr
-  - Workaround: Ports/firewall grounded; LB/DNS/NAT stated as requirements, deferred to the network team
-  - Priority: Low (was Medium — ports portion closed)
-  - Date: 2026-05-03 (updated 2026-07-03)
-
 ## Resolved gaps
+- **~~Kafka Connect (PubSub+ Connector) configuration~~:** Grounded from the Integration Hub (integrated-kafka, kafka-source, kafka-connect-sink). Added a "Kafka integration — connector selection" note to the catalog (integrated bridge vs self-managed Connect Source[Solace→Kafka]/Sink[Kafka→Solace], version 10.6.1+, direction mapping) + 3 canonical URLs; /solace-integration now recommends the specific option and points to the connector GitHub repos for config detail.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 4 — grounded from solace.com/integration-hub)
+
+- **~~Network architecture: LB / DNS / NAT~~ (by-design):** The ports/firewall portion is grounded and skill-wired (see below). Load-balancer config, DNS failover, and NAT-for-DMR are deployment-environment specifics, not Solace-product facts — the skills state the requirement and defer the config to the customer's network team. Closed as by-design rather than a grounding gap.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 4 — by-design)
+
 - **~~Event Mesh Visualizer~~:** Not a standalone grounding topic — topology visualization is delivered through Event Portal (Designer / Runtime Event Manager graph) and Solace Insights, both already grounded and skill-covered. No separate work needed.
   - Resolved: 2026-07-03 (uplift/sam-parity, Wave 4 — reclassified as covered)
 
