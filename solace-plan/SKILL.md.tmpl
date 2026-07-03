@@ -76,8 +76,10 @@ canonical fields (the conditions mirror `scripts/skill-routing.yaml` exactly —
 paths, same value vocabulary). Otherwise fall back to the prose brief.
 
 - `/solace-sam-design` — include if `project.type == sam`, OR any `landscape.systems[].name`
-  contains any of [chat, chatbot, assistant, agent, copilot, llm, rag, ai], OR `goals.driver`
-  mentions a chat/AI agent, assistant, copilot, or SAM.
+  contains any of [chat, chatbot, assistant, copilot, orchestrator, "agent mesh", genai], OR
+  `goals.driver` mentions a chatbot, chat/AI agent, AI assistant, copilot, or (Solace) agent mesh.
+  Match these as **distinctive tokens/phrases, not loose substrings** — do not let "ai" match
+  "mainframe" or "rag" match "fragile". A payment/ledger system with no AI component is NOT SAM.
 - `/solace-mesh-design` — include if `requirements.topology` is in [multi_region, hybrid_cloud, edge].
 - `/solace-ha-dr` — include if `requirements.topology` is in [multi_region, hybrid_cloud], OR
   `requirements.delivery_mode` is in [guaranteed, mixed], OR `landscape.vertical` is in
