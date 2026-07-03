@@ -14,6 +14,13 @@ Format:
 
 ## Known gaps
 
+> Wave-4 status (2026-07-03): these need grounding fetched into the platform reference before a
+> skill can consume them. The exact docs.solace.com URLs were not resolvable in a quick pass
+> (backup/restore, default-port-numbers) or live outside the grounding allowlist (the standalone
+> Kafka Connect connectors are on github.com/SolaceProducts; Event Mesh Visualizer is a Cloud UI).
+> Left open deliberately rather than fabricated — a maintainer with the canonical URLs should
+> fetch → ground → then extend the named skill.
+
 ### Platform Services (Layer 3) — highest impact
 
 - **Event Mesh Visualizer:** Not mentioned anywhere in grounding docs or skills.
@@ -44,13 +51,9 @@ Format:
   - Priority: Medium
   - Date: 2026-05-03
 
-- **Upgrade / patching procedures:** Asked about but no specific Solace upgrade path guidance (rolling upgrades, version compatibility, K8s Operator upgrade flows).
-  - Skill: /solace-ops-review
-  - Workaround: Generic "how are upgrades performed?" question
-  - Priority: Medium
-  - Date: 2026-05-03
-
 ## Resolved gaps
+- **~~Upgrade / patching procedures~~:** Platform reference gained an "Upgrade and patching" subsection (redundant/HA upgrade, version-compatibility rules, two-sequential-HA-upgrade caveat for large/old deployments, spool/config preserved, Operator rolling upgrade) with a canonical URL; /solace-ops-review Step 4 now applies it.
+  - Resolved: 2026-07-03 (uplift/sam-parity, Wave 4 — grounded from docs.solace.com SW-Broker-Upgrade)
 - **~~Topic Endpoints~~:** /solace-topic-design Step 3 now chooses queue vs topic endpoint per Guaranteed consumer (queue default; topic endpoint only for the single-subscription case).
   - Resolved: 2026-07-03 (uplift/sam-parity, Wave 3)
 
