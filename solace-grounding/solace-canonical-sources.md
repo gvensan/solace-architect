@@ -30,6 +30,7 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - Solace Software Broker landing: `https://docs.solace.com/Software-Broker/software-lp.htm`
 - Kubernetes Operator: `https://docs.solace.com/Software-Broker/sw-broker-kubernetes-operator.htm`
 - Software broker upgrade (version compatibility, HA upgrade): `https://docs.solace.com/Software-Broker/SW-Broker-Upgrade/SW-Broker-Upgrade.htm`
+- Default port numbers (firewall planning): `https://docs.solace.com/Admin/Default-Port-Numbers.htm`
 - Solace Appliance landing: `https://docs.solace.com/Appliance/appliance-lp.htm`
 
 ---
