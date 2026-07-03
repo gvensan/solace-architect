@@ -111,6 +111,9 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - Creating a Micro-Integration: `https://docs.solace.com/Micro-Integrations/Managed/create-micro-integration.htm`
 - Self-managed Micro-Integrations: `https://docs.solace.com/Micro-Integrations/Self-Managed/self-managed-micro-integrations.htm`
 - Integration Hub (catalog): `https://solace.com/integration-hub/`
+- Kafka — integrated bridge: `https://solace.com/integration-hub/integrated-kafka/`
+- Kafka — Connect Source connector (Solace→Kafka): `https://solace.com/integration-hub/kafka-source/`
+- Kafka — Connect Sink connector (Kafka→Solace): `https://solace.com/integration-hub/kafka-connect-sink/`
 - Integration Hub catalog snapshot: `solace-grounding/integration-hub-catalog.md` (local, refreshed monthly)
 - Integration guides: `https://docs.solace.com/API/Integration-Guides.htm`
 - Connectors documentation page: `https://docs.solace.com/API/Connectors/Connectors.htm`

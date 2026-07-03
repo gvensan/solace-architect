@@ -859,6 +859,17 @@ does not mean no Micro-Integration exists. The catalog is a periodic snapshot. F
 broker, not as a separate Spring Boot Micro-Integration. Get this right. Other
 Micro-Integrations run as external processes.
 
+**Kafka integration selection** (see the "Kafka integration" note in the integration hub catalog).
+When a backend is Kafka, recommend the specific option:
+- Default to the **integrated Kafka bridge** (broker 10.6.1+): broker-native, no separate Kafka
+  Connect runtime, free with a support plan, bidirectional, and can form a WAN-optimized
+  order-retaining Kafka mesh through Solace.
+- Use the self-managed **Kafka Connect Source** (Solace → Kafka) or **Kafka Connect Sink**
+  (Kafka → Solace) when the team already runs Kafka Connect or needs the Connect ecosystem
+  (SMTs, converters). Match the option to the required direction.
+- For configuration detail, point developers to the GitHub repo linked from the option's
+  Integration Hub page rather than inventing config values.
+
 ---
 
 ## Step 2b: Behavioral fitness check
