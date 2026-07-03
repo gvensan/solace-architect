@@ -16,19 +16,6 @@ Format:
 
 ### Platform Services (Layer 3) — highest impact
 
-- **Schema Registry design:** Checked as a yes/no question but never designed. No skill produces schema definitions, evolution rules, compatibility policies, deployment configuration, or SERDES integration guidance.
-  - Skill: /solace-dev-review, /solace-validate
-  - Workaround: Antipattern check for "skipping Schema Registry" flags the absence
-  - Priority: High — schema governance is foundational for event-driven systems
-  - Phase: 4 (extend /solace-dev-review)
-  - Date: 2026-05-03
-
-- **Solace Insights monitoring strategy:** Checked as present/absent but never designed. No skill specifies which of the 50+ pre-built monitors to enable, alert threshold values, custom monitors, log forwarding configuration, or integration with external observability platforms (Datadog, Grafana, etc.).
-  - Skill: /solace-ops-review
-  - Workaround: Ops review asks "Are Solace Insights configured?" and mentions Datadog export
-  - Priority: High — monitoring is a production readiness requirement
-  - Date: 2026-05-03
-
 - **Solace Cloud Console:** Not referenced in any skill template. No guidance on Console-based provisioning, management workflows, or team/role configuration.
   - Skill: none
   - Workaround: None
@@ -43,18 +30,6 @@ Format:
 
 ### Application Services (Layer 2)
 
-- **SEMP v2 for infrastructure-as-code:** Platform reference documents SEMP v2 (Config and Monitor APIs). No skill recommends SEMP usage for CI/CD automation, infrastructure-as-code pipelines, or custom monitoring dashboards.
-  - Skill: /solace-ops-review, /solace-blueprint
-  - Workaround: Grounding available; skill extension needed (Phase 3)
-  - Priority: High — IaC is expected in modern deployments
-  - Date: 2026-05-03
-
-- **SDKPerf:** Official Solace performance testing tool not referenced. No skill recommends performance baseline testing or load validation methodology.
-  - Skill: /solace-ops-review, /solace-validate
-  - Workaround: None
-  - Priority: Medium
-  - Date: 2026-05-03
-
 - **Kafka Connect (PubSub+ Connector) configuration:** Listed in Integration Hub catalog but no specific configuration guidance for Source/Sink connectors.
   - Skill: /solace-integration, /solace-migration
   - Workaround: Generic MI guidance applied
@@ -62,18 +37,6 @@ Format:
   - Date: 2026-05-03
 
 ### Event Mesh (Layer 1)
-
-- **Sizing and capacity planning in skills:** Platform reference now documents sizing methodology and tuning areas. No skill uses this grounding to produce sizing recommendations — broker-select does not calculate spool or map service classes, ops-review does not produce capacity baselines.
-  - Skill: /solace-broker-select, /solace-ops-review
-  - Workaround: Grounding available; skill extension needed (Phase 3)
-  - Priority: High
-  - Date: 2026-04-29 (updated 2026-05-03)
-
-- **Message VPN design guidance:** Platform reference documents VPNs thoroughly but no skill provides VPN design — how many VPNs, naming conventions, when to use multiple VPNs vs. multiple brokers, quota sizing per VPN, isolation boundaries.
-  - Skill: /solace-broker-select, /solace-security-review
-  - Workaround: None — VPN is assumed as a single default
-  - Priority: High
-  - Date: 2026-05-03
 
 - **Topic Endpoints:** No guidance on when to use topic endpoints vs. queues. Platform reference defines them but no skill recommends or designs them.
   - Skill: /solace-topic-design
@@ -136,13 +99,6 @@ Format:
 
 ### Operational
 
-- **Performance tuning:** No guidance on connection pooling, session management, publisher flow control, consumer prefetch, batching strategies.
-  - Skill: /solace-ops-review, /solace-dev-review
-  - Workaround: None
-  - Priority: High
-  - Phase: 3 (ops-review) and 4 (dev-review)
-  - Date: 2026-05-03
-
 - **Backup / restore:** Not addressed by any skill. No mention of broker configuration backup, spool backup, or disaster recovery procedures beyond replication.
   - Skill: /solace-ha-dr, /solace-ops-review
   - Workaround: DR replication covers data loss; configuration backup is missing
@@ -188,6 +144,27 @@ Format:
   - Date: 2026-05-03
 
 ## Resolved gaps
+
+- **~~Sizing and capacity planning in skills~~:** /solace-broker-select Step 4 now computes the sizing methodology from the platform reference (connection count, peak rate × size, spool = size × retention × rate, service-class/edition mapping) and writes an explicit `sizing` block; /solace-ops-review Step 3 now produces a capacity baseline table (need vs limit vs headroom vs scaling trigger).
+  - Resolved: 2026-07-03 (uplift/sam-parity — skill extensions consuming existing grounding)
+
+- **~~Message VPN design guidance~~:** /solace-broker-select Step 4 now designs the VPN layout: count + rationale (multi-tenancy unit), naming convention, per-VPN quotas, multiple-VPNs-vs-multiple-brokers (no VPN-level failover), and states the single-VPN case explicitly.
+  - Resolved: 2026-07-03 (uplift/sam-parity)
+
+- **~~SEMP v2 for infrastructure-as-code~~:** /solace-ops-review Step 4 now requires a config-as-code story: SEMP Config API provisioning from version-controlled definitions in the project's CI/CD tooling, SEMP Monitor API for custom dashboards; absence is an Important finding.
+  - Resolved: 2026-07-03 (uplift/sam-parity)
+
+- **~~Performance tuning~~:** /solace-dev-review Step 2 now gives concrete client tuning direction per the platform reference tuning areas (connection pooling/session reuse, consumer prefetch, publisher flow control under backpressure, batching); absence is an Advisory finding.
+  - Resolved: 2026-07-03 (uplift/sam-parity)
+
+- **~~Solace Insights monitoring strategy~~:** /solace-ops-review Step 1 now designs the strategy, not just checks presence: dashboard tier, monitor categories to enable (canonical source fetched for the current 50+ list), threshold table tied to the project's sizing, notification routing, and forwarding to the team's observability platform; SEMP Monitor API noted as the self-managed alternative.
+  - Resolved: 2026-07-03 (uplift/sam-parity — specific monitor names still come from a runtime canonical fetch)
+
+- **~~Schema Registry design~~:** /solace-dev-review Step 4 now designs the registry setup: artifact/group-ID organization mapped to application domains, validity/compatibility rules per event, schema-governor role, deployment shape (container vs HA Kubernetes/Helm) with Basic/OIDC auth, and SERDES wiring — with a canonical fetch for configuration depth.
+  - Resolved: 2026-07-03 (uplift/sam-parity — configuration specifics still verified against docs at runtime)
+
+- **~~SDKPerf~~:** Now referenced by /solace-broker-select (validate throughput/latency baseline before committing an edition) and /solace-ops-review (validate the capacity baseline before production).
+  - Resolved: 2026-07-03 (uplift/sam-parity)
 
 - **~~Event Portal integration workflow~~:** New `/solace-event-portal` skill created. 8-step template: application domains, event objects, schema attachments, applications, runtime connections, catalog organization, REST API provisioning. Produces `13-event-portal/` artifacts. All surrounding files updated: dependency map, plan orchestrator, help skill, CLAUDE.md, dashboard, settings, setup script.
   - Resolved: 2026-05-03 (Phase 2)
