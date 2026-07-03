@@ -41,8 +41,19 @@ server, no ingestion pipeline, no approval workflow.
 
 ## Not included (deliberately)
 
-The reference SAM implementation had a hosted admin console with URL ingestion (SSRF-guarded),
-a review/approve workflow, per-reference audit history, and admin-gated API routes. Those depend
-on a running server and auth model the skill toolkit doesn't have. If that becomes necessary,
-the natural home is an admin page on the existing dashboard/intake server — tracked as a possible
-future enhancement, not part of this minimal version.
+The reference SAM implementation had a hosted admin console: URL ingestion (SSRF-guarded), a
+review/approve workflow, per-reference audit history, and admin-gated API routes. This minimal
+version omits it **because hand-editing `digest.md` already works** — the console is convenience,
+not a requirement.
+
+It is not omitted for lack of a server. The toolkit already runs local HTTP servers
+(`scripts/dashboard.ts`, `scripts/intake-server.ts`, both `Bun.serve`), and an admin page for
+managed grounding would be a third one in that family — the server, the URL fetch, and the SSRF
+guard all port cleanly. What genuinely does *not* map is the reference's **multi-user auth layer**:
+admin-vs-non-admin gating and review-before-active approval only make sense with multiple users
+and authentication, whereas these servers are single-user and local, where those concepts are moot.
+
+If a non-technical maintainer ever needs the UI, the v1 is small: a `scripts/grounding-admin.ts`
+server plus a static page with add (paste/URL) and enable/disable, writing to this directory. The
+approval workflow and audit history are the expensive extras and can stay dropped. Tracked as an
+optional future enhancement.
