@@ -290,6 +290,16 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Grounding tags are an authoring-time discipline that stays in the artifact source
+// (so Copy / raw keeps full provenance), but every RENDERED view in the app drops the
+// provenance tags ([ref:]/[doc]/[user]/[managed-ref:]) as reader clutter and keeps
+// [inference] as a subtle honesty mark so estimates aren't read as documented facts.
+function softenCitations(html) {
+  return String(html)
+    .replace(/\s*\[(?:ref|doc|managed-ref|user)(?::[^\]\n]*)?\]/gi, '')
+    .replace(/\s*\[inference\]/gi, ' <sup class="cite-inferred" title="Inferred: reasoning applied to your inputs, not a documented Solace fact">inferred</sup>');
+}
+
 /* ─── DATA LOADING ─── */
 
 async function loadData() {
@@ -1371,7 +1381,7 @@ function renderDecisionTable(decs, title) {
           <td><span class="badge badge-user">${escHtml(d.id || d.decision || '')}</span></td>
           <td>${dashSkillLink(d.skill)}</td>
           <td style="color:var(--text)">${escHtml(d.label || d.value || d.choice || '')}</td>
-          <td style="color:var(--text-dim);font-size:13px">${escHtml(d.question || d.rationale || '')}</td>
+          <td style="color:var(--text-dim);font-size:13px">${softenCitations(escHtml(d.question || d.rationale || ''))}</td>
         </tr>`).join('')}
       </tbody>
     </table></div>`;
@@ -1389,8 +1399,8 @@ function renderFindingsTable(findings, title) {
           return `<tr>
             <td>${dashSkillLink(d.source)}</td>
             <td><span class="badge badge-${sev}">${sev.toUpperCase()}</span></td>
-            <td style="color:var(--text)">${escHtml(d.decision || '')}</td>
-            <td>${escHtml(d.action || '')}</td>
+            <td style="color:var(--text)">${softenCitations(escHtml(d.decision || ''))}</td>
+            <td>${softenCitations(escHtml(d.action || ''))}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1488,9 +1498,9 @@ function renderOpenItemsTable(items, title) {
           return `<tr>
             <td><span class="badge badge-user">${escHtml(item.id)}</span></td>
             <td><span class="badge ${SEV_BADGE[sev]||'badge-advisory'}">${sev}</span></td>
-            <td style="color:var(--text)">${escHtml(item.description)}</td>
+            <td style="color:var(--text)">${softenCitations(escHtml(item.description))}</td>
             <td>${dashSkillLink(item.source)}</td>
-            <td style="color:var(--text-dim);font-size:13px">${escHtml(item.resolution||'')}</td>
+            <td style="color:var(--text-dim);font-size:13px">${softenCitations(escHtml(item.resolution||''))}</td>
             <td><span class="badge ${STATUS_BADGE[st]||'badge-open'}">${st}</span></td>
           </tr>`;
         }).join('')}
@@ -1680,7 +1690,7 @@ function artifacts() {
       let bodyHtml;
 
       if (ext === 'md') {
-        bodyHtml = `<div id="${bodyId}">${marked.parse(text)}</div>`;
+        bodyHtml = `<div id="${bodyId}">${softenCitations(marked.parse(text))}</div>`;
       } else if (ext === 'yaml' || ext === 'yml') {
         bodyHtml = `<div id="${bodyId}"><pre><code>${escHtml(text)}</code></pre></div>`;
       } else if (ext === 'mermaid' || ext === 'mmd') {
@@ -2420,14 +2430,6 @@ async function generateReport(pack, skills, items, files) {
   function demoteHeadings(html, by) {
     return html.replace(/<(\/?)h([1-6])(\b[^>]*)>/gi, (m, slash, lvl, rest) =>
       `<${slash}h${Math.min(6, parseInt(lvl, 10) + by)}${rest}>`);
-  }
-  // Grounding tags stay in the artifact source (Copy / raw), but the *rendered* report
-  // drops provenance tags ([ref:]/[doc]/[user]/[managed-ref:]) as reader clutter and
-  // keeps [inference] as a subtle honesty mark so estimates aren't read as documented facts.
-  function softenCitations(html) {
-    return html
-      .replace(/\s*\[(?:ref|doc|managed-ref|user)(?::[^\]\n]*)?\]/gi, '')
-      .replace(/\s*\[inference\]/gi, ' <sup class="cite-inferred" title="Inferred: reasoning applied to your inputs, not a documented Solace fact">inferred</sup>');
   }
   // A self-describing block for one embedded artifact: a View button (opens the
   // rendered content in an in-page popup) and a Copy button (copies the raw source).
