@@ -2893,8 +2893,10 @@ ${roiSum('Total annual value', 'v')}
 :root{--sans:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--sans);font-size:15px;line-height:1.65;color:#1f2937}
-.diagram{text-align:center;margin:14px 0}
-.diagram svg{max-width:100%;height:auto}
+.diagram{text-align:center;margin:14px 0;cursor:zoom-in;position:relative}
+.diagram svg{max-width:100%;height:auto;pointer-events:none}
+.diagram::after{content:"⤢ click to zoom";display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:#8BA4B8;margin-top:4px;opacity:0;transition:opacity .15s}
+.diagram:hover::after{opacity:1}
 .diagram-fallback{background:#f8fafc;border:1px solid #e2eaf0;border-radius:6px;padding:12px;overflow:auto;font-size:12px;line-height:1.5}
 a{color:#093B5F;text-decoration:none}
 a:hover{color:#00C895}
@@ -3556,7 +3558,10 @@ document.getElementById('dlBtn').addEventListener('click',function(){
   vp.onmousedown=function(e){if(e.button!==0)return;drag=true;sx=e.clientX-px*s;sy=e.clientY-py*s;e.preventDefault()};
   window.onmousemove=function(e){if(!drag)return;px=(e.clientX-sx)/s;py=(e.clientY-sy)/s;upd()};
   window.onmouseup=function(){drag=false};
-  document.addEventListener('click',function(e){var m=e.target.closest('.mermaid');if(!m||overlay.classList.contains('open'))return;var svg=m.querySelector('svg');if(svg)opn(svg)});
+  // Expose so the View button (and any caller) can open a diagram big with zoom/pan.
+  window.__diagZoom=function(svgEl){ if(svgEl) opn(svgEl); };
+  // Click any inline diagram (pre-rendered SVG in .diagram, or a live .mermaid) to zoom.
+  document.addEventListener('click',function(e){var m=e.target.closest('.diagram, .mermaid');if(!m||overlay.classList.contains('open'))return;var svg=m.querySelector('svg');if(svg)opn(svg)});
 })();
 (function(){
   var inputs=document.querySelectorAll('.roi-input');
@@ -3882,6 +3887,9 @@ document.getElementById('dlBtn').addEventListener('click',function(){
   function openArt(bodyId, title){
     var body=document.getElementById(bodyId);
     if(!body) return;
+    // A diagram artifact opens in the big zoom/pan viewer, not the small text modal.
+    var dsvg=body.querySelector('.diagram svg');
+    if(dsvg && window.__diagZoom){ window.__diagZoom(dsvg); return; }
     modalTitle.textContent=title||'Artifact';
     modalBody.innerHTML=body.innerHTML;
     modalBody.scrollTop=0;
