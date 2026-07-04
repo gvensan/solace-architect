@@ -2413,20 +2413,36 @@ async function generateReport(pack, skills, items, files) {
   // description / copy-button treatment as the in-app Artifacts page, so the
   // standalone HTML report is fully self-describing and shareable.
   let _copySeq = 0;
-  function reportArtifactHeader(filePath, rawText, fallbackDesc) {
+  const escAttr = (s) => escHtml(String(s)).replace(/"/g, '&quot;');
+  // Shift every heading in rendered markdown down by `by` levels (h1->h3, h2->h4,
+  // capped at h6) so an artifact's own headings sit *below* the report's section
+  // structure instead of competing with it.
+  function demoteHeadings(html, by) {
+    return html.replace(/<(\/?)h([1-6])(\b[^>]*)>/gi, (m, slash, lvl, rest) =>
+      `<${slash}h${Math.min(6, parseInt(lvl, 10) + by)}${rest}>`);
+  }
+  // A self-describing block for one embedded artifact: a View button (opens the
+  // rendered content in an in-page popup) and a Copy button (copies the raw source).
+  // `bodyHtml` is the rendered content (markdown HTML, diagram SVG, or code).
+  function reportArtifactBlock(filePath, rawText, bodyHtml, fallbackDesc) {
     const title = (typeof artifactTitleFor === 'function') ? artifactTitleFor(filePath) : filePath;
     const desc = (artifactDescriptions[filePath] || (typeof artifactDefaultDescription === 'function' ? artifactDefaultDescription(filePath) : '') || fallbackDesc || '');
-    const copyId = `rpt-copy-${++_copySeq}`;
-    return `<div class="report-artifact-header">
-      <div class="report-artifact-text">
-        <h4 class="report-artifact-title">${escHtml(title)}</h4>
-        <code class="report-artifact-path">${escHtml(filePath)}</code>
-        ${desc ? `<p class="report-artifact-desc">${escHtml(desc)}</p>` : ''}
+    const n = ++_copySeq;
+    const rawId = `rpt-copy-${n}`, bodyId = `rpt-body-${n}`;
+    return `<div class="report-artifact">
+      <div class="report-artifact-header">
+        <div class="report-artifact-text">
+          <h4 class="report-artifact-title">${escHtml(title)}</h4>
+          <code class="report-artifact-path">${escHtml(filePath)}</code>
+          ${desc ? `<p class="report-artifact-desc">${escHtml(desc)}</p>` : ''}
+        </div>
+        <div class="report-artifact-actions">
+          <button class="report-view-btn" type="button" data-open="${bodyId}" data-open-title="${escAttr(title)}" title="View in a popup"><span class="report-view-label">View</span></button>
+          <button class="report-copy-btn" type="button" data-copy-target="${rawId}" title="Copy raw source to clipboard"><span class="report-copy-label">Copy</span></button>
+        </div>
       </div>
-      <button class="report-copy-btn" type="button" data-copy-target="${copyId}" title="Copy raw source to clipboard">
-        <span class="report-copy-label">Copy</span>
-      </button>
-      <textarea id="${copyId}" class="report-copy-raw" readonly aria-hidden="true">${escHtml(rawText)}</textarea>
+      <div class="report-artifact-body" id="${bodyId}">${bodyHtml}</div>
+      <textarea id="${rawId}" class="report-copy-raw" readonly aria-hidden="true">${escHtml(rawText)}</textarea>
     </div>`;
   }
 
@@ -2454,9 +2470,9 @@ async function generateReport(pack, skills, items, files) {
       } catch (e) {
         diagram = `<pre class="diagram-fallback"><code>${escHtml(text)}</code></pre>`;
       }
-      html = `${reportArtifactHeader(f, text)}${diagram}${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`;
+      html = reportArtifactBlock(f, text, `${diagram}${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`);
     } else if (ext === 'yaml' || ext === 'yml') {
-      html = `${reportArtifactHeader(f, text)}<pre><code class="language-yaml">${escHtml(text)}</code></pre>`;
+      html = reportArtifactBlock(f, text, `<pre><code class="language-yaml">${escHtml(text)}</code></pre>`);
     } else if (f.endsWith('roi-framework.md')) {
       const roiRows = { c: [], p: [], v: [] };
       const indicators = [];
@@ -2517,7 +2533,11 @@ async function generateReport(pack, skills, items, files) {
         const autoHint = autoRule ? `<div class="roi-auto-hint" data-hint-for="${r.id}"><span class="roi-auto-tag">auto-filled</span> ${escHtml(autoRule.label)}. Edit to override; double-click to restore.</div>` : '';
         const prefill = !autoRule ? exampleAmount(guide.ex) : '';
         const valAttr = prefill ? ` value="${prefill}"` : '';
-        return `<tr><td style="font-weight:700;color:#093B5F;vertical-align:top;padding-top:12px">${r.id}</td><td style="vertical-align:top;padding-top:12px"><div>${escHtml(r.label)}</div>${autoHint}<div class="roi-guide"><span class="roi-ask">${escHtml(guide.ask || '')}</span>${guide.ex ? '<br><span class="roi-ex">Example: ' + escHtml(guide.ex) + '</span>' : ''}</div></td><td style="vertical-align:top;padding-top:10px"><input type="number" class="roi-input" aria-label="${escHtml(r.id + ' ' + r.label)}" data-group="${g}" data-id="${r.id}"${autoAttr}${valAttr} min="0" step="1000" placeholder="0"></td><td style="font-size:12px;color:#5A7A94;vertical-align:top;padding-top:12px">${xref(escHtml(r.basis), 'decisions')}</td></tr>`;
+        // data-default carries the architecture-derived suggested estimate so the
+        // "Populate suggested estimates" button can (re)fill it — computed here at
+        // generation time, so no AI/network is needed when the report is viewed.
+        const defAttr = prefill ? ` data-default="${prefill}"` : '';
+        return `<tr><td style="font-weight:700;color:#093B5F;vertical-align:top;padding-top:12px">${r.id}</td><td style="vertical-align:top;padding-top:12px"><div>${escHtml(r.label)}</div>${autoHint}<div class="roi-guide"><span class="roi-ask">${escHtml(guide.ask || '')}</span>${guide.ex ? '<br><span class="roi-ex">Example: ' + escHtml(guide.ex) + '</span>' : ''}</div></td><td style="vertical-align:top;padding-top:10px"><input type="number" class="roi-input" aria-label="${escHtml(r.id + ' ' + r.label)}" data-group="${g}" data-id="${r.id}"${autoAttr}${valAttr}${defAttr} min="0" step="1000" placeholder="0"></td><td style="font-size:12px;color:#5A7A94;vertical-align:top;padding-top:12px">${xref(escHtml(r.basis), 'decisions')}</td></tr>`;
       };
       const roiSum = (label, g) => `<tr class="roi-total"><td></td><td><strong>${label}</strong></td><td><strong class="roi-sum" data-sum="${g}">$0</strong></td><td></td></tr>`;
 
@@ -2539,6 +2559,12 @@ async function generateReport(pack, skills, items, files) {
 <p class="roi-step-desc">These values are derived from the architecture design. They anchor all cost and value estimates below.</p>
 <div class="roi-ind-grid">
 ${indCards}
+</div>
+
+<div class="roi-actions">
+<button type="button" class="roi-populate-btn" id="roi-populate">Populate suggested estimates</button>
+<button type="button" class="roi-clear-btn" id="roi-clear">Clear all</button>
+<span class="roi-actions-note">Suggested figures are illustrative, architecture-derived starting points computed from this design — replace each with your organization's actual numbers.</span>
 </div>
 
 <div class="roi-step-header"><span class="roi-step-num">Step 1</span><span class="roi-step-title">Cost of Current State (Annual)</span></div>
@@ -2636,7 +2662,7 @@ ${roiSum('Total annual value', 'v')}
       // same title / path / description / copy-button header on top of the
       // rendered content. The ROI-framework branch above intentionally keeps
       // its own interactive layout and skips this header.
-      html = `${reportArtifactHeader(f, text)}${marked.parse(text)}`;
+      html = reportArtifactBlock(f, text, `<div class="report-md">${demoteHeadings(marked.parse(text), 2)}</div>`);
     }
     sections.push({ group: groupName, isNewGroup, html, file: f, ext });
   }
@@ -2890,6 +2916,15 @@ a:hover{color:#00C895}
 .roi-sens-label{font-size:13px;font-weight:600;color:#093B5F;margin-bottom:4px}
 .roi-sens-hint{font-size:11px;color:#6B7B8D;line-height:1.4;margin-bottom:10px}
 .roi-reset-btn{margin-left:auto;padding:4px 12px;font-size:11px;font-weight:600;font-family:'Figtree',sans-serif;color:#5A7A94;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;letter-spacing:0.02em}
+.roi-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:20px 0 8px}
+.roi-populate-btn{padding:8px 16px;font-size:12px;font-weight:700;font-family:inherit;color:#fff;background:#00C895;border:1px solid #00C895;border-radius:5px;cursor:pointer;letter-spacing:0.02em}
+.roi-populate-btn:hover{background:#00b085;border-color:#00b085}
+.roi-clear-btn{padding:8px 14px;font-size:12px;font-weight:600;font-family:inherit;color:#5A7A94;background:none;border:1px solid #d1d5db;border-radius:5px;cursor:pointer}
+.roi-clear-btn:hover{border-color:#093B5F;color:#093B5F}
+.roi-actions-note{flex:1;min-width:220px;font-size:12px;color:#5A7A94;line-height:1.45}
+body.dark .roi-clear-btn{border-color:#30363d;color:#8b949e}
+body.dark .roi-actions-note{color:#8b949e}
+@media print{.roi-actions{display:none}}
 .roi-reset-btn:hover{color:#093B5F;border-color:#093B5F;background:#f8fafc}
 .roi-sens-control{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .roi-slider{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:#e5e7eb;outline:none}
@@ -3085,6 +3120,37 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 }
 .report-copy-btn:hover{background:#093B5F;color:#fff;border-color:#093B5F}
 .report-copy-btn.is-copied{background:#00C895;color:#03213B;border-color:#00C895}
+.report-artifact-actions{flex-shrink:0;display:flex;gap:8px;align-items:flex-start}
+.report-view-btn{
+  flex-shrink:0;padding:6px 14px;font-size:11px;font-weight:600;letter-spacing:0.5px;
+  text-transform:uppercase;background:transparent;border:1px solid #cbd5dc;
+  border-radius:4px;color:#3F5870;cursor:pointer;font-family:inherit;
+  transition:background 0.12s,color 0.12s,border-color 0.12s;
+}
+.report-view-btn:hover{background:#093B5F;color:#fff;border-color:#093B5F}
+/* Demoted artifact-content headings — subordinate to the report's section structure. */
+.report-md h3{font-size:16px;font-weight:700;color:#093B5F;margin:20px 0 8px;padding:0;border:0}
+.report-md h4{font-size:14px;font-weight:600;color:#093B5F;margin:16px 0 6px}
+.report-md h5{font-size:12.5px;font-weight:600;color:#3F5870;margin:12px 0 4px}
+.report-md h6{font-size:12px;font-weight:600;color:#5A7A94;margin:10px 0 4px}
+body.dark .report-view-btn{border-color:#30363d;color:#8b949e}
+body.dark .report-view-btn:hover{background:#00C895;color:#03213B;border-color:#00C895}
+body.dark .report-md h3,body.dark .report-md h4{color:#c9d1d9}
+/* In-page markdown popup (artifact viewer) */
+.report-md-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;background:rgba(9,42,68,0.55);padding:24px}
+.report-md-modal.open{display:flex}
+.report-md-modal-panel{background:#fff;border-radius:10px;max-width:920px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.32);overflow:hidden}
+.report-md-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 22px;border-bottom:1px solid #e1e8ef;background:#f8fafc}
+.report-md-modal-title{font-weight:700;font-size:16px;color:#093B5F;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.report-md-modal-close{flex-shrink:0;background:none;border:0;font-size:26px;line-height:1;color:#5A7A94;cursor:pointer;padding:0 4px}
+.report-md-modal-close:hover{color:#093B5F}
+.report-md-modal-body{padding:22px 28px;overflow:auto}
+.report-md-modal-body>.report-md{margin:0}
+body.dark .report-md-modal-panel{background:#0d1117}
+body.dark .report-md-modal-head{background:#161b22;border-color:#21262d}
+body.dark .report-md-modal-title{color:#c9d1d9}
+body.dark .report-md-modal-close{color:#8b949e}
+@media print{.report-md-modal{display:none!important}}
 .report-copy-raw{
   position:absolute;left:-10000px;top:-10000px;width:1px;height:1px;opacity:0;
   pointer-events:none;
@@ -3666,6 +3732,16 @@ document.getElementById('dlBtn').addEventListener('click',function(){
     XLSX.utils.book_append_sheet(wb,ws,'ROI Framework');
     XLSX.writeFile(wb,'roi-framework.xlsx');
   });
+  var popBtn=document.getElementById('roi-populate');
+  if(popBtn) popBtn.addEventListener('click',function(){
+    inputs.forEach(function(inp){ var d=inp.getAttribute('data-default'); if(d!==null && d!=='') inp.value=d; });
+    autoFillV(); update();
+  });
+  var clrBtn=document.getElementById('roi-clear');
+  if(clrBtn) clrBtn.addEventListener('click',function(){
+    inputs.forEach(function(inp){ inp.value=''; try{delete userOverrides[inp.dataset.id];}catch(_){} inp.classList.remove('roi-auto-filled'); });
+    update();
+  });
   update();
 })();
 <\/script>
@@ -3703,6 +3779,37 @@ document.getElementById('dlBtn').addEventListener('click',function(){
     } catch (err) {
       done(false);
     }
+  });
+})();
+<\/script>
+<script>
+// Popup viewer for every embedded artifact — the View button opens the artifact's
+// rendered content in an in-page modal. Self-contained; no external libraries.
+(function(){
+  // In-page popup (modal) that shows an artifact's rendered markdown without leaving
+  // the report. Built once and reused; content is cloned from the artifact's own
+  // already-rendered body, so no libraries and no navigation.
+  var modal=document.createElement('div');
+  modal.className='report-md-modal';
+  modal.innerHTML='<div class="report-md-modal-panel" role="dialog" aria-modal="true" aria-label="Artifact viewer"><div class="report-md-modal-head"><span class="report-md-modal-title"></span><button type="button" class="report-md-modal-close" aria-label="Close">\\u00d7</button></div><div class="report-md-modal-body content report-md"></div></div>';
+  document.body.appendChild(modal);
+  var modalTitle=modal.querySelector('.report-md-modal-title');
+  var modalBody=modal.querySelector('.report-md-modal-body');
+  function openArt(bodyId, title){
+    var body=document.getElementById(bodyId);
+    if(!body) return;
+    modalTitle.textContent=title||'Artifact';
+    modalBody.innerHTML=body.innerHTML;
+    modalBody.scrollTop=0;
+    modal.classList.add('open');
+    document.body.style.overflow='hidden';
+  }
+  function closeArt(){ modal.classList.remove('open'); modalBody.innerHTML=''; document.body.style.overflow=''; }
+  modal.addEventListener('click', function(e){ if(e.target===modal || (e.target.closest && e.target.closest('.report-md-modal-close'))) closeArt(); });
+  function fromOpen(e){ var el=e.target.closest && e.target.closest('.report-view-btn'); if(!el) return; e.preventDefault(); openArt(el.getAttribute('data-open'), el.getAttribute('data-open-title')); }
+  document.addEventListener('click', fromOpen);
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape' && modal.classList.contains('open')){ closeArt(); return; }
   });
 })();
 <\/script>
