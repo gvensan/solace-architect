@@ -38,11 +38,24 @@ packs:
 
   - id: arch-blueprint
     label: System & Engineering View
-    description: View-oriented architecture — logical, process, development, physical, and scenarios.
+    description: The 4+1 views plus the concrete specs an engineer builds from — topics, protocols, provisioning, and wiring diagrams.
     audience: Implementation team, engineering leads, new developers onboarding
     filters:
       dirs:
         - 15-arch-blueprint
+        # The 4+1 views frame the system; the implementation team also needs the
+        # concrete, buildable specs — the exact topics, protocols, and provisioning.
+        - 02-topic-design
+        - 05-protocol-select
+      files:
+        - 12-blueprint/config/broker/provisioning-parameters.md
+      globs:
+        # Physical / wiring diagrams so engineers see how it's deployed and connected.
+        - "12-blueprint/diagrams/data-flow*.mermaid"
+        - "12-blueprint/diagrams/broker-topology*.mermaid"
+        - "12-blueprint/diagrams/dmr-topology*.mermaid"
+        - "12-blueprint/diagrams/topic-hierarchy*.mermaid"
+        - "12-blueprint/diagrams/queue-subscriptions*.mermaid"
       top_sections:
         - summary
         - scope
@@ -74,6 +87,7 @@ packs:
       dirs:
         - 02-topic-design
         - 03-broker-select
+        - 06-mesh-design
         - 07-ha-dr
       files:
         - 08-integration/micro-integration-map.md
@@ -90,9 +104,11 @@ packs:
         - 13-event-portal/provisioning-report.md
       globs:
         - "12-blueprint/diagrams/broker-topology*.mermaid"
+        - "12-blueprint/diagrams/dmr-topology*.mermaid"
         - "12-blueprint/diagrams/dlq-flow*.mermaid"
         - "12-blueprint/diagrams/failure-modes*.mermaid"
         - "12-blueprint/diagrams/ha-*.mermaid"
+        - "12-blueprint/diagrams/dr-*.mermaid"
         - "12-blueprint/diagrams/queue-subscriptions*.mermaid"
         - "12-blueprint/diagrams/queue-subscriptions-detail*.md"
       top_sections:
@@ -119,6 +135,12 @@ packs:
     description: Auth, ACLs, encryption, audit, PII — full security posture.
     audience: Security architect, compliance, infosec, audit
     filters:
+      dirs:
+        # Data residency and DR are core compliance concerns. The mesh design is
+        # where selective DMR replication *enforces* EU residency, and HA/DR defines
+        # RPO/RTO per data class — audit needs to see how, not just that it's claimed.
+        - 06-mesh-design
+        - 07-ha-dr
       files:
         - 03-broker-select/broker-recommendation.md
         - 05-protocol-select/protocol-map.md
@@ -145,6 +167,8 @@ packs:
         - solace-event-portal
         - solace-ep-provision
         - solace-broker-select
+        - solace-mesh-design
+        - solace-ha-dr
       finding_skills:
         - solace-security-review
 
