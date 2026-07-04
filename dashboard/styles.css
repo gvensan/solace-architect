@@ -634,7 +634,8 @@ h3 {
 .art-modal-body pre { background: var(--bg-card-hover); padding: 12px; border-radius: 6px; overflow: auto; }
 .art-modal-body pre code { background: none; padding: 0; }
 .art-modal-body svg { max-width: 100%; height: auto; }
-.art-modal-body .mermaid { text-align: center; margin: 14px 0; }
+.art-modal-body .mermaid { text-align: center; margin: 14px 0; cursor: zoom-in; transition: box-shadow 0.15s; border-radius: 6px; }
+.art-modal-body .mermaid:hover { box-shadow: 0 0 0 2px var(--accent); }
 .badge-missing { background: rgba(224,49,49,0.15); color: #e03131; }
 .skill-card.unrecorded { border-color: var(--orange); }
 
