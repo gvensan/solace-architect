@@ -3366,18 +3366,10 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
   </article>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>
+<!-- Diagrams are pre-rendered to inline SVG at generation time (see generateReport),
+     so the report needs no Mermaid runtime. SheetJS stays for optional Excel export. -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"><\/script>
 <script>
-mermaid.initialize({startOnLoad:true,theme:'base',themeVariables:{
-  primaryColor:'#e8f4f8',primaryTextColor:'#093B5F',primaryBorderColor:'#093B5F',
-  lineColor:'#5A7A94',secondaryColor:'#f0fdf9',tertiaryColor:'#f8fafc',
-  edgeLabelBackground:'#ffffff',clusterBkg:'#f8fafc',clusterBorder:'#d1d5db',
-  fontFamily:'Figtree,sans-serif',fontSize:'13px',
-  nodeBorder:'#093B5F',mainBkg:'#e8f4f8',
-  actorBkg:'#e8f4f8',actorBorder:'#093B5F',actorTextColor:'#093B5F',
-  signalColor:'#5A7A94',signalTextColor:'#093B5F'
-},flowchart:{curve:'basis',padding:16},sequence:{mirrorActors:false}});
 document.addEventListener('scroll',function(){
   var links=document.querySelectorAll('.sidebar a');
   var sects=[];
