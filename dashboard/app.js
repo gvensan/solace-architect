@@ -300,6 +300,67 @@ function softenCitations(html) {
     .replace(/\s*\[inference\]/gi, ' <sup class="cite-inferred" title="Inferred: reasoning applied to your inputs, not a documented Solace fact">inferred</sup>');
 }
 
+// ── In-app artifact popup ──────────────────────────────────────────────────
+// Any artifact name across the dashboard can open its rendered content in a modal
+// (markdown rendered + citations softened, mermaid as SVG, YAML/other as code),
+// reusing the Artifacts-view rendering. Wire a name up by giving it class "art-open"
+// and data-art-path="<a.path>"; a delegated handler does the rest.
+function ensureArtModal() {
+  let m = document.getElementById('artModal');
+  if (m) return m;
+  m = document.createElement('div');
+  m.id = 'artModal';
+  m.className = 'art-modal';
+  m.innerHTML = '<div class="art-modal-panel"><div class="art-modal-head"><span class="art-modal-title"></span><button type="button" class="art-modal-close" aria-label="Close">×</button></div><div class="art-modal-body"></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', (e) => { if (e.target === m || (e.target.closest && e.target.closest('.art-modal-close'))) closeArtModal(); });
+  return m;
+}
+function closeArtModal() {
+  const m = document.getElementById('artModal');
+  if (m) { m.classList.remove('open'); m.querySelector('.art-modal-body').innerHTML = ''; document.body.style.overflow = ''; }
+}
+async function openArtifactPopup(artPath) {
+  if (!artPath || !(state && state.current && state.current.slug)) return;
+  const rel = artPath.replace(/^artifacts\//, '');
+  const m = ensureArtModal();
+  m.querySelector('.art-modal-title').textContent = (typeof artifactTitleFor === 'function' ? artifactTitleFor(rel) : rel);
+  const body = m.querySelector('.art-modal-body');
+  body.innerHTML = '<p style="color:var(--text-muted)">Loading…</p>';
+  m.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  try {
+    const res = await fetch(`/api/projects/${state.current.slug}/artifact?path=${encodeURIComponent(rel)}`);
+    if (!res.ok) { body.innerHTML = '<p style="color:var(--text-dim)">Could not load this artifact.</p>'; return; }
+    const text = await res.text();
+    const ext = (rel.split('.').pop() || '').toLowerCase();
+    if (ext === 'md') {
+      body.innerHTML = softenCitations(marked.parse(text));
+      body.querySelectorAll('pre code').forEach((block) => {
+        const lang = block.className && block.className.match(/language-(\w+)/);
+        if ((lang && lang[1] === 'mermaid') || /^(graph |flowchart |sequenceDiagram|classDiagram|stateDiagram)/.test(block.textContent.trim())) {
+          const div = document.createElement('div'); div.className = 'mermaid'; div.textContent = block.textContent;
+          block.closest('pre').replaceWith(div);
+        }
+      });
+    } else if (ext === 'mermaid' || ext === 'mmd') {
+      body.innerHTML = `<div class="mermaid">${escHtml(text)}</div>`;
+    } else {
+      body.innerHTML = `<pre><code>${escHtml(text)}</code></pre>`;
+    }
+    if (window.mermaid && body.querySelector('.mermaid')) {
+      try { mermaid.run({ nodes: body.querySelectorAll('.mermaid') }); } catch (e) { /* leave source visible */ }
+    }
+  } catch (e) {
+    body.innerHTML = '<p style="color:var(--text-dim)">Error loading artifact.</p>';
+  }
+}
+document.addEventListener('click', (e) => {
+  const link = e.target.closest && e.target.closest('.art-open');
+  if (link) { e.preventDefault(); openArtifactPopup(link.getAttribute('data-art-path')); }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeArtModal(); });
+
 /* ─── DATA LOADING ─── */
 
 async function loadData() {
@@ -1103,7 +1164,7 @@ async function overview() {
           <div class="detail-section">
             <div class="detail-section-title">Artifacts</div>
             <ul class="detail-artifacts">
-              ${entryArtifacts.map(a => `<li><strong style="color:var(--text)">${a.path.split('/').pop()}</strong> — ${a.description || a.type || ''}</li>`).join('')}
+              ${entryArtifacts.map(a => `<li><a class="art-open" data-art-path="${a.path.replace(/"/g,'&quot;')}">${escHtml(a.path.split('/').pop())}</a> — ${escHtml(a.description || a.type || '')}</li>`).join('')}
             </ul>
           </div>
         ` : ''}
@@ -1291,7 +1352,7 @@ function renderTimelineDetail(entry) {
       <h3>Artifacts</h3>
       <ul style="list-style:none;padding:0">
         ${entry.artifacts.map(a => `<li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-dim)">
-          <strong style="color:var(--text)">${a.path.split('/').pop()}</strong> — ${a.description || a.type || ''}
+          <a class="art-open" data-art-path="${a.path.replace(/"/g,'&quot;')}">${escHtml(a.path.split('/').pop())}</a> — ${escHtml(a.description || a.type || '')}
         </li>`).join('')}
       </ul>
     ` : ''}`;
