@@ -1045,7 +1045,6 @@ async function overview() {
       if (!card) return;
       const sk = card.dataset.skill;
       const gi = parseInt(card.dataset.group);
-      selectGroup(gi);
       showSkillDetail(sk, gi);
     });
   }
@@ -1133,7 +1132,13 @@ async function overview() {
     const treeItem = document.querySelector(`.skill-tree-item[data-skill="${sk}"]`);
     if (treeItem) treeItem.classList.add('active');
 
-    renderGroupTiles(gi, sk);
+    // Highlight the selected tile *without* collapsing the other group rows. Only
+    // re-render (showing all groups) if the tile isn't currently on screen — e.g. we
+    // were focused on a single group via the tree.
+    let selCard = document.querySelector(`.skill-card[data-skill="${sk}"]`);
+    if (!selCard) { renderAllGroups(); selCard = document.querySelector(`.skill-card[data-skill="${sk}"]`); }
+    document.querySelectorAll('.skill-card.expanded').forEach(el => el.classList.remove('expanded'));
+    if (selCard) selCard.classList.add('expanded');
 
     const container = document.getElementById('skillDetailContainer');
     const t = entry.timing;
@@ -1218,7 +1223,6 @@ async function overview() {
     if (itemLink) {
       const gi = parseInt(itemLink.dataset.group);
       const sk = itemLink.dataset.skill;
-      selectGroup(gi);
       showSkillDetail(sk, gi);
       return;
     }
