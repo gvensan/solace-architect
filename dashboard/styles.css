@@ -607,6 +607,9 @@ h3 {
 .badge-skipped { background: rgba(139,164,184,0.15); color: var(--text-dim); }
 .badge-in-progress { background: rgba(252,168,41,0.15); color: var(--orange); }
 .badge-orchestrating { background: rgba(0,200,149,0.12); color: var(--accent); animation: pulse-badge 2s ease-in-out infinite; }
+.badge-unrecorded { background: rgba(252,168,41,0.15); color: var(--orange); }
+.badge-missing { background: rgba(224,49,49,0.15); color: #e03131; }
+.skill-card.unrecorded { border-color: var(--orange); }
 
 @keyframes pulse-badge {
   0%, 100% { opacity: 1; }

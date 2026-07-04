@@ -177,6 +177,53 @@ const STATUS_RANK = {
   blocked: 5,
 };
 
+// ── Artifact reconciliation ──────────────────────────────────────────────
+// progress.yaml is written by each skill's own checkpoint step (prompt-driven),
+// so it can lag or diverge from what's actually on disk. These map each skill to
+// the artifacts it owns, so the view can reconcile the ledger against reality:
+// surface "artifacts on disk but not logged" and demote "logged complete but no
+// artifacts". Reviews share 10-reviews/, so they match specific files.
+const SKILL_ARTIFACT_MATCH = {
+  'solace-discovery': f => f.startsWith('01-discovery/'),
+  'solace-topic-design': f => f.startsWith('02-topic-design/'),
+  'solace-broker-select': f => f.startsWith('03-broker-select/'),
+  'solace-sam-design': f => f.startsWith('04-sam-design/'),
+  'solace-protocol-select': f => f.startsWith('05-protocol-select/'),
+  'solace-mesh-design': f => f.startsWith('06-mesh-design/'),
+  'solace-ha-dr': f => f.startsWith('07-ha-dr/'),
+  'solace-integration': f => f.startsWith('08-integration/'),
+  'solace-migration': f => f.startsWith('09-migration/'),
+  'solace-architect-review': f => f === '10-reviews/architect-review.md',
+  'solace-ops-review': f => f === '10-reviews/ops-review.md',
+  'solace-security-review': f => f === '10-reviews/security-review.md',
+  'solace-dev-review': f => f === '10-reviews/dev-review.md',
+  'solace-validate': f => f.startsWith('11-validation/'),
+  'solace-blueprint': f => f.startsWith('12-blueprint/') && !f.startsWith('12-blueprint/diagrams/'),
+  'solace-diagrams': f => f.startsWith('12-blueprint/diagrams/'),
+  'solace-event-portal': f => f.startsWith('13-event-portal/') && f !== '13-event-portal/provisioned.yaml' && !f.startsWith('13-event-portal/asyncapi/'),
+  'solace-ep-provision': f => f === '13-event-portal/provisioned.yaml' || f.startsWith('13-event-portal/asyncapi/'),
+  'solace-executive': f => f.startsWith('14-executive/'),
+  'solace-architecture-blueprint': f => f.startsWith('15-arch-blueprint/'),
+};
+function diskArtifactCount(sk, files) {
+  const m = SKILL_ARTIFACT_MATCH[sk];
+  return m ? (files || []).filter(m).length : 0;
+}
+// Reconciled status: layers disk truth over the progress ledger.
+//   complete  = logged complete AND (has artifacts OR skill owns no artifacts)
+//   missing   = logged complete BUT its artifacts are gone (truncated/failed run)
+//   unrecorded= artifacts on disk BUT no complete/in-progress log entry
+function reconciledStatus(sk, entry, isSkipped, files) {
+  if (isSkipped) return 'skipped';
+  const owns = !!SKILL_ARTIFACT_MATCH[sk];
+  const disk = diskArtifactCount(sk, files);
+  if (entry?.status === 'complete') return (owns && disk === 0) ? 'missing' : 'complete';
+  if (entry?.status === 'in-progress') return 'in-progress';
+  if (owns && disk > 0) return 'unrecorded';
+  if (entry && ['blocked', 'partial', 'interrupted'].includes(entry.status)) return 'failed';
+  return 'not-started';
+}
+
 function getSkills(progress) {
   if (!progress?.progress) return [];
   const all = progress.progress;
@@ -552,7 +599,10 @@ async function overview() {
   const totalWait = skills.reduce((a, s) => a + (s.timing?.user_wait_sec || 0), 0);
   const userDecisions = items.filter(d => d.id || (d.skill && !d.source));
   const reviewFindings = items.filter(d => d.source);
-  const completedSkills = skills.filter(s => s.status === 'complete');
+  const completedSkills = SKILL_ORDER.filter(sk => {
+    const st = reconciledStatus(sk, skills.find(s => s.skill === sk), skipped.includes(sk), files);
+    return st === 'complete' || st === 'unrecorded';
+  }).map(sk => ({ skill: sk }));
   const totalArtifacts = files?.length || 0;
   const openItems = getOpenItems(state.data.openItems);
   const openCount = openItems.filter(i => (i.status||'open') !== 'resolved').length;
@@ -661,14 +711,13 @@ async function overview() {
   function getSkillStatus(sk) {
     const entry = skills.find(s => s.skill === sk);
     const isSkipped = skipped.includes(sk);
-    if (isSkipped) return 'skipped';
-    if (entry?.status === 'complete') return 'complete';
-    if (entry?.status === 'in-progress') return 'in-progress';
-    // Treat real failure statuses as failures so the icon logic can flag them
-    // distinctly from "not yet started" (which is a benign state for any
-    // conditional skill that simply doesn't apply to this project).
-    if (entry && ['blocked', 'partial', 'interrupted'].includes(entry.status)) return 'failed';
-    return 'not-started';
+    // Reconcile against artifacts on disk: 'unrecorded' (artifacts present but the
+    // checkpoint was never logged) counts as done; 'missing' (logged complete but
+    // artifacts gone) is a failure, not a completion.
+    const st = reconciledStatus(sk, entry, isSkipped, files);
+    if (st === 'unrecorded') return 'complete';
+    if (st === 'missing') return 'failed';
+    return st;
   }
 
   // Group status colors carry meaning. We use orange ONLY when something failed
@@ -873,14 +922,25 @@ async function overview() {
               skipReason = SKIP_REASONS[sk] || 'Not applicable';
               badge = '<span class="badge badge-skipped">N/A</span>';
             } else if (entry?.status === 'complete') {
-              cls = 'complete clickable';
-              badge = '<span class="badge badge-complete">COMPLETE</span>';
-              timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
-              const ac = entry.artifacts?.length || 0;
-              if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              const dac = diskArtifactCount(sk, files);
+              if (SKILL_ARTIFACT_MATCH[sk] && dac === 0) {
+                cls = 'failed clickable';
+                badge = '<span class="badge badge-missing">COMPLETE · artifacts missing</span>';
+              } else {
+                cls = 'complete clickable';
+                badge = '<span class="badge badge-complete">COMPLETE</span>';
+                timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
+                const ac = entry.artifacts?.length || dac;
+                if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              }
             } else if (entry?.status === 'in-progress') {
               cls = 'in-progress clickable';
               badge = `<span class="badge badge-in-progress">${entry.step_reached || 'IN PROGRESS'}</span>`;
+            } else if (!isSkipped && diskArtifactCount(sk, files) > 0) {
+              cls = 'unrecorded clickable';
+              const ac = diskArtifactCount(sk, files);
+              badge = '<span class="badge badge-unrecorded">ARTIFACTS ✓ · unlogged</span>';
+              artifactCount = `${ac} artifact${ac > 1 ? 's' : ''} on disk`;
             }
             let subSkillsHtml = '';
             const subs = TILE_SUB_SKILLS[sk];
@@ -939,14 +999,25 @@ async function overview() {
               skipReason = SKIP_REASONS[sk] || 'Not applicable';
               badge = '<span class="badge badge-skipped">N/A</span>';
             } else if (entry?.status === 'complete') {
-              cls = 'complete clickable';
-              badge = '<span class="badge badge-complete">COMPLETE</span>';
-              timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
-              const ac = entry.artifacts?.length || 0;
-              if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              const dac = diskArtifactCount(sk, files);
+              if (SKILL_ARTIFACT_MATCH[sk] && dac === 0) {
+                cls = 'failed clickable';
+                badge = '<span class="badge badge-missing">COMPLETE · artifacts missing</span>';
+              } else {
+                cls = 'complete clickable';
+                badge = '<span class="badge badge-complete">COMPLETE</span>';
+                timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
+                const ac = entry.artifacts?.length || dac;
+                if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              }
             } else if (entry?.status === 'in-progress') {
               cls = 'in-progress clickable';
               badge = `<span class="badge badge-in-progress">${entry.step_reached || 'IN PROGRESS'}</span>`;
+            } else if (!isSkipped && diskArtifactCount(sk, files) > 0) {
+              cls = 'unrecorded clickable';
+              const ac = diskArtifactCount(sk, files);
+              badge = '<span class="badge badge-unrecorded">ARTIFACTS ✓ · unlogged</span>';
+              artifactCount = `${ac} artifact${ac > 1 ? 's' : ''} on disk`;
             }
             if (selectedSkill === sk) cls += ' expanded';
             let subSkillsHtml = '';
@@ -1931,7 +2002,10 @@ async function exportView() {
   const skipped = getEffectiveSkipped(state.data.progress, state.data.decisions);
   const totalExec = skills.reduce((a, s) => a + (s.timing?.execution_sec || 0), 0);
   const totalWall = skills.reduce((a, s) => a + (s.timing?.wall_sec || 0), 0);
-  const completedSkills = skills.filter(s => s.status === 'complete');
+  const completedSkills = SKILL_ORDER.filter(sk => {
+    const st = reconciledStatus(sk, skills.find(s => s.skill === sk), skipped.includes(sk), files);
+    return st === 'complete' || st === 'unrecorded';
+  }).map(sk => ({ skill: sk }));
   const discoverySummary = skills.find(s => s.skill === 'solace-discovery')?.summary || '';
   const userDecs = items.filter(d => d.id);
   const findings = items.filter(d => d.source);
