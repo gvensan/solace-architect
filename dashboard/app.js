@@ -1546,7 +1546,8 @@ function artifactTitleFor(path) {
     const [, n, rest] = numbered;
     return `${n} · ${rest.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}`;
   }
-  return base.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+  return base.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+    .replace(/\b(Dmr|Ha|Dr|Mi|Dlq|Dmq|Roi|Api|Acl|Sam|Smf|Mqtt|Tls|Vpn|Ep|Ha\/Dr)\b/g, m => m.toUpperCase());
 }
 
 // When no description exists in progress.yaml, build a sensible fallback from
@@ -3281,7 +3282,8 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
         const grp = SKILL_TO_GROUP[s.skill];
         const nameHtml = grp ? xref('<span style="font-weight:600">' + (SKILL_LABELS[s.skill]||s.skill) + '</span>', 'grp-' + grp) : '<span style="font-weight:600">' + (SKILL_LABELS[s.skill]||s.skill) + '</span>';
         const artCount = s.artifacts?.length || 0;
-        const artHtml = grp && artCount > 0 ? xref(artCount + ' files', 'grp-' + grp) : artCount + ' files';
+        const filesLabel = artCount + (artCount === 1 ? ' file' : ' files');
+        const artHtml = grp && artCount > 0 ? xref(filesLabel, 'grp-' + grp) : filesLabel;
         return '<tr><td>' + nameHtml + '</td>' +
         '<td>' + (s.status === 'complete' ? '<span style="color:#00C895;font-weight:600">Complete</span>' : s.status) + '</td>' +
         '<td>' + (s.timing ? fmtTime(s.timing.execution_sec) : '--') + '</td>' +
