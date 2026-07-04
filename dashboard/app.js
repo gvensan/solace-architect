@@ -2421,6 +2421,14 @@ async function generateReport(pack, skills, items, files) {
     return html.replace(/<(\/?)h([1-6])(\b[^>]*)>/gi, (m, slash, lvl, rest) =>
       `<${slash}h${Math.min(6, parseInt(lvl, 10) + by)}${rest}>`);
   }
+  // Grounding tags stay in the artifact source (Copy / raw), but the *rendered* report
+  // drops provenance tags ([ref:]/[doc]/[user]/[managed-ref:]) as reader clutter and
+  // keeps [inference] as a subtle honesty mark so estimates aren't read as documented facts.
+  function softenCitations(html) {
+    return html
+      .replace(/\s*\[(?:ref|doc|managed-ref|user)(?::[^\]\n]*)?\]/gi, '')
+      .replace(/\s*\[inference\]/gi, ' <sup class="cite-inferred" title="Inferred: reasoning applied to your inputs, not a documented Solace fact">inferred</sup>');
+  }
   // A self-describing block for one embedded artifact: a View button (opens the
   // rendered content in an in-page popup) and a Copy button (copies the raw source).
   // `bodyHtml` is the rendered content (markdown HTML, diagram SVG, or code).
@@ -2662,7 +2670,7 @@ ${roiSum('Total annual value', 'v')}
       // same title / path / description / copy-button header on top of the
       // rendered content. The ROI-framework branch above intentionally keeps
       // its own interactive layout and skips this header.
-      html = reportArtifactBlock(f, text, `<div class="report-md">${demoteHeadings(marked.parse(text), 2)}</div>`);
+      html = reportArtifactBlock(f, text, `<div class="report-md">${softenCitations(demoteHeadings(marked.parse(text), 2))}</div>`);
     }
     sections.push({ group: groupName, isNewGroup, html, file: f, ext });
   }
@@ -2698,7 +2706,7 @@ ${roiSum('Total annual value', 'v')}
     packFilters.decision_skills
   );
   const findingRows = packFilteredFindings.map(d =>
-    `<tr><td>${skillLink(d.source)}</td><td>${(d.severity||'advisory').toUpperCase()}</td><td>${escHtml(d.decision||'')}</td><td>${escHtml(d.action||'')}</td></tr>`
+    `<tr><td>${skillLink(d.source)}</td><td>${(d.severity||'advisory').toUpperCase()}</td><td>${softenCitations(escHtml(d.decision||''))}</td><td>${softenCitations(escHtml(d.action||''))}</td></tr>`
   ).join('');
 
   // Pack-filtered skill and file counts. For restricted packs, these are used
@@ -3133,6 +3141,8 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 .report-md h4{font-size:14px;font-weight:600;color:#093B5F;margin:16px 0 6px}
 .report-md h5{font-size:12.5px;font-weight:600;color:#3F5870;margin:12px 0 4px}
 .report-md h6{font-size:12px;font-weight:600;color:#5A7A94;margin:10px 0 4px}
+.cite-inferred{font-size:8.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8a6d3b;background:#fbf3e0;border:1px solid #f0e2bf;border-radius:3px;padding:0 4px;margin-left:2px;vertical-align:super;line-height:1;cursor:help}
+body.dark .cite-inferred{color:#d4b978;background:#3a2f16;border-color:#5c4a1f}
 body.dark .report-view-btn{border-color:#30363d;color:#8b949e}
 body.dark .report-view-btn:hover{background:#00C895;color:#03213B;border-color:#00C895}
 body.dark .report-md h3,body.dark .report-md h4{color:#c9d1d9}
@@ -3364,7 +3374,7 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
     ${packIncludesSection(packFilters, 'decisions') ? `
     <h2 id="decisions">Decisions</h2>
     <table><thead><tr><th>Decision</th><th>Skill</th><th>Value</th><th>Rationale</th></tr></thead><tbody>${packFilteredDecisions.map(d =>
-      `<tr><td>${escHtml(d.id||d.decision||'')}</td><td>${skillLink(d.skill)}</td><td>${escHtml(d.label||d.value||d.choice||'')}</td><td>${escHtml(d.question||d.rationale||'')}</td></tr>`
+      `<tr><td>${escHtml(d.id||d.decision||'')}</td><td>${skillLink(d.skill)}</td><td>${softenCitations(escHtml(d.label||d.value||d.choice||''))}</td><td>${softenCitations(escHtml(d.question||d.rationale||''))}</td></tr>`
     ).join('') || '<tr><td colspan="4" style="color:#9ca3af;text-align:center">No decisions recorded</td></tr>'}</tbody></table>` : ''}
 
     ${packIncludesSection(packFilters, 'findings') && findingRows ? `<h2 id="findings">Review Findings</h2>
