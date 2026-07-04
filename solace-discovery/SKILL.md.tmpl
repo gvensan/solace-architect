@@ -555,21 +555,24 @@ Context: After discovery, several architecture skills remain. This decides wheth
 they chain automatically or you confirm each transition. You can switch anytime.
 
 > **Recommended: A) Auto**
-> Why: <N> skills remaining — auto keeps momentum while still pausing for every
-> architecture decision inside each skill. Stops on critical validation issues.
+> Why: <N> skills remaining — auto keeps momentum by taking the recommended option at
+> each decision. Stops only for missing inputs, a blocking finding, or a critical issue.
 
-A) Auto — run recommended skills back-to-back (recommended)
+A) Auto — run recommended skills back-to-back, auto-deciding each choice (recommended)
   ✅ Fastest path to a complete blueprint — no pauses between skills
-  ✅ Still pauses for every architecture decision within each skill
-  ❌ Less visibility between skill transitions — one-line status, not a menu
+  ✅ Each architecture decision is set to the recommended option, logged, and recorded
+     (`auto_decided: true` in decisions.yaml) so you can review or override it afterward
+  ✅ Stops only for missing required inputs, a blocking review finding, or a critical
+     validation issue (then falls back to interactive for that step)
+  ❌ You don't confirm each decision as it's made — less visibility mid-run
 
-B) Interactive — confirm each skill before it runs
-  ✅ Full control at every transition — skip, reorder, or pick a different skill
+B) Interactive — confirm each skill and each decision before it runs
+  ✅ Full control — you answer every architecture decision and each transition
   ✅ Natural pause points to step away or review artifacts between skills
-  ❌ More prompts to answer — each skill completion asks what to do next
+  ❌ More prompts to answer — every decision and skill completion asks you
 
-Net: Auto is "drive-through" — you still make every design decision, just without stopping
-at each traffic light between skills. Interactive is "park and walk" — you decide the pace.
+Net: Auto is "drive-through" — it makes the recommended call at each decision and records
+it for you to review; Interactive is "park and walk" — you make every call and set the pace.
 ```
 
 Save the user's choice:
