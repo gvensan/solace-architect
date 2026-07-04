@@ -2431,6 +2431,7 @@ async function generateReport(pack, skills, items, files) {
 
   const sections = [];
   let prevGroup = null;
+  let mmdSeq = 0;
   for (const f of docFiles) {
     const res = await fetch(`/api/projects/${state.current.slug}/artifact?path=${encodeURIComponent(f)}`);
     if (!res.ok) continue;
@@ -2442,7 +2443,17 @@ async function generateReport(pack, skills, items, files) {
     let html;
     if (ext === 'mermaid' || ext === 'mmd') {
       const desc = artifactDescriptions[f] || '';
-      html = `${reportArtifactHeader(f, text)}<div class="mermaid">${escHtml(text)}</div>${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`;
+      // Pre-render to inline SVG using the dashboard's already-loaded Mermaid, so the
+      // downloaded/shared report is self-contained (no CDN, no parse-on-open). Fall back
+      // to readable source if a diagram can't be rendered.
+      let diagram;
+      try {
+        const out = await mermaid.render('rpt-mmd-' + (mmdSeq++), text.trim());
+        diagram = `<div class="diagram">${out.svg}</div>`;
+      } catch (e) {
+        diagram = `<pre class="diagram-fallback"><code>${escHtml(text)}</code></pre>`;
+      }
+      html = `${reportArtifactHeader(f, text)}${diagram}${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`;
     } else if (ext === 'yaml' || ext === 'yml') {
       html = `${reportArtifactHeader(f, text)}<pre><code class="language-yaml">${escHtml(text)}</code></pre>`;
     } else if (f.endsWith('roi-framework.md')) {
@@ -2773,10 +2784,16 @@ ${roiSum('Total annual value', 'v')}
   const reportHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <title>${escHtml(context?.display_name || state.current.slug)} — ${escHtml(packLabel)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* Self-contained: no external font CDN, so a downloaded/shared/offline report always
+   renders with clean system fonts. --sans/--mono are the app's brand fonts when present,
+   falling back to the platform UI stack. */
+:root{--sans:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Figtree',sans-serif;font-size:15px;line-height:1.65;color:#1f2937}
+body{font-family:var(--sans);font-size:15px;line-height:1.65;color:#1f2937}
+.diagram{text-align:center;margin:14px 0}
+.diagram svg{max-width:100%;height:auto}
+.diagram-fallback{background:#f8fafc;border:1px solid #e2eaf0;border-radius:6px;padding:12px;overflow:auto;font-size:12px;line-height:1.5}
 a{color:#093B5F;text-decoration:none}
 a:hover{color:#00C895}
 
