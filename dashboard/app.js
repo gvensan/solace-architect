@@ -3169,8 +3169,9 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
   .layout{display:block}
   .content{max-width:100%;padding:0}
   body{font-size:12px;padding-top:0!important}
-  .report-copy-btn{display:none}
+  .report-copy-btn,.report-view-btn,.report-artifact-actions{display:none}
   .report-artifact-header{background:transparent;border-color:#cbd5dc;padding:6px 0;margin:14px 0 8px}
+  .report-md h3{font-size:14px}.report-md h4{font-size:12.5px}
   .content h2{font-size:16px;margin:24px 0 10px}
   .content h3{font-size:13px;margin:16px 0 6px}
   pre{background:#f4f4f4!important;color:#1a1a1a!important;border:1px solid #ddd!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -3789,10 +3790,16 @@ document.getElementById('dlBtn').addEventListener('click',function(){
   // In-page popup (modal) that shows an artifact's rendered markdown without leaving
   // the report. Built once and reused; content is cloned from the artifact's own
   // already-rendered body, so no libraries and no navigation.
-  var modal=document.createElement('div');
-  modal.className='report-md-modal';
-  modal.innerHTML='<div class="report-md-modal-panel" role="dialog" aria-modal="true" aria-label="Artifact viewer"><div class="report-md-modal-head"><span class="report-md-modal-title"></span><button type="button" class="report-md-modal-close" aria-label="Close">\\u00d7</button></div><div class="report-md-modal-body content report-md"></div></div>';
-  document.body.appendChild(modal);
+  // Reuse an existing modal if this HTML was re-downloaded (the Download button
+  // serializes the whole DOM, modal included) — never stack duplicates.
+  var modal=document.querySelector('.report-md-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.className='report-md-modal';
+    modal.innerHTML='<div class="report-md-modal-panel" role="dialog" aria-modal="true" aria-label="Artifact viewer"><div class="report-md-modal-head"><span class="report-md-modal-title"></span><button type="button" class="report-md-modal-close" aria-label="Close">\\u00d7</button></div><div class="report-md-modal-body content report-md"></div></div>';
+    document.body.appendChild(modal);
+  }
+  modal.classList.remove('open');
   var modalTitle=modal.querySelector('.report-md-modal-title');
   var modalBody=modal.querySelector('.report-md-modal-body');
   function openArt(bodyId, title){
