@@ -1180,8 +1180,9 @@ preferences:
   execution_mode: auto
   # How should the engagement run after intake?
   # Pick one: auto | interactive
-  #   auto        — Skills run back-to-back, pausing only for design decisions (recommended)
-  #   interactive — Confirm each skill before it runs
+  #   auto        — Skills run back-to-back, auto-selecting the recommended option at each
+  #                 decision (logged + recorded so you can review/override after) (recommended)
+  #   interactive — Confirm each skill and each decision before it runs
 
   provision_event_portal: false
   # Provision the designed Event Portal model into your Solace Cloud tenant after design?
@@ -1409,8 +1410,8 @@ cat > intake/solace-intake-template.md << 'MDEOF'
 ## 6. Preferences
 
 **Execution mode:** *(pick one)*
-- [x] Auto — Skills run back-to-back, pausing only for design decisions *(recommended)*
-- [ ] Interactive — Confirm each skill before it runs
+- [x] Auto — Skills run back-to-back, auto-selecting the recommended option at each decision (logged + reviewable/overridable after) *(recommended)*
+- [ ] Interactive — Confirm each skill and each decision before it runs
 MDEOF
 echo "Generated: intake/solace-intake-template.md"
 ```
