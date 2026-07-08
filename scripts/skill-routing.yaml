@@ -71,12 +71,15 @@ skills:
       - field: project.type
         op: equals
         value: sam
+      # NOTE: contains_any is a case-insensitive SUBSTRING match. Do NOT add short
+      # ambiguous tokens here — "ai" matches "mainframe", "rag" matches "fragile",
+      # "sam" matches "same". Use distinctive tokens or multi-word phrases only.
       - field: landscape.systems[].name
         op: contains_any
-        value: [chat, chatbot, assistant, agent, copilot, llm, rag, ai]
+        value: [chat, chatbot, assistant, copilot, orchestrator, "agent mesh", genai]
       - field: goals.driver
         op: contains_any
-        value: [chatbot, chat agent, ai agent, ai assistant, copilot, sam]
+        value: [chatbot, "chat agent", "ai agent", "ai assistant", copilot, "agent mesh", "solace agent mesh"]
 
   - name: solace-mesh-design
     command: /solace-mesh-design

@@ -910,8 +910,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <div class="field">
     <label>Execution mode</label>
     <div class="radio-group">
-      <label><input type="radio" name="execution_mode" value="auto" data-path="preferences.execution_mode" checked> <span><strong>Auto</strong> — Skills run back-to-back, pausing only for design decisions <em>(recommended)</em></span></label>
-      <label><input type="radio" name="execution_mode" value="interactive" data-path="preferences.execution_mode"> <span><strong>Interactive</strong> — Confirm each skill before it runs</span></label>
+      <label><input type="radio" name="execution_mode" value="auto" data-path="preferences.execution_mode" checked> <span><strong>Auto</strong> — Skills run back-to-back, auto-selecting the recommended option at each decision (logged, and reviewable/overridable afterward) <em>(recommended)</em></span></label>
+      <label><input type="radio" name="execution_mode" value="interactive" data-path="preferences.execution_mode"> <span><strong>Interactive</strong> — Confirm each skill and each decision before it runs</span></label>
     </div>
   </div>
 

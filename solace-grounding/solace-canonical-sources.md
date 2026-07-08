@@ -29,6 +29,8 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - Solace Cloud landing: `https://docs.solace.com/Cloud/cloud-lp.htm`
 - Solace Software Broker landing: `https://docs.solace.com/Software-Broker/software-lp.htm`
 - Kubernetes Operator: `https://docs.solace.com/Software-Broker/sw-broker-kubernetes-operator.htm`
+- Software broker upgrade (version compatibility, HA upgrade): `https://docs.solace.com/Software-Broker/SW-Broker-Upgrade/SW-Broker-Upgrade.htm`
+- Default port numbers (firewall planning): `https://docs.solace.com/Admin/Default-Port-Numbers.htm`
 - Solace Appliance landing: `https://docs.solace.com/Appliance/appliance-lp.htm`
 
 ---
@@ -109,6 +111,9 @@ URLs were collected during the construction of `solace-platform-reference.md`. T
 - Creating a Micro-Integration: `https://docs.solace.com/Micro-Integrations/Managed/create-micro-integration.htm`
 - Self-managed Micro-Integrations: `https://docs.solace.com/Micro-Integrations/Self-Managed/self-managed-micro-integrations.htm`
 - Integration Hub (catalog): `https://solace.com/integration-hub/`
+- Kafka — integrated bridge: `https://solace.com/integration-hub/integrated-kafka/`
+- Kafka — Connect Source connector (Solace→Kafka): `https://solace.com/integration-hub/kafka-source/`
+- Kafka — Connect Sink connector (Kafka→Solace): `https://solace.com/integration-hub/kafka-connect-sink/`
 - Integration Hub catalog snapshot: `solace-grounding/integration-hub-catalog.md` (local, refreshed monthly)
 - Integration guides: `https://docs.solace.com/API/Integration-Guides.htm`
 - Connectors documentation page: `https://docs.solace.com/API/Connectors/Connectors.htm`

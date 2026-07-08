@@ -98,7 +98,9 @@ async function serveStatic(path: string) {
   if (!content) return new Response("Not found", { status: 404 });
   const ext = extname(path);
   return new Response(content, {
-    headers: { "Content-Type": MIME[ext] || "text/plain" },
+    // No-cache: this is a local dev tool served from disk, so edits to app.js /
+    // styles.css must be picked up on reload rather than served stale from cache.
+    headers: { "Content-Type": MIME[ext] || "text/plain", "Cache-Control": "no-store, no-cache, must-revalidate" },
   });
 }
 

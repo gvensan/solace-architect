@@ -38,3 +38,7 @@ intake/
 /tmp/
 venv/
 solace-grounding/tracker/
+
+# Managed grounding — local maintainer state (populated via `bun run grounding`)
+solace-grounding/managed/manifest.json
+solace-grounding/managed/digest.md.bak

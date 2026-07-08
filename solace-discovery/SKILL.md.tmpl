@@ -367,8 +367,14 @@ format** — print the list and wait:
 > • **Solace/EDA experience:** What is the team's experience with event-driven systems and Solace specifically?
 > • **Observability:** What observability is in place? (Metrics, tracing, log aggregation)
 > • **CI/CD:** Is there an existing CI/CD pipeline for infrastructure?
+> • **Transactional boundaries:** Do any flows need atomic multi-message operations — several messages committed as a unit (local transactions), or coordination with a database/JMS in one commit (XA)? Common in payments and order processing.
+> • **Coordination patterns:** Are there patterns the design should account for — synchronous request-reply, event sourcing / replay, CQRS (separate command and query paths), or a saga / choreography across services?
 >
 > Type your answers below — as much or as little as you have. Fine to skip what you don't know yet.
+
+Carry any transactional or coordination-pattern signals into the brief so downstream design
+(topic taxonomy, protocol selection, architecture review) can act on them rather than
+rediscovering them.
 
 ---
 
@@ -454,6 +460,73 @@ cat > "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" << 'BRIEFEOF'
 BRIEFEOF
 ```
 
+**Persist the canonical structured intake.** The prose brief above is for humans;
+downstream skills (`/solace-plan` routing, the review skills, `/solace-validate`) evaluate
+a machine-readable schema instead. Write `projects/$ACTIVE/intake.yaml` from the interview
+answers using the exact field paths and value vocabulary below — the identical schema the
+`/solace-intake` import produces, so both entry paths converge on one source of truth
+(`scripts/skill-routing.yaml` is the routing contract that reads these fields). Use the
+canonical values exactly (e.g. `topology: single_site|multi_region|hybrid_cloud|edge`,
+`processing_guarantee: at_least_once`, `data_residency` as a free-text string, empty if none;
+`role: producer|consumer|producer_consumer`). Do not paraphrase into prose here.
+
+```bash
+ACTIVE=$(cat projects/.active)
+cat > "projects/$ACTIVE/intake.yaml" << 'INTAKEEOF'
+# Canonical structured intake — single source of truth for routing, reviews, validation.
+# Field paths/values must match scripts/skill-routing.yaml and the intake HTML form data-paths.
+source: discovery
+project:
+  name: <project name>
+  type: <new_build|migration|extension|sam>
+landscape:
+  vertical: <banking|capital_markets|manufacturing|healthcare|other>
+  existing_messaging: "<free text>"
+  volumes: "<free text>"
+  schemas: "<free text>"
+  protocols_in_use: [<list>]
+  systems:
+    - name: <system name>
+      role: <producer|consumer|producer_consumer>
+      protocol: "<protocol(s)>"
+      owner: <owner>
+  events:
+    - name: <event name>
+      rate: "<rate>"
+      delivery: <guaranteed|direct>
+      payload: <format>
+      payload_size: "<size>"
+requirements:
+  delivery_mode: <guaranteed|direct|mixed>
+  ordering: <value>
+  processing_guarantee: <at_least_once|exactly_once|best_effort>
+  latency_tier: <value>
+  topology: <single_site|multi_region|hybrid_cloud|edge>
+  sites_and_regions: "<free text>"
+  it_ot_boundary: "<free text>"
+  growth_expectations: "<free text>"
+  data_residency: "<free text — empty string if none>"
+  operations_team: "<free text>"
+  solace_experience: "<free text>"
+  observability: "<free text>"
+  cicd: "<free text>"
+# domain.<vertical>.* — include only the block matching landscape.vertical
+domain: {}
+goals:
+  driver: "<free text>"
+  timeline: "<free text>"
+  budget: "<free text>"
+  team_size: "<free text>"
+  organizational_constraints: "<free text>"
+preferences:
+  execution_mode: <auto|interactive>
+  provision_event_portal: <true|false>
+INTAKEEOF
+```
+
+Omit only keys you genuinely have no value for; never invent values. Use `[]` for empty
+lists. Quote any value containing `*` or `>` so the YAML parses.
+
 Present the brief to the user. Ask if anything is missing or incorrect.
 
 ---
@@ -482,21 +555,24 @@ Context: After discovery, several architecture skills remain. This decides wheth
 they chain automatically or you confirm each transition. You can switch anytime.
 
 > **Recommended: A) Auto**
-> Why: <N> skills remaining — auto keeps momentum while still pausing for every
-> architecture decision inside each skill. Stops on critical validation issues.
+> Why: <N> skills remaining — auto keeps momentum by taking the recommended option at
+> each decision. Stops only for missing inputs, a blocking finding, or a critical issue.
 
-A) Auto — run recommended skills back-to-back (recommended)
+A) Auto — run recommended skills back-to-back, auto-deciding each choice (recommended)
   ✅ Fastest path to a complete blueprint — no pauses between skills
-  ✅ Still pauses for every architecture decision within each skill
-  ❌ Less visibility between skill transitions — one-line status, not a menu
+  ✅ Each architecture decision is set to the recommended option, logged, and recorded
+     (`auto_decided: true` in decisions.yaml) so you can review or override it afterward
+  ✅ Stops only for missing required inputs, a blocking review finding, or a critical
+     validation issue (then falls back to interactive for that step)
+  ❌ You don't confirm each decision as it's made — less visibility mid-run
 
-B) Interactive — confirm each skill before it runs
-  ✅ Full control at every transition — skip, reorder, or pick a different skill
+B) Interactive — confirm each skill and each decision before it runs
+  ✅ Full control — you answer every architecture decision and each transition
   ✅ Natural pause points to step away or review artifacts between skills
-  ❌ More prompts to answer — each skill completion asks what to do next
+  ❌ More prompts to answer — every decision and skill completion asks you
 
-Net: Auto is "drive-through" — you still make every design decision, just without stopping
-at each traffic light between skills. Interactive is "park and walk" — you decide the pace.
+Net: Auto is "drive-through" — it makes the recommended call at each decision and records
+it for you to review; Interactive is "park and walk" — you make every call and set the pace.
 ```
 
 Save the user's choice:

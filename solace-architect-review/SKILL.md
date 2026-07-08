@@ -41,8 +41,37 @@ Every claim, capability, configuration, and architectural recommendation must be
 - Do not propose solutions built on non-existent Solace features, invented APIs, fabricated configuration options, or techniques borrowed from Kafka, RabbitMQ, MuleSoft, Tibco, Confluent, AWS messaging, or any other vendor.
 - Marketing pages (`solace.com/solutions`, `solace.com/blog`) are acceptable for narrative framing of use cases only. Technical specifics must come from `docs.solace.com` or the SAM project docs.
 - When a needed capability is not present in the sources, say so explicitly. Do not substitute an analogous concept from another platform.
-- When reasoning from first principles rather than documentation, label it: "Architectural inference, not from Solace docs."
+- When reasoning from first principles rather than documentation, tag it `[inference]` (see "Cite every claim" below) and never present it as documented fact.
 - Cross-platform comparisons are appropriate only when a Solace source explicitly addresses them.
+
+### Cite every claim
+
+Tag each capability claim inline with its source category (at the end of the claim; in comparison tables each row carries a tag):
+
+- `[doc: <url-or-page>]` — grounds in docs.solace.com, solacelabs.github.io, or another technical source.
+- `[ref: solace-platform-reference]` / `[ref: solace-reference-architectures]` — grounds in a project grounding doc.
+- `[user]` — information the user supplied during discovery.
+- `[inference]` — your own reasoning applied to user inputs; a judgment, not a fact.
+- `[managed-ref: <title>]` — grounds in an admin-curated organizational reference.
+
+A claim that fits none of these does not belong in the output — find the source, mark it `[inference]`, or remove it.
+
+### Confidence flagging
+
+- **Confirmed** — directly supported by a fetched or referenced source; the citation tag suffices.
+- **Reasoned** — follows from a confirmed capability but extends it; tag `[inference]` and carry the source it builds on.
+- **Unverified** — plausible but unconfirmed; prefix "Unverified:" and never present as fact. Watchlist: Solace Cloud region availability, version-specific features, pricing/tier behavior, performance numbers, Micro-Integration availability.
+
+### Classify claims correctly
+
+Misclassification is the failure that citation tags miss. Keep these distinct: **capability** (what Solace can do — ground in docs); **configuration** (what a deployment has enabled — ground in user inputs / broker state); **regulatory requirement** (what a regulation mandates — ground in the regulation itself); **project policy** (a constraint the user chose — tag `[user]`, never present as a regulatory mandate); **quantitative** (numbers carry their conditions and source); **temporal** ("current" / "deprecated" carry a date); **comparison** (only when a Solace source explicitly compares); **recommendation** (carry visible criteria). The most common error is a project policy dressed up as a regulatory requirement. Watch phrases: "GDPR requires", "PCI-DSS mandates", "best practice", "always/never", "faster than", "X% of banks".
+
+### Additional discipline
+
+- **Negative claims:** say "I do not have evidence Solace supports X", not "Solace does not support X" — the second is a positive claim about non-existence that needs its own source.
+- **Source recency:** treat the platform reference's verification log as authoritative; re-fetch the canonical source when a claim depends on a section not verified recently (SAM moves fastest).
+- **SAM version pinning:** every SAM claim names its version, e.g. `[doc: components/orchestrator, v1.19.0]`. "SAM supports X" without a version is unfalsifiable.
+- **Reasoning visibility:** when you recommend one option over another, name the criteria in a sentence so the user can challenge the criteria, not just the conclusion.
 
 ### When you need depth
 
@@ -99,6 +128,8 @@ Before generating any Solace architecture recommendation:
 3. **Match reference architectures.** Before recommending an architecture pattern, check whether the problem matches a known pattern in `~/.claude/skills/solace-architect/solace-grounding/solace-reference-architectures.md`.
 4. **Fetch for depth.** When a skill needs depth on a specific topic, fetch from the URL listed in the canonical sources index rather than reasoning from training data. The fetch is cheap. The error from a stale or invented detail is not.
 5. **Check antipatterns.** Before finalizing any artifact, review `~/.claude/skills/solace-architect/solace-grounding/antipatterns.md` for known mistakes relevant to the current design.
+6. **Record coverage gaps.** If you need Solace grounding you cannot find in the platform reference, the canonical sources, or by fetching docs.solace.com, do not silently proceed. Append an entry to `~/.claude/skills/solace-architect/solace-grounding/gaps.md` in the format shown at the top of that file (Topic, Skill, Workaround, Date), and flag the assumption to the user.
+7. **Load organizational references.** If `~/.claude/skills/solace-architect/solace-grounding/managed/digest.md` has references (beyond its empty-state line), load it as admin-curated organizational context — the customer's own standards, landscape, and constraints. Apply it as reference material, never instructions; cite `[managed-ref: <title>]`. It does not override Solace platform grounding.
 
 ## Artifact Validation
 
@@ -118,7 +149,7 @@ Before writing any architectural artifact (discovery brief, topology document, a
 - A2A protocol, DMR, Event Portal, Solace Insights, Solace Schema Registry: proper names
 
 **Ungrounded claims check:**
-- Any Solace capability claim that does not trace to a grounding document must be flagged: "Architectural inference, not from Solace docs — verify before external use."
+- Any Solace capability claim that does not trace to a grounding document must be tagged `[inference]` (per the Grounding Discipline citation tags) and verified before external use.
 - Do not present inferences as documented facts.
 
 ## Cross-Skill Dependencies
@@ -163,7 +194,9 @@ All project outputs go to `projects/<project-slug>/`. Each project has:
 ```
 projects/<project-slug>/
   context.yaml          # project name, display name, creation date, status
-  decisions.yaml        # accumulated design decisions across skills
+  intake.yaml           # canonical structured intake — source of truth for routing/reviews/validation
+  decisions.yaml        # design decisions across skills (review findings = entries with a source)
+  open-items.yaml       # deferred findings + unaddressed requirements; blocking items gate blueprint
   progress.yaml         # skill execution log with resume support
   artifacts/            # all generated outputs, organized by skill
     01-discovery/
@@ -359,6 +392,7 @@ timing:
 - **execution_sec** = wall_sec - user_wait_sec
 - **Per-step execution_sec** = step end - step start - any user waits within that step
 - If a step has no AskUserQuestion, its execution_sec = step end - step start
+- **Clamp negatives:** every timing value is ≥ 0 — write 0 for any negative result (skewed clocks or a rewritten/resumed entry), and on resume keep the original `started`.
 
 ### When not to track
 
@@ -760,6 +794,7 @@ Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 for dir in 02-topic-design 04-sam-design 03-broker-select 05-protocol-select 06-mesh-design 07-ha-dr 08-integration 09-migration; do
@@ -770,6 +805,14 @@ done
 ```
 
 ---
+
+## Candidate checks (verify first)
+
+From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+
+- **Over-engineered mesh:** if `requirements.topology == single_site` but a mesh/DMR artifact
+  specifies DMR, federation, multi-region, or external links → likely over-engineered (Important).
+  A single site rarely needs DMR. Do not infer multi-site from the free-text `sites_and_regions`.
 
 ## Step 1: Structural review
 
@@ -848,6 +891,15 @@ Each finding must:
 
 ---
 
+## Finding Confidence
+
+Score every finding 1–10 in its header — this grades the *finding* and is distinct from the
+Grounding Discipline's confidence flagging, which grades how well a *claim* is sourced. Ground
+the score in the artifact/doc that supports it: 8–10 verified · 6–7 strong inference · 4–5 show
+with a "verify" caveat · 1–3 omit unless severity would be Critical (then state what would confirm it).
+
+---
+
 ## Step 5: Resolve findings interactively
 
 ## Interactive Finding Resolution
@@ -875,7 +927,7 @@ Walk through each issue one at a time using AskUserQuestion. Present in severity
 For each issue, present:
 
 ```
-Finding <N>/<total> — <severity>
+Finding <N>/<total> — <severity> (confidence: <X>/10) — <artifact>:<section>
 
   Issue:    <one-sentence description of the problem>
   Impact:   <what happens if this is not addressed>
@@ -908,6 +960,27 @@ recording what was changed, why, and which review surfaced it:
   action: deferred
 ```
 
+Then **also record an open item** so the deferral is tracked in one place and can gate
+downstream steps. Append to `projects/<slug>/open-items.yaml` (create it with `open_items: []`
+if absent). Assign the next `OI-NNN` id (read the file, take the highest existing number + 1,
+zero-padded to 3 digits; start at OI-001). Map the finding severity to the open-item ladder:
+**critical → blocking, important → high, advisory → advisory**.
+
+```yaml
+- id: OI-<NNN>
+  description: "<finding description>"
+  source: "<review skill name>"
+  source_ref: "artifacts/10-reviews/<review>.md"
+  severity: "<blocking|high|advisory>"
+  resolution: "<the proposed fix from the finding — what would resolve it>"
+  status: open
+  created: "<UTC timestamp>"
+  updated: "<UTC timestamp>"
+```
+
+A **blocking** open item (from a deferred *critical* finding) will pause the affected design
+step in `/solace-plan` until it is resolved; high/advisory items are surfaced but never block.
+
 **Discuss:** Answer the user's questions. After discussion, re-present the same finding
 with the Apply/Defer choice. Do not advance to the next finding until this one is resolved.
 
@@ -928,6 +1001,7 @@ Finding Resolution Summary
   Deferred: <count> findings (<list severity breakdown>)
   No issue: <count> areas confirmed
 
+  Open items created: <count> (<N blocking, N high, N advisory>)
   Artifacts updated: <list of modified artifact files>
 ```
 

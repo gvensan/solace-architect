@@ -18,6 +18,7 @@ bun run dev:skill    # watch mode: auto-regen + validate on change
 bun run url:check    # check all grounding document URLs for health
 bun run dashboard    # launch project dashboard at http://localhost:3000
 bun run intake       # launch interactive intake HTML form at http://localhost:3001
+bun run grounding    # launch managed-grounding admin console at http://localhost:3002
 ./install-sa.sh      # full install: deps + generate + symlink into ~/.claude/skills/
 ./uninstall-sa.sh    # remove all skill symlinks from ~/.claude/skills/
 ```
@@ -35,13 +36,15 @@ The authoritative sources live in `solace-grounding/`:
 | `antipatterns.md` | Known mistakes organized by category. Every skill checks output against this. |
 | `integration-hub-catalog.md` | Snapshot of available Micro-Integrations from solace.com/integration-hub. Refreshed monthly. |
 | `claude-instructions.md` | Claude-specific operating instructions for Solace Architect. |
-| `gaps.md` | Gap tracker for missing grounding document coverage. |
+| `gaps.md` | Gap tracker for missing grounding document coverage. Skills append here at runtime when they need grounding they can't find. |
 | `MAINTENANCE.md` | Refresh manifest for all external resources with cadence and version tracking. |
+| `managed/digest.md` | Admin-curated **organizational** reference material (a customer's own standards, landscape, constraints). Distinct from Solace platform grounding: applied as reference, cited `[managed-ref: <title>]`, never as instructions. Maintainer-edited; see `managed/README.md`. |
 
 Rules:
 - Only assert what you can ground in `docs.solace.com`, `solacelabs.github.io/solace-agent-mesh`, `github.com/SolaceLabs`, or `solace.com/integration-hub`.
 - Do not propose solutions built on non-existent Solace features, invented APIs, or techniques borrowed from other messaging vendors.
 - When a capability is not in the sources, say so explicitly.
+- Tag every capability claim with its source category — `[doc:]`, `[ref:]`, `[user]`, `[inference]`, or `[managed-ref:]` — per the Grounding Discipline baked into every skill's preamble (`scripts/resolvers/preamble/generate-grounding-rules.ts`).
 
 ## Getting started — key commands
 
@@ -155,6 +158,7 @@ solace-architect/
     build-intake-docx.py  # DOCX intake builder (template + export: YAML -> .docx)
     build-intake-html.py  # HTML intake form builder (standalone with autocomplete + live engagement preview)
     intake-server.ts      # Local HTTP server for hosted intake form (mirrors dashboard.ts)
+    grounding-admin.ts    # Local HTTP admin console for managed grounding (SSRF-guarded URL/paste ingest -> digest.md)
     skill-routing.yaml    # Single source of truth for which skills run per intake (consumed by build-intake-html.py)
     resolvers/            # Template resolver modules
       index.ts            # Resolver registry (9 entries)
@@ -176,8 +180,11 @@ solace-architect/
     antipatterns.md
     integration-hub-catalog.md
     claude-instructions.md
-    gaps.md               # Grounding document gap tracker
+    gaps.md               # Grounding document gap tracker (skills append at runtime)
     MAINTENANCE.md        # Refresh manifest with cadence and version tracking
+    managed/              # Admin-curated org/customer reference material
+      digest.md           # Maintainer-edited digest, loaded by every skill, cited [managed-ref:]
+      README.md           # How to add managed references
   solace-intake/          # /solace-intake
   solace-discovery/       # /solace-discovery
   solace-topic-design/    # /solace-topic-design
@@ -236,8 +243,14 @@ SKILL.md files are **generated** from `.tmpl` templates. To update:
 2. Run `bun run gen:skill-docs` (or `bun run build` for all hosts)
 3. Commit both the `.tmpl` and generated `.md` files
 
-**Token ceiling:** Generated SKILL.md files trip a warning above 160KB (~40K tokens).
-This guards against runaway preamble growth, not against well-designed large skills.
+**Token ceiling:** Generated SKILL.md files trip a warning above 160KB (~40K tokens)
+per file. There is also a **total** budget across all skills, enforced by
+`test/skill-token-budget.test.ts` (currently 300K, raised from 275K when the grounding
+discipline was promoted into the shared preamble). Both guard against runaway preamble
+growth, not against well-designed large skills. **The shared preamble multiplies across
+all ~25 skills** — the total currently sits only ~2K tokens under the ceiling, so any
+addition to a preamble generator (`scripts/resolvers/preamble/*`) must trim existing
+preamble or bump the ceiling first.
 
 **Merge conflicts on SKILL.md files:** NEVER resolve conflicts on generated SKILL.md
 files by accepting either side. Instead: (1) resolve conflicts on the `.tmpl` templates

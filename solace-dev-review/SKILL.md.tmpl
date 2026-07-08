@@ -42,6 +42,7 @@ Requires at least one technical skill complete. Read all available artifacts:
 
 ```bash
 ACTIVE=$(cat projects/.active)
+cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
 cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
 for dir in 02-topic-design 04-sam-design 05-protocol-select 08-integration; do
   for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
@@ -51,6 +52,15 @@ done
 ```
 
 ---
+
+## Candidate checks (verify first)
+
+From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+
+- **No schema version in topics:** if the topic taxonomy has no version level (e.g. `v{N}`)
+  → Important (blocks schema evolution and blue-green rollout).
+- **Schema governance gap:** if `landscape.schemas` is non-empty but no artifact addresses a
+  schema registry or per-event versioning policy → Advisory.
 
 ## Step 1: Topic taxonomy usability
 
@@ -79,6 +89,12 @@ Evaluate the SDK choices for each integration point:
   who just need to publish or subscribe.
 - **Sample code availability:** Can developers find working examples for their use case
   in SolaceLabs GitHub or Solace tutorials?
+- **Client performance guidance:** For the high-rate flows in the brief, give developers
+  concrete tuning direction (platform reference, Performance and sizing — tuning areas):
+  connection pooling / session reuse per SDK, consumer prefetch depth vs processing rate,
+  publisher flow-control behavior under broker backpressure (what the app must handle),
+  and batching for small high-frequency messages. Absent guidance here is an Advisory
+  finding — developers otherwise ship defaults and discover backpressure in production.
 
 Load canonical sources for developer resources:
 
@@ -117,6 +133,15 @@ Evaluate schema management:
 - **AsyncAPI specs:** Are event definitions published as AsyncAPI specs? This enables
   code generation and documentation automation.
 
+If the answer to adoption is yes (or should be), do not stop at the yes/no — **design the
+registry setup** in the review (platform reference, Solace Schema Registry section): artifact
+and group-ID organization (one group per application domain is the natural mapping to the
+taxonomy), the configuration rules to enable (validity, version compatibility) and which
+compatibility mode each event needs, who holds the schema-governor role, the deployment shape
+(standalone container for dev, HA pair via Kubernetes/Helm for production) with Basic or OIDC
+auth, and how producers/consumers wire SERDES. Fetch the canonical Schema Registry source for
+configuration depth before asserting specifics.
+
 Check the antipattern: **Skipping Schema Registry for "simple" data.** Even simple
 data evolves.
 
@@ -135,6 +160,10 @@ After completing steps 1–4, classify every finding by developer impact:
   the confirmation block only.
 
 Each finding should include a concrete recommendation for improvement.
+
+---
+
+{{CONFIDENCE_CALIBRATION}}
 
 ---
 

@@ -25,7 +25,7 @@ Walk through each issue one at a time using AskUserQuestion. Present in severity
 For each issue, present:
 
 \`\`\`
-Finding <N>/<total> — <severity>
+Finding <N>/<total> — <severity> (confidence: <X>/10) — <artifact>:<section>
 
   Issue:    <one-sentence description of the problem>
   Impact:   <what happens if this is not addressed>
@@ -58,6 +58,27 @@ recording what was changed, why, and which review surfaced it:
   action: deferred
 \`\`\`
 
+Then **also record an open item** so the deferral is tracked in one place and can gate
+downstream steps. Append to \`projects/<slug>/open-items.yaml\` (create it with \`open_items: []\`
+if absent). Assign the next \`OI-NNN\` id (read the file, take the highest existing number + 1,
+zero-padded to 3 digits; start at OI-001). Map the finding severity to the open-item ladder:
+**critical → blocking, important → high, advisory → advisory**.
+
+\`\`\`yaml
+- id: OI-<NNN>
+  description: "<finding description>"
+  source: "<review skill name>"
+  source_ref: "artifacts/10-reviews/<review>.md"
+  severity: "<blocking|high|advisory>"
+  resolution: "<the proposed fix from the finding — what would resolve it>"
+  status: open
+  created: "<UTC timestamp>"
+  updated: "<UTC timestamp>"
+\`\`\`
+
+A **blocking** open item (from a deferred *critical* finding) will pause the affected design
+step in \`/solace-plan\` until it is resolved; high/advisory items are surfaced but never block.
+
 **Discuss:** Answer the user's questions. After discussion, re-present the same finding
 with the Apply/Defer choice. Do not advance to the next finding until this one is resolved.
 
@@ -78,6 +99,7 @@ Finding Resolution Summary
   Deferred: <count> findings (<list severity breakdown>)
   No issue: <count> areas confirmed
 
+  Open items created: <count> (<N blocking, N high, N advisory>)
   Artifacts updated: <list of modified artifact files>
 \`\`\`
 
