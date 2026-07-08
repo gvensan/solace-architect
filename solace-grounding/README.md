@@ -6,7 +6,7 @@ Solace Architect is an open-source toolkit for Claude Code that closes that gap.
 
 ## What it does
 
-Solace Architect is a set of 17 skills that compose into an interview-style architectural session. The skills cover six categories:
+Solace Architect is a set of 24 skills that compose into an interview-style architectural session. The skills cover six categories:
 
 1. **Discovery.** Eliciting the business problem clearly. Surfacing latency, throughput, regulatory, organizational, and budget constraints. Inventorying the existing landscape.
 2. **Technical domain.** Solace platform knowledge: topic taxonomy design, broker selection, SAM agent topology, protocol selection, DMR mesh design, HA/DR, migration planning, and Micro-Integration strategy.
@@ -25,7 +25,7 @@ The template infrastructure supports 10 AI coding agent hosts (Claude Code, Code
 
 ## Grounding documents
 
-Eight documents anchor the work:
+Eight documents anchor the Solace **platform** grounding:
 
 | Document | Purpose |
 |----------|---------|
@@ -39,6 +39,8 @@ Eight documents anchor the work:
 | `MAINTENANCE.md` | Refresh manifest. Tracks all external resources, their refresh cadence, and version numbers. |
 
 Read in this order if you're new: platform reference (orients you to the surface), canonical sources (where to read for depth), reference architectures (how the surface composes for real problems), claude-instructions (how skills behave on top of all of it).
+
+Alongside the platform docs, `managed/` holds an **organizational** grounding layer: admin-curated reference material for a specific customer's own standards, landscape, and constraints (see `managed/README.md`). It is distinct from Solace platform grounding — every skill loads it and cites it `[managed-ref: <title>]`, and it is applied as reference material, never as instructions. It ships empty; maintainers populate `managed/digest.md` per deployment.
 
 ## Working principles
 

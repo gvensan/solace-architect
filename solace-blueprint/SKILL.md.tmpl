@@ -407,6 +407,17 @@ Copy agent configs, gateway configs, and Micro-Integration configs to the bluepr
 config directory. Add a broker provisioning parameters file summarizing the broker
 type, service class, and key configuration parameters.
 
+The provisioning parameters must be **specific, not generic** — an engineer should be able to
+provision from them:
+- **Per-queue parameters** for every queue in the design (from topic design + HA/DR): max spool
+  size (from the sizing calculation), max redelivery count, DMQ (dead message queue) binding,
+  max TTL, reject-msg-to-sender-on-discard, respect-TTL, and partition count for partitioned
+  queues. A generic "add queues" line is a gap — enumerate each queue with its values.
+- **Per-client-profile parameters** (from the security review): max connections, max
+  subscriptions, Guaranteed messaging permissions, and max ingress/egress rates per app/role.
+- **Message VPN parameters**: VPN name(s) and per-VPN quotas (connections, spool, rates) from
+  broker selection.
+
 ---
 
 ## Step 5: Write operational runbook

@@ -13,7 +13,14 @@ const ROOT = path.resolve(import.meta.dir, '..');
 const SKILL_FILES = discoverSkillFiles(ROOT).map(f => path.join(ROOT, f));
 
 const PER_SKILL_TOKEN_CEILING = 40_000;
-const TOTAL_TOKEN_WARNING = 275_000;
+// Raised from 275k when the grounding discipline (citation tags, confidence
+// flagging, claim classification) was promoted into the shared preamble, and
+// again from 300k when gap-closure content landed in broker-select/ops-review/
+// dev-review (sizing methodology, VPN design, monitoring strategy, SEMP IaC,
+// Schema Registry design, client tuning). Deliberate per-skill features, not
+// runaway preamble growth — the guard still catches unbounded growth and
+// per-skill files stay far under 40k.
+const TOTAL_TOKEN_WARNING = 310_000;
 
 function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);

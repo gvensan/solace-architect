@@ -13,7 +13,8 @@
     "url:check": "bun run scripts/url-health-check.ts",
     "url:check:verbose": "bun run scripts/url-health-check.ts --verbose",
     "dashboard": "bun run scripts/dashboard.ts",
-    "intake": "bun run scripts/intake-server.ts"
+    "intake": "bun run scripts/intake-server.ts",
+    "grounding": "bun run scripts/grounding-admin.ts"
   },
   "engines": {
     "bun": ">=1.0.0"

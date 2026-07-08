@@ -177,6 +177,53 @@ const STATUS_RANK = {
   blocked: 5,
 };
 
+// ── Artifact reconciliation ──────────────────────────────────────────────
+// progress.yaml is written by each skill's own checkpoint step (prompt-driven),
+// so it can lag or diverge from what's actually on disk. These map each skill to
+// the artifacts it owns, so the view can reconcile the ledger against reality:
+// surface "artifacts on disk but not logged" and demote "logged complete but no
+// artifacts". Reviews share 10-reviews/, so they match specific files.
+const SKILL_ARTIFACT_MATCH = {
+  'solace-discovery': f => f.startsWith('01-discovery/'),
+  'solace-topic-design': f => f.startsWith('02-topic-design/'),
+  'solace-broker-select': f => f.startsWith('03-broker-select/'),
+  'solace-sam-design': f => f.startsWith('04-sam-design/'),
+  'solace-protocol-select': f => f.startsWith('05-protocol-select/'),
+  'solace-mesh-design': f => f.startsWith('06-mesh-design/'),
+  'solace-ha-dr': f => f.startsWith('07-ha-dr/'),
+  'solace-integration': f => f.startsWith('08-integration/'),
+  'solace-migration': f => f.startsWith('09-migration/'),
+  'solace-architect-review': f => f === '10-reviews/architect-review.md',
+  'solace-ops-review': f => f === '10-reviews/ops-review.md',
+  'solace-security-review': f => f === '10-reviews/security-review.md',
+  'solace-dev-review': f => f === '10-reviews/dev-review.md',
+  'solace-validate': f => f.startsWith('11-validation/'),
+  'solace-blueprint': f => f.startsWith('12-blueprint/') && !f.startsWith('12-blueprint/diagrams/'),
+  'solace-diagrams': f => f.startsWith('12-blueprint/diagrams/'),
+  'solace-event-portal': f => f.startsWith('13-event-portal/') && f !== '13-event-portal/provisioned.yaml' && !f.startsWith('13-event-portal/asyncapi/'),
+  'solace-ep-provision': f => f === '13-event-portal/provisioned.yaml' || f.startsWith('13-event-portal/asyncapi/'),
+  'solace-executive': f => f.startsWith('14-executive/'),
+  'solace-architecture-blueprint': f => f.startsWith('15-arch-blueprint/'),
+};
+function diskArtifactCount(sk, files) {
+  const m = SKILL_ARTIFACT_MATCH[sk];
+  return m ? (files || []).filter(m).length : 0;
+}
+// Reconciled status: layers disk truth over the progress ledger.
+//   complete  = logged complete AND (has artifacts OR skill owns no artifacts)
+//   missing   = logged complete BUT its artifacts are gone (truncated/failed run)
+//   unrecorded= artifacts on disk BUT no complete/in-progress log entry
+function reconciledStatus(sk, entry, isSkipped, files) {
+  if (isSkipped) return 'skipped';
+  const owns = !!SKILL_ARTIFACT_MATCH[sk];
+  const disk = diskArtifactCount(sk, files);
+  if (entry?.status === 'complete') return (owns && disk === 0) ? 'missing' : 'complete';
+  if (entry?.status === 'in-progress') return 'in-progress';
+  if (owns && disk > 0) return 'unrecorded';
+  if (entry && ['blocked', 'partial', 'interrupted'].includes(entry.status)) return 'failed';
+  return 'not-started';
+}
+
 function getSkills(progress) {
   if (!progress?.progress) return [];
   const all = progress.progress;
@@ -242,6 +289,77 @@ const STATUS_BADGE = { open: 'badge-open', 'in-progress': 'badge-in-progress', r
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// Grounding tags are an authoring-time discipline that stays in the artifact source
+// (so Copy / raw keeps full provenance), but every RENDERED view in the app drops the
+// provenance tags ([ref:]/[doc]/[user]/[managed-ref:]) as reader clutter and keeps
+// [inference] as a subtle honesty mark so estimates aren't read as documented facts.
+function softenCitations(html) {
+  return String(html)
+    .replace(/\s*\[(?:ref|doc|managed-ref|user)(?::[^\]\n]*)?\]/gi, '')
+    .replace(/\s*\[inference\]/gi, ' <sup class="cite-inferred" title="Inferred: reasoning applied to your inputs, not a documented Solace fact">inferred</sup>');
+}
+
+// ── In-app artifact popup ──────────────────────────────────────────────────
+// Any artifact name across the dashboard can open its rendered content in a modal
+// (markdown rendered + citations softened, mermaid as SVG, YAML/other as code),
+// reusing the Artifacts-view rendering. Wire a name up by giving it class "art-open"
+// and data-art-path="<a.path>"; a delegated handler does the rest.
+function ensureArtModal() {
+  let m = document.getElementById('artModal');
+  if (m) return m;
+  m = document.createElement('div');
+  m.id = 'artModal';
+  m.className = 'art-modal';
+  m.innerHTML = '<div class="art-modal-panel"><div class="art-modal-head"><span class="art-modal-title"></span><button type="button" class="art-modal-close" aria-label="Close">×</button></div><div class="art-modal-body"></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', (e) => { if (e.target === m || (e.target.closest && e.target.closest('.art-modal-close'))) closeArtModal(); });
+  return m;
+}
+function closeArtModal() {
+  const m = document.getElementById('artModal');
+  if (m) { m.classList.remove('open'); m.querySelector('.art-modal-body').innerHTML = ''; document.body.style.overflow = ''; }
+}
+async function openArtifactPopup(artPath) {
+  if (!artPath || !(state && state.current && state.current.slug)) return;
+  const rel = artPath.replace(/^artifacts\//, '');
+  const m = ensureArtModal();
+  m.querySelector('.art-modal-title').textContent = (typeof artifactTitleFor === 'function' ? artifactTitleFor(rel) : rel);
+  const body = m.querySelector('.art-modal-body');
+  body.innerHTML = '<p style="color:var(--text-muted)">Loading…</p>';
+  m.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  try {
+    const res = await fetch(`/api/projects/${state.current.slug}/artifact?path=${encodeURIComponent(rel)}`);
+    if (!res.ok) { body.innerHTML = '<p style="color:var(--text-dim)">Could not load this artifact.</p>'; return; }
+    const text = await res.text();
+    const ext = (rel.split('.').pop() || '').toLowerCase();
+    if (ext === 'md') {
+      body.innerHTML = softenCitations(marked.parse(text));
+      body.querySelectorAll('pre code').forEach((block) => {
+        const lang = block.className && block.className.match(/language-(\w+)/);
+        if ((lang && lang[1] === 'mermaid') || /^(graph |flowchart |sequenceDiagram|classDiagram|stateDiagram)/.test(block.textContent.trim())) {
+          const div = document.createElement('div'); div.className = 'mermaid'; div.textContent = block.textContent;
+          block.closest('pre').replaceWith(div);
+        }
+      });
+    } else if (ext === 'mermaid' || ext === 'mmd') {
+      body.innerHTML = `<div class="mermaid">${escHtml(text)}</div>`;
+    } else {
+      body.innerHTML = `<pre><code>${escHtml(text)}</code></pre>`;
+    }
+    if (window.mermaid && body.querySelector('.mermaid')) {
+      try { mermaid.run({ nodes: body.querySelectorAll('.mermaid') }); } catch (e) { /* leave source visible */ }
+    }
+  } catch (e) {
+    body.innerHTML = '<p style="color:var(--text-dim)">Error loading artifact.</p>';
+  }
+}
+document.addEventListener('click', (e) => {
+  const link = e.target.closest && e.target.closest('.art-open');
+  if (link) { e.preventDefault(); openArtifactPopup(link.getAttribute('data-art-path')); }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeArtModal(); });
 
 /* ─── DATA LOADING ─── */
 
@@ -552,7 +670,10 @@ async function overview() {
   const totalWait = skills.reduce((a, s) => a + (s.timing?.user_wait_sec || 0), 0);
   const userDecisions = items.filter(d => d.id || (d.skill && !d.source));
   const reviewFindings = items.filter(d => d.source);
-  const completedSkills = skills.filter(s => s.status === 'complete');
+  const completedSkills = SKILL_ORDER.filter(sk => {
+    const st = reconciledStatus(sk, skills.find(s => s.skill === sk), skipped.includes(sk), files);
+    return st === 'complete' || st === 'unrecorded';
+  }).map(sk => ({ skill: sk }));
   const totalArtifacts = files?.length || 0;
   const openItems = getOpenItems(state.data.openItems);
   const openCount = openItems.filter(i => (i.status||'open') !== 'resolved').length;
@@ -661,14 +782,13 @@ async function overview() {
   function getSkillStatus(sk) {
     const entry = skills.find(s => s.skill === sk);
     const isSkipped = skipped.includes(sk);
-    if (isSkipped) return 'skipped';
-    if (entry?.status === 'complete') return 'complete';
-    if (entry?.status === 'in-progress') return 'in-progress';
-    // Treat real failure statuses as failures so the icon logic can flag them
-    // distinctly from "not yet started" (which is a benign state for any
-    // conditional skill that simply doesn't apply to this project).
-    if (entry && ['blocked', 'partial', 'interrupted'].includes(entry.status)) return 'failed';
-    return 'not-started';
+    // Reconcile against artifacts on disk: 'unrecorded' (artifacts present but the
+    // checkpoint was never logged) counts as done; 'missing' (logged complete but
+    // artifacts gone) is a failure, not a completion.
+    const st = reconciledStatus(sk, entry, isSkipped, files);
+    if (st === 'unrecorded') return 'complete';
+    if (st === 'missing') return 'failed';
+    return st;
   }
 
   // Group status colors carry meaning. We use orange ONLY when something failed
@@ -873,14 +993,25 @@ async function overview() {
               skipReason = SKIP_REASONS[sk] || 'Not applicable';
               badge = '<span class="badge badge-skipped">N/A</span>';
             } else if (entry?.status === 'complete') {
-              cls = 'complete clickable';
-              badge = '<span class="badge badge-complete">COMPLETE</span>';
-              timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
-              const ac = entry.artifacts?.length || 0;
-              if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              const dac = diskArtifactCount(sk, files);
+              if (SKILL_ARTIFACT_MATCH[sk] && dac === 0) {
+                cls = 'failed clickable';
+                badge = '<span class="badge badge-missing">COMPLETE · artifacts missing</span>';
+              } else {
+                cls = 'complete clickable';
+                badge = '<span class="badge badge-complete">COMPLETE</span>';
+                timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
+                const ac = entry.artifacts?.length || dac;
+                if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              }
             } else if (entry?.status === 'in-progress') {
               cls = 'in-progress clickable';
               badge = `<span class="badge badge-in-progress">${entry.step_reached || 'IN PROGRESS'}</span>`;
+            } else if (!isSkipped && diskArtifactCount(sk, files) > 0) {
+              cls = 'unrecorded clickable';
+              const ac = diskArtifactCount(sk, files);
+              badge = '<span class="badge badge-unrecorded">ARTIFACTS ✓ · unlogged</span>';
+              artifactCount = `${ac} artifact${ac > 1 ? 's' : ''} on disk`;
             }
             let subSkillsHtml = '';
             const subs = TILE_SUB_SKILLS[sk];
@@ -914,7 +1045,6 @@ async function overview() {
       if (!card) return;
       const sk = card.dataset.skill;
       const gi = parseInt(card.dataset.group);
-      selectGroup(gi);
       showSkillDetail(sk, gi);
     });
   }
@@ -939,14 +1069,25 @@ async function overview() {
               skipReason = SKIP_REASONS[sk] || 'Not applicable';
               badge = '<span class="badge badge-skipped">N/A</span>';
             } else if (entry?.status === 'complete') {
-              cls = 'complete clickable';
-              badge = '<span class="badge badge-complete">COMPLETE</span>';
-              timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
-              const ac = entry.artifacts?.length || 0;
-              if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              const dac = diskArtifactCount(sk, files);
+              if (SKILL_ARTIFACT_MATCH[sk] && dac === 0) {
+                cls = 'failed clickable';
+                badge = '<span class="badge badge-missing">COMPLETE · artifacts missing</span>';
+              } else {
+                cls = 'complete clickable';
+                badge = '<span class="badge badge-complete">COMPLETE</span>';
+                timing = entry.timing ? fmtTime(entry.timing.execution_sec) : '';
+                const ac = entry.artifacts?.length || dac;
+                if (ac > 0) artifactCount = `${ac} artifact${ac > 1 ? 's' : ''}`;
+              }
             } else if (entry?.status === 'in-progress') {
               cls = 'in-progress clickable';
               badge = `<span class="badge badge-in-progress">${entry.step_reached || 'IN PROGRESS'}</span>`;
+            } else if (!isSkipped && diskArtifactCount(sk, files) > 0) {
+              cls = 'unrecorded clickable';
+              const ac = diskArtifactCount(sk, files);
+              badge = '<span class="badge badge-unrecorded">ARTIFACTS ✓ · unlogged</span>';
+              artifactCount = `${ac} artifact${ac > 1 ? 's' : ''} on disk`;
             }
             if (selectedSkill === sk) cls += ' expanded';
             let subSkillsHtml = '';
@@ -991,7 +1132,13 @@ async function overview() {
     const treeItem = document.querySelector(`.skill-tree-item[data-skill="${sk}"]`);
     if (treeItem) treeItem.classList.add('active');
 
-    renderGroupTiles(gi, sk);
+    // Highlight the selected tile *without* collapsing the other group rows. Only
+    // re-render (showing all groups) if the tile isn't currently on screen — e.g. we
+    // were focused on a single group via the tree.
+    let selCard = document.querySelector(`.skill-card[data-skill="${sk}"]`);
+    if (!selCard) { renderAllGroups(); selCard = document.querySelector(`.skill-card[data-skill="${sk}"]`); }
+    document.querySelectorAll('.skill-card.expanded').forEach(el => el.classList.remove('expanded'));
+    if (selCard) selCard.classList.add('expanded');
 
     const container = document.getElementById('skillDetailContainer');
     const t = entry.timing;
@@ -1022,7 +1169,7 @@ async function overview() {
           <div class="detail-section">
             <div class="detail-section-title">Artifacts</div>
             <ul class="detail-artifacts">
-              ${entryArtifacts.map(a => `<li><strong style="color:var(--text)">${a.path.split('/').pop()}</strong> — ${a.description || a.type || ''}</li>`).join('')}
+              ${entryArtifacts.map(a => `<li><a class="art-open" data-art-path="${a.path.replace(/"/g,'&quot;')}">${escHtml(a.path.split('/').pop())}</a> — ${escHtml(a.description || a.type || '')}</li>`).join('')}
             </ul>
           </div>
         ` : ''}
@@ -1076,7 +1223,6 @@ async function overview() {
     if (itemLink) {
       const gi = parseInt(itemLink.dataset.group);
       const sk = itemLink.dataset.skill;
-      selectGroup(gi);
       showSkillDetail(sk, gi);
       return;
     }
@@ -1210,7 +1356,7 @@ function renderTimelineDetail(entry) {
       <h3>Artifacts</h3>
       <ul style="list-style:none;padding:0">
         ${entry.artifacts.map(a => `<li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-dim)">
-          <strong style="color:var(--text)">${a.path.split('/').pop()}</strong> — ${a.description || a.type || ''}
+          <a class="art-open" data-art-path="${a.path.replace(/"/g,'&quot;')}">${escHtml(a.path.split('/').pop())}</a> — ${escHtml(a.description || a.type || '')}
         </li>`).join('')}
       </ul>
     ` : ''}`;
@@ -1300,7 +1446,7 @@ function renderDecisionTable(decs, title) {
           <td><span class="badge badge-user">${escHtml(d.id || d.decision || '')}</span></td>
           <td>${dashSkillLink(d.skill)}</td>
           <td style="color:var(--text)">${escHtml(d.label || d.value || d.choice || '')}</td>
-          <td style="color:var(--text-dim);font-size:13px">${escHtml(d.question || d.rationale || '')}</td>
+          <td style="color:var(--text-dim);font-size:13px">${softenCitations(escHtml(d.question || d.rationale || ''))}</td>
         </tr>`).join('')}
       </tbody>
     </table></div>`;
@@ -1318,8 +1464,8 @@ function renderFindingsTable(findings, title) {
           return `<tr>
             <td>${dashSkillLink(d.source)}</td>
             <td><span class="badge badge-${sev}">${sev.toUpperCase()}</span></td>
-            <td style="color:var(--text)">${escHtml(d.decision || '')}</td>
-            <td>${escHtml(d.action || '')}</td>
+            <td style="color:var(--text)">${softenCitations(escHtml(d.decision || ''))}</td>
+            <td>${softenCitations(escHtml(d.action || ''))}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1417,9 +1563,9 @@ function renderOpenItemsTable(items, title) {
           return `<tr>
             <td><span class="badge badge-user">${escHtml(item.id)}</span></td>
             <td><span class="badge ${SEV_BADGE[sev]||'badge-advisory'}">${sev}</span></td>
-            <td style="color:var(--text)">${escHtml(item.description)}</td>
+            <td style="color:var(--text)">${softenCitations(escHtml(item.description))}</td>
             <td>${dashSkillLink(item.source)}</td>
-            <td style="color:var(--text-dim);font-size:13px">${escHtml(item.resolution||'')}</td>
+            <td style="color:var(--text-dim);font-size:13px">${softenCitations(escHtml(item.resolution||''))}</td>
             <td><span class="badge ${STATUS_BADGE[st]||'badge-open'}">${st}</span></td>
           </tr>`;
         }).join('')}
@@ -1475,7 +1621,8 @@ function artifactTitleFor(path) {
     const [, n, rest] = numbered;
     return `${n} · ${rest.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}`;
   }
-  return base.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+  return base.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+    .replace(/\b(Dmr|Ha|Dr|Mi|Dlq|Dmq|Roi|Api|Acl|Sam|Smf|Mqtt|Tls|Vpn|Ep|Ha\/Dr)\b/g, m => m.toUpperCase());
 }
 
 // When no description exists in progress.yaml, build a sensible fallback from
@@ -1608,7 +1755,7 @@ function artifacts() {
       let bodyHtml;
 
       if (ext === 'md') {
-        bodyHtml = `<div id="${bodyId}">${marked.parse(text)}</div>`;
+        bodyHtml = `<div id="${bodyId}">${softenCitations(marked.parse(text))}</div>`;
       } else if (ext === 'yaml' || ext === 'yml') {
         bodyHtml = `<div id="${bodyId}"><pre><code>${escHtml(text)}</code></pre></div>`;
       } else if (ext === 'mermaid' || ext === 'mmd') {
@@ -1931,7 +2078,10 @@ async function exportView() {
   const skipped = getEffectiveSkipped(state.data.progress, state.data.decisions);
   const totalExec = skills.reduce((a, s) => a + (s.timing?.execution_sec || 0), 0);
   const totalWall = skills.reduce((a, s) => a + (s.timing?.wall_sec || 0), 0);
-  const completedSkills = skills.filter(s => s.status === 'complete');
+  const completedSkills = SKILL_ORDER.filter(sk => {
+    const st = reconciledStatus(sk, skills.find(s => s.skill === sk), skipped.includes(sk), files);
+    return st === 'complete' || st === 'unrecorded';
+  }).map(sk => ({ skill: sk }));
   const discoverySummary = skills.find(s => s.skill === 'solace-discovery')?.summary || '';
   const userDecs = items.filter(d => d.id);
   const findings = items.filter(d => d.source);
@@ -2338,25 +2488,42 @@ async function generateReport(pack, skills, items, files) {
   // description / copy-button treatment as the in-app Artifacts page, so the
   // standalone HTML report is fully self-describing and shareable.
   let _copySeq = 0;
-  function reportArtifactHeader(filePath, rawText, fallbackDesc) {
+  const escAttr = (s) => escHtml(String(s)).replace(/"/g, '&quot;');
+  // Shift every heading in rendered markdown down by `by` levels (h1->h3, h2->h4,
+  // capped at h6) so an artifact's own headings sit *below* the report's section
+  // structure instead of competing with it.
+  function demoteHeadings(html, by) {
+    return html.replace(/<(\/?)h([1-6])(\b[^>]*)>/gi, (m, slash, lvl, rest) =>
+      `<${slash}h${Math.min(6, parseInt(lvl, 10) + by)}${rest}>`);
+  }
+  // A self-describing block for one embedded artifact: a View button (opens the
+  // rendered content in an in-page popup) and a Copy button (copies the raw source).
+  // `bodyHtml` is the rendered content (markdown HTML, diagram SVG, or code).
+  function reportArtifactBlock(filePath, rawText, bodyHtml, fallbackDesc) {
     const title = (typeof artifactTitleFor === 'function') ? artifactTitleFor(filePath) : filePath;
     const desc = (artifactDescriptions[filePath] || (typeof artifactDefaultDescription === 'function' ? artifactDefaultDescription(filePath) : '') || fallbackDesc || '');
-    const copyId = `rpt-copy-${++_copySeq}`;
-    return `<div class="report-artifact-header">
-      <div class="report-artifact-text">
-        <h4 class="report-artifact-title">${escHtml(title)}</h4>
-        <code class="report-artifact-path">${escHtml(filePath)}</code>
-        ${desc ? `<p class="report-artifact-desc">${escHtml(desc)}</p>` : ''}
+    const n = ++_copySeq;
+    const rawId = `rpt-copy-${n}`, bodyId = `rpt-body-${n}`;
+    return `<div class="report-artifact">
+      <div class="report-artifact-header">
+        <div class="report-artifact-text">
+          <h4 class="report-artifact-title">${escHtml(title)}</h4>
+          <code class="report-artifact-path">${escHtml(filePath)}</code>
+          ${desc ? `<p class="report-artifact-desc">${escHtml(desc)}</p>` : ''}
+        </div>
+        <div class="report-artifact-actions">
+          <button class="report-view-btn" type="button" data-open="${bodyId}" data-open-title="${escAttr(title)}" title="View in a popup"><span class="report-view-label">View</span></button>
+          <button class="report-copy-btn" type="button" data-copy-target="${rawId}" title="Copy raw source to clipboard"><span class="report-copy-label">Copy</span></button>
+        </div>
       </div>
-      <button class="report-copy-btn" type="button" data-copy-target="${copyId}" title="Copy raw source to clipboard">
-        <span class="report-copy-label">Copy</span>
-      </button>
-      <textarea id="${copyId}" class="report-copy-raw" readonly aria-hidden="true">${escHtml(rawText)}</textarea>
+      <div class="report-artifact-body" id="${bodyId}">${bodyHtml}</div>
+      <textarea id="${rawId}" class="report-copy-raw" readonly aria-hidden="true">${escHtml(rawText)}</textarea>
     </div>`;
   }
 
   const sections = [];
   let prevGroup = null;
+  let mmdSeq = 0;
   for (const f of docFiles) {
     const res = await fetch(`/api/projects/${state.current.slug}/artifact?path=${encodeURIComponent(f)}`);
     if (!res.ok) continue;
@@ -2368,9 +2535,19 @@ async function generateReport(pack, skills, items, files) {
     let html;
     if (ext === 'mermaid' || ext === 'mmd') {
       const desc = artifactDescriptions[f] || '';
-      html = `${reportArtifactHeader(f, text)}<div class="mermaid">${escHtml(text)}</div>${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`;
+      // Pre-render to inline SVG using the dashboard's already-loaded Mermaid, so the
+      // downloaded/shared report is self-contained (no CDN, no parse-on-open). Fall back
+      // to readable source if a diagram can't be rendered.
+      let diagram;
+      try {
+        const out = await mermaid.render('rpt-mmd-' + (mmdSeq++), text.trim());
+        diagram = `<div class="diagram">${out.svg}</div>`;
+      } catch (e) {
+        diagram = `<pre class="diagram-fallback"><code>${escHtml(text)}</code></pre>`;
+      }
+      html = reportArtifactBlock(f, text, `${diagram}${desc ? `<p class="diagram-desc">${escHtml(desc)}</p>` : ''}`);
     } else if (ext === 'yaml' || ext === 'yml') {
-      html = `${reportArtifactHeader(f, text)}<pre><code class="language-yaml">${escHtml(text)}</code></pre>`;
+      html = reportArtifactBlock(f, text, `<pre><code class="language-yaml">${escHtml(text)}</code></pre>`);
     } else if (f.endsWith('roi-framework.md')) {
       const roiRows = { c: [], p: [], v: [] };
       const indicators = [];
@@ -2431,7 +2608,11 @@ async function generateReport(pack, skills, items, files) {
         const autoHint = autoRule ? `<div class="roi-auto-hint" data-hint-for="${r.id}"><span class="roi-auto-tag">auto-filled</span> ${escHtml(autoRule.label)}. Edit to override; double-click to restore.</div>` : '';
         const prefill = !autoRule ? exampleAmount(guide.ex) : '';
         const valAttr = prefill ? ` value="${prefill}"` : '';
-        return `<tr><td style="font-weight:700;color:#093B5F;vertical-align:top;padding-top:12px">${r.id}</td><td style="vertical-align:top;padding-top:12px"><div>${escHtml(r.label)}</div>${autoHint}<div class="roi-guide"><span class="roi-ask">${escHtml(guide.ask || '')}</span>${guide.ex ? '<br><span class="roi-ex">Example: ' + escHtml(guide.ex) + '</span>' : ''}</div></td><td style="vertical-align:top;padding-top:10px"><input type="number" class="roi-input" aria-label="${escHtml(r.id + ' ' + r.label)}" data-group="${g}" data-id="${r.id}"${autoAttr}${valAttr} min="0" step="1000" placeholder="0"></td><td style="font-size:12px;color:#5A7A94;vertical-align:top;padding-top:12px">${xref(escHtml(r.basis), 'decisions')}</td></tr>`;
+        // data-default carries the architecture-derived suggested estimate so the
+        // "Populate suggested estimates" button can (re)fill it — computed here at
+        // generation time, so no AI/network is needed when the report is viewed.
+        const defAttr = prefill ? ` data-default="${prefill}"` : '';
+        return `<tr><td style="font-weight:700;color:#093B5F;vertical-align:top;padding-top:12px">${r.id}</td><td style="vertical-align:top;padding-top:12px"><div>${escHtml(r.label)}</div>${autoHint}<div class="roi-guide"><span class="roi-ask">${escHtml(guide.ask || '')}</span>${guide.ex ? '<br><span class="roi-ex">Example: ' + escHtml(guide.ex) + '</span>' : ''}</div></td><td style="vertical-align:top;padding-top:10px"><input type="number" class="roi-input" aria-label="${escHtml(r.id + ' ' + r.label)}" data-group="${g}" data-id="${r.id}"${autoAttr}${valAttr}${defAttr} min="0" step="1000" placeholder="0"></td><td style="font-size:12px;color:#5A7A94;vertical-align:top;padding-top:12px">${xref(escHtml(r.basis), 'decisions')}</td></tr>`;
       };
       const roiSum = (label, g) => `<tr class="roi-total"><td></td><td><strong>${label}</strong></td><td><strong class="roi-sum" data-sum="${g}">$0</strong></td><td></td></tr>`;
 
@@ -2453,6 +2634,12 @@ async function generateReport(pack, skills, items, files) {
 <p class="roi-step-desc">These values are derived from the architecture design. They anchor all cost and value estimates below.</p>
 <div class="roi-ind-grid">
 ${indCards}
+</div>
+
+<div class="roi-actions">
+<button type="button" class="roi-populate-btn" id="roi-populate">Populate suggested estimates</button>
+<button type="button" class="roi-clear-btn" id="roi-clear">Clear all</button>
+<span class="roi-actions-note">Suggested figures are illustrative, architecture-derived starting points computed from this design — replace each with your organization's actual numbers.</span>
 </div>
 
 <div class="roi-step-header"><span class="roi-step-num">Step 1</span><span class="roi-step-title">Cost of Current State (Annual)</span></div>
@@ -2550,7 +2737,7 @@ ${roiSum('Total annual value', 'v')}
       // same title / path / description / copy-button header on top of the
       // rendered content. The ROI-framework branch above intentionally keeps
       // its own interactive layout and skips this header.
-      html = `${reportArtifactHeader(f, text)}${marked.parse(text)}`;
+      html = reportArtifactBlock(f, text, `<div class="report-md">${softenCitations(demoteHeadings(marked.parse(text), 2))}</div>`);
     }
     sections.push({ group: groupName, isNewGroup, html, file: f, ext });
   }
@@ -2586,7 +2773,7 @@ ${roiSum('Total annual value', 'v')}
     packFilters.decision_skills
   );
   const findingRows = packFilteredFindings.map(d =>
-    `<tr><td>${skillLink(d.source)}</td><td>${(d.severity||'advisory').toUpperCase()}</td><td>${escHtml(d.decision||'')}</td><td>${escHtml(d.action||'')}</td></tr>`
+    `<tr><td>${skillLink(d.source)}</td><td>${(d.severity||'advisory').toUpperCase()}</td><td>${softenCitations(escHtml(d.decision||''))}</td><td>${softenCitations(escHtml(d.action||''))}</td></tr>`
   ).join('');
 
   // Pack-filtered skill and file counts. For restricted packs, these are used
@@ -2699,10 +2886,18 @@ ${roiSum('Total annual value', 'v')}
   const reportHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <title>${escHtml(context?.display_name || state.current.slug)} — ${escHtml(packLabel)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* Self-contained: no external font CDN, so a downloaded/shared/offline report always
+   renders with clean system fonts. --sans/--mono are the app's brand fonts when present,
+   falling back to the platform UI stack. */
+:root{--sans:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:'Space Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Figtree',sans-serif;font-size:15px;line-height:1.65;color:#1f2937}
+body{font-family:var(--sans);font-size:15px;line-height:1.65;color:#1f2937}
+.diagram{text-align:center;margin:14px 0;cursor:zoom-in;position:relative}
+.diagram svg{max-width:100%;height:auto;pointer-events:none}
+.diagram::after{content:"⤢ click to zoom";display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:#8BA4B8;margin-top:4px;opacity:0;transition:opacity .15s}
+.diagram:hover::after{opacity:1}
+.diagram-fallback{background:#f8fafc;border:1px solid #e2eaf0;border-radius:6px;padding:12px;overflow:auto;font-size:12px;line-height:1.5}
 a{color:#093B5F;text-decoration:none}
 a:hover{color:#00C895}
 
@@ -2798,6 +2993,15 @@ a:hover{color:#00C895}
 .roi-sens-label{font-size:13px;font-weight:600;color:#093B5F;margin-bottom:4px}
 .roi-sens-hint{font-size:11px;color:#6B7B8D;line-height:1.4;margin-bottom:10px}
 .roi-reset-btn{margin-left:auto;padding:4px 12px;font-size:11px;font-weight:600;font-family:'Figtree',sans-serif;color:#5A7A94;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;letter-spacing:0.02em}
+.roi-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:20px 0 8px}
+.roi-populate-btn{padding:8px 16px;font-size:12px;font-weight:700;font-family:inherit;color:#fff;background:#00C895;border:1px solid #00C895;border-radius:5px;cursor:pointer;letter-spacing:0.02em}
+.roi-populate-btn:hover{background:#00b085;border-color:#00b085}
+.roi-clear-btn{padding:8px 14px;font-size:12px;font-weight:600;font-family:inherit;color:#5A7A94;background:none;border:1px solid #d1d5db;border-radius:5px;cursor:pointer}
+.roi-clear-btn:hover{border-color:#093B5F;color:#093B5F}
+.roi-actions-note{flex:1;min-width:220px;font-size:12px;color:#5A7A94;line-height:1.45}
+body.dark .roi-clear-btn{border-color:#30363d;color:#8b949e}
+body.dark .roi-actions-note{color:#8b949e}
+@media print{.roi-actions{display:none}}
 .roi-reset-btn:hover{color:#093B5F;border-color:#093B5F;background:#f8fafc}
 .roi-sens-control{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .roi-slider{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:#e5e7eb;outline:none}
@@ -2993,6 +3197,39 @@ body.dark .float-btn:hover{background:#00C895;color:#03213B;border-color:#00C895
 }
 .report-copy-btn:hover{background:#093B5F;color:#fff;border-color:#093B5F}
 .report-copy-btn.is-copied{background:#00C895;color:#03213B;border-color:#00C895}
+.report-artifact-actions{flex-shrink:0;display:flex;gap:8px;align-items:flex-start}
+.report-view-btn{
+  flex-shrink:0;padding:6px 14px;font-size:11px;font-weight:600;letter-spacing:0.5px;
+  text-transform:uppercase;background:transparent;border:1px solid #cbd5dc;
+  border-radius:4px;color:#3F5870;cursor:pointer;font-family:inherit;
+  transition:background 0.12s,color 0.12s,border-color 0.12s;
+}
+.report-view-btn:hover{background:#093B5F;color:#fff;border-color:#093B5F}
+/* Demoted artifact-content headings — subordinate to the report's section structure. */
+.report-md h3{font-size:16px;font-weight:700;color:#093B5F;margin:20px 0 8px;padding:0;border:0}
+.report-md h4{font-size:14px;font-weight:600;color:#093B5F;margin:16px 0 6px}
+.report-md h5{font-size:12.5px;font-weight:600;color:#3F5870;margin:12px 0 4px}
+.report-md h6{font-size:12px;font-weight:600;color:#5A7A94;margin:10px 0 4px}
+.cite-inferred{font-size:8.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#8a6d3b;background:#fbf3e0;border:1px solid #f0e2bf;border-radius:3px;padding:0 4px;margin-left:2px;vertical-align:super;line-height:1;cursor:help}
+body.dark .cite-inferred{color:#d4b978;background:#3a2f16;border-color:#5c4a1f}
+body.dark .report-view-btn{border-color:#30363d;color:#8b949e}
+body.dark .report-view-btn:hover{background:#00C895;color:#03213B;border-color:#00C895}
+body.dark .report-md h3,body.dark .report-md h4{color:#c9d1d9}
+/* In-page markdown popup (artifact viewer) */
+.report-md-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;background:rgba(9,42,68,0.55);padding:24px}
+.report-md-modal.open{display:flex}
+.report-md-modal-panel{background:#fff;border-radius:10px;max-width:920px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.32);overflow:hidden}
+.report-md-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 22px;border-bottom:1px solid #e1e8ef;background:#f8fafc}
+.report-md-modal-title{font-weight:700;font-size:16px;color:#093B5F;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.report-md-modal-close{flex-shrink:0;background:none;border:0;font-size:26px;line-height:1;color:#5A7A94;cursor:pointer;padding:0 4px}
+.report-md-modal-close:hover{color:#093B5F}
+.report-md-modal-body{padding:22px 28px;overflow:auto}
+.report-md-modal-body>.report-md{margin:0}
+body.dark .report-md-modal-panel{background:#0d1117}
+body.dark .report-md-modal-head{background:#161b22;border-color:#21262d}
+body.dark .report-md-modal-title{color:#c9d1d9}
+body.dark .report-md-modal-close{color:#8b949e}
+@media print{.report-md-modal{display:none!important}}
 .report-copy-raw{
   position:absolute;left:-10000px;top:-10000px;width:1px;height:1px;opacity:0;
   pointer-events:none;
@@ -3011,8 +3248,9 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
   .layout{display:block}
   .content{max-width:100%;padding:0}
   body{font-size:12px;padding-top:0!important}
-  .report-copy-btn{display:none}
+  .report-copy-btn,.report-view-btn,.report-artifact-actions{display:none}
   .report-artifact-header{background:transparent;border-color:#cbd5dc;padding:6px 0;margin:14px 0 8px}
+  .report-md h3{font-size:14px}.report-md h4{font-size:12.5px}
   .content h2{font-size:16px;margin:24px 0 10px}
   .content h3{font-size:13px;margin:16px 0 6px}
   pre{background:#f4f4f4!important;color:#1a1a1a!important;border:1px solid #ddd!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -3190,7 +3428,8 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
         const grp = SKILL_TO_GROUP[s.skill];
         const nameHtml = grp ? xref('<span style="font-weight:600">' + (SKILL_LABELS[s.skill]||s.skill) + '</span>', 'grp-' + grp) : '<span style="font-weight:600">' + (SKILL_LABELS[s.skill]||s.skill) + '</span>';
         const artCount = s.artifacts?.length || 0;
-        const artHtml = grp && artCount > 0 ? xref(artCount + ' files', 'grp-' + grp) : artCount + ' files';
+        const filesLabel = artCount + (artCount === 1 ? ' file' : ' files');
+        const artHtml = grp && artCount > 0 ? xref(filesLabel, 'grp-' + grp) : filesLabel;
         return '<tr><td>' + nameHtml + '</td>' +
         '<td>' + (s.status === 'complete' ? '<span style="color:#00C895;font-weight:600">Complete</span>' : s.status) + '</td>' +
         '<td>' + (s.timing ? fmtTime(s.timing.execution_sec) : '--') + '</td>' +
@@ -3204,7 +3443,7 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
     ${packIncludesSection(packFilters, 'decisions') ? `
     <h2 id="decisions">Decisions</h2>
     <table><thead><tr><th>Decision</th><th>Skill</th><th>Value</th><th>Rationale</th></tr></thead><tbody>${packFilteredDecisions.map(d =>
-      `<tr><td>${escHtml(d.id||d.decision||'')}</td><td>${skillLink(d.skill)}</td><td>${escHtml(d.label||d.value||d.choice||'')}</td><td>${escHtml(d.question||d.rationale||'')}</td></tr>`
+      `<tr><td>${escHtml(d.id||d.decision||'')}</td><td>${skillLink(d.skill)}</td><td>${softenCitations(escHtml(d.label||d.value||d.choice||''))}</td><td>${softenCitations(escHtml(d.question||d.rationale||''))}</td></tr>`
     ).join('') || '<tr><td colspan="4" style="color:#9ca3af;text-align:center">No decisions recorded</td></tr>'}</tbody></table>` : ''}
 
     ${packIncludesSection(packFilters, 'findings') && findingRows ? `<h2 id="findings">Review Findings</h2>
@@ -3275,18 +3514,10 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
   </article>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>
+<!-- Diagrams are pre-rendered to inline SVG at generation time (see generateReport),
+     so the report needs no Mermaid runtime. SheetJS stays for optional Excel export. -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"><\/script>
 <script>
-mermaid.initialize({startOnLoad:true,theme:'base',themeVariables:{
-  primaryColor:'#e8f4f8',primaryTextColor:'#093B5F',primaryBorderColor:'#093B5F',
-  lineColor:'#5A7A94',secondaryColor:'#f0fdf9',tertiaryColor:'#f8fafc',
-  edgeLabelBackground:'#ffffff',clusterBkg:'#f8fafc',clusterBorder:'#d1d5db',
-  fontFamily:'Figtree,sans-serif',fontSize:'13px',
-  nodeBorder:'#093B5F',mainBkg:'#e8f4f8',
-  actorBkg:'#e8f4f8',actorBorder:'#093B5F',actorTextColor:'#093B5F',
-  signalColor:'#5A7A94',signalTextColor:'#093B5F'
-},flowchart:{curve:'basis',padding:16},sequence:{mirrorActors:false}});
 document.addEventListener('scroll',function(){
   var links=document.querySelectorAll('.sidebar a');
   var sects=[];
@@ -3327,7 +3558,10 @@ document.getElementById('dlBtn').addEventListener('click',function(){
   vp.onmousedown=function(e){if(e.button!==0)return;drag=true;sx=e.clientX-px*s;sy=e.clientY-py*s;e.preventDefault()};
   window.onmousemove=function(e){if(!drag)return;px=(e.clientX-sx)/s;py=(e.clientY-sy)/s;upd()};
   window.onmouseup=function(){drag=false};
-  document.addEventListener('click',function(e){var m=e.target.closest('.mermaid');if(!m||overlay.classList.contains('open'))return;var svg=m.querySelector('svg');if(svg)opn(svg)});
+  // Expose so the View button (and any caller) can open a diagram big with zoom/pan.
+  window.__diagZoom=function(svgEl){ if(svgEl) opn(svgEl); };
+  // Click any inline diagram (pre-rendered SVG in .diagram, or a live .mermaid) to zoom.
+  document.addEventListener('click',function(e){var m=e.target.closest('.diagram, .mermaid');if(!m||overlay.classList.contains('open'))return;var svg=m.querySelector('svg');if(svg)opn(svg)});
 })();
 (function(){
   var inputs=document.querySelectorAll('.roi-input');
@@ -3581,6 +3815,16 @@ document.getElementById('dlBtn').addEventListener('click',function(){
     XLSX.utils.book_append_sheet(wb,ws,'ROI Framework');
     XLSX.writeFile(wb,'roi-framework.xlsx');
   });
+  var popBtn=document.getElementById('roi-populate');
+  if(popBtn) popBtn.addEventListener('click',function(){
+    inputs.forEach(function(inp){ var d=inp.getAttribute('data-default'); if(d!==null && d!=='') inp.value=d; });
+    autoFillV(); update();
+  });
+  var clrBtn=document.getElementById('roi-clear');
+  if(clrBtn) clrBtn.addEventListener('click',function(){
+    inputs.forEach(function(inp){ inp.value=''; try{delete userOverrides[inp.dataset.id];}catch(_){} inp.classList.remove('roi-auto-filled'); });
+    update();
+  });
   update();
 })();
 <\/script>
@@ -3618,6 +3862,46 @@ document.getElementById('dlBtn').addEventListener('click',function(){
     } catch (err) {
       done(false);
     }
+  });
+})();
+<\/script>
+<script>
+// Popup viewer for every embedded artifact — the View button opens the artifact's
+// rendered content in an in-page modal. Self-contained; no external libraries.
+(function(){
+  // In-page popup (modal) that shows an artifact's rendered markdown without leaving
+  // the report. Built once and reused; content is cloned from the artifact's own
+  // already-rendered body, so no libraries and no navigation.
+  // Reuse an existing modal if this HTML was re-downloaded (the Download button
+  // serializes the whole DOM, modal included) — never stack duplicates.
+  var modal=document.querySelector('.report-md-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.className='report-md-modal';
+    modal.innerHTML='<div class="report-md-modal-panel" role="dialog" aria-modal="true" aria-label="Artifact viewer"><div class="report-md-modal-head"><span class="report-md-modal-title"></span><button type="button" class="report-md-modal-close" aria-label="Close">\\u00d7</button></div><div class="report-md-modal-body content report-md"></div></div>';
+    document.body.appendChild(modal);
+  }
+  modal.classList.remove('open');
+  var modalTitle=modal.querySelector('.report-md-modal-title');
+  var modalBody=modal.querySelector('.report-md-modal-body');
+  function openArt(bodyId, title){
+    var body=document.getElementById(bodyId);
+    if(!body) return;
+    // A diagram artifact opens in the big zoom/pan viewer, not the small text modal.
+    var dsvg=body.querySelector('.diagram svg');
+    if(dsvg && window.__diagZoom){ window.__diagZoom(dsvg); return; }
+    modalTitle.textContent=title||'Artifact';
+    modalBody.innerHTML=body.innerHTML;
+    modalBody.scrollTop=0;
+    modal.classList.add('open');
+    document.body.style.overflow='hidden';
+  }
+  function closeArt(){ modal.classList.remove('open'); modalBody.innerHTML=''; document.body.style.overflow=''; }
+  modal.addEventListener('click', function(e){ if(e.target===modal || (e.target.closest && e.target.closest('.report-md-modal-close'))) closeArt(); });
+  function fromOpen(e){ var el=e.target.closest && e.target.closest('.report-view-btn'); if(!el) return; e.preventDefault(); openArt(el.getAttribute('data-open'), el.getAttribute('data-open-title')); }
+  document.addEventListener('click', fromOpen);
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape' && modal.classList.contains('open')){ closeArt(); return; }
   });
 })();
 <\/script>

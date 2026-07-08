@@ -17,6 +17,6 @@ Before writing any architectural artifact (discovery brief, topology document, a
 - A2A protocol, DMR, Event Portal, Solace Insights, Solace Schema Registry: proper names
 
 **Ungrounded claims check:**
-- Any Solace capability claim that does not trace to a grounding document must be flagged: "Architectural inference, not from Solace docs — verify before external use."
+- Any Solace capability claim that does not trace to a grounding document must be tagged \`[inference]\` (per the Grounding Discipline citation tags) and verified before external use.
 - Do not present inferences as documented facts.`;
 }

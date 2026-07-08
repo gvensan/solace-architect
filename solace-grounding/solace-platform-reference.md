@@ -294,6 +294,24 @@ Requires a product key for production. Demo mode (7 days) available without a pr
 
 Behaves correctly across DMR links, Message VPN bridges, and partitioned queues. Local-transaction messages do not generate trace messages.
 
+### Upgrade and patching
+
+Source: docs.solace.com → `Software-Broker/SW-Broker-Upgrade/SW-Broker-Upgrade.htm` (verified 2026-07-03).
+
+Software Event Brokers upgrade as a standalone instance or as a **redundant (HA) group** — the redundant procedure is what keeps a service available during the upgrade, run either manually or via orchestration tooling. Version-compatibility rules for any upgrade: the target must be (1) a numerically higher version, (2) released after the current version, and (3) released while the current version still had active support. **Downgrade is not supported.** Spool and configuration are preserved across the upgrade.
+
+Large or old deployments cannot always jump directly to the newest release — e.g. 200K-scaling-tier HA groups on 10.10.1 or earlier, and HA groups on 10.2.1 or earlier, must perform **two sequential HA upgrades** (an intermediate version, then the target) rather than one. Always check the release-specific upgrade notes for the exact intermediate version before planning a jump. On Kubernetes, the PubSub+ Operator manages the rolling upgrade of the broker pods.
+
+### Default ports and firewall
+
+Source: docs.solace.com → `Admin/Default-Port-Numbers.htm` (verified 2026-07-03). Only the ports for enabled services need to be open in the firewall; verify the exact set (and any TLS variants) against the source for the target release, since ports are configurable.
+
+**Software Event Broker (defaults):** CLI SSH/SFTP `2222`; Broker Manager / SEMP / SolAdmin `8080`; those same over TLS (HTTPS / SEMP-TLS) `1943`; SMF `55555`; MQTT (default VPN) `1883`; AMQP `5671`–`5672`; REST `9000` / `9443`.
+
+**Appliance Event Broker (defaults):** host shell / CLI `22`; Broker Manager / SEMP / SolAdmin `80`; same over HTTPS/TLS `443`; SMF `55555`; SMF over TLS `55443`.
+
+On Linux, ports 0–1023 are privileged (root). DMR internal and external links carry broker-to-broker traffic over the SMF port(s); firewall rules between broker sites must permit them.
+
 ---
 
 ## Layer 2: Application Services

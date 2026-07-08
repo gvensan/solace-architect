@@ -42,7 +42,7 @@ export const RESOLVERS: Record<string, ResolverFn> = {
 
 Each resolver is a function that takes a `TemplateContext` and returns a string. The context carries the current host, skill metadata, and computed paths.
 
-Most resolvers live inside the preamble composition (`scripts/resolvers/preamble/`). Standalone resolvers like `FINDING_RESOLUTION` are used as `{{PLACEHOLDER}}` markers in specific skill templates (e.g., review skills) rather than being injected into every skill's preamble.
+Most resolvers live inside the preamble composition (`scripts/resolvers/preamble/`). Standalone resolvers like `FINDING_RESOLUTION` and `CONFIDENCE_CALIBRATION` are used as `{{PLACEHOLDER}}` markers in specific skill templates (the four review skills) rather than being injected into every skill's preamble.
 
 ### The preamble
 
@@ -125,15 +125,16 @@ The `solace-grounding/` directory contains the authoritative source material tha
 | `antipatterns.md` | Known mistakes organized by category. Every technical domain and validation skill checks output against this library. |
 | `integration-hub-catalog.md` | Point-in-time snapshot of Solace Integration Hub. Skills match backend systems against available Micro-Integrations without live fetching. |
 | `claude-instructions.md` | Claude-specific operating instructions. |
-| `gaps.md` | Gap tracker. Records when a skill can't find what it needs in the grounding documents. |
+| `gaps.md` | Gap tracker. Records when a skill can't find what it needs in the grounding documents (skills append at runtime). |
 | `MAINTENANCE.md` | Refresh manifest. Tracks all external resources, their refresh cadence, and version numbers. |
+| `managed/digest.md` | Optional organizational grounding: a customer's own standards, landscape, and constraints, curated by a maintainer. Distinct from Solace platform grounding; loaded by every skill and cited `[managed-ref:]`. |
 
-The grounding discipline is enforced in `generate-grounding-rules.ts`. It tells the agent:
-- Only assert what Solace docs support
-- Do not invent Solace features or borrow concepts from other messaging vendors
-- When a capability is not in the sources, say so explicitly
-- When reasoning from first principles, label it as architectural inference
-- Fetch canonical sources rather than reasoning from training data
+The grounding discipline is enforced in `generate-grounding-rules.ts` and baked into every skill. It tells the agent to:
+- Only assert what Solace docs support; never invent Solace features or borrow concepts from other messaging vendors
+- Tag every capability claim with its source category: `[doc:]`, `[ref:]`, `[user]`, `[inference]`, or `[managed-ref:]`
+- Flag confidence (Confirmed / Reasoned / Unverified) and classify claims (capability vs configuration vs regulatory vs project-policy)
+- When a capability is not in the sources, say so explicitly and record the gap in `gaps.md`
+- Fetch canonical sources rather than reasoning from training data, and load `managed/digest.md` (organizational references) when present
 
 ## Multi-host generation
 
@@ -306,7 +307,7 @@ The `test/` directory contains automated quality checks that run via `bun test`:
 |-----------|---------------|
 | `skill-terminology.test.ts` | Scans all SKILL.md files for forbidden terminology (connector, QoS, orchestrator agent, etc.). Excludes the naming conventions preamble section where terms appear as "never use" rules. |
 | `skill-structure.test.ts` | Validates frontmatter (name, description present), resolved placeholders (no `{{PLACEHOLDER}}` markers), generated headers, grounding discipline section, and correct preamble sections per tier. |
-| `skill-token-budget.test.ts` | Enforces per-skill (40K tokens) and total (200K tokens) budget ceilings. Prevents silent context window consumption growth. |
+| `skill-token-budget.test.ts` | Enforces per-skill (40K tokens) and total (300K tokens) budget ceilings. Prevents silent context window consumption growth. The total was raised from 275K when the grounding discipline was promoted into the shared preamble. |
 | `skill-gen.test.ts` | Verifies generation freshness (committed files match `--dry-run` output), resolver registry completeness, and template discovery count. |
 
 ### Scenario fixtures

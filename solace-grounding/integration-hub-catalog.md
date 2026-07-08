@@ -95,6 +95,13 @@ If a system is not in this catalog, it does not mean no Micro-Integration exists
 | MQTT | Source, Target | Self-Managed | Bridge with external MQTT brokers |
 | Google Pub/Sub | Source, Target | Cloud-Managed, Self-Managed | (also listed under GCP) |
 
+**Kafka integration — connector selection.** Sources: `solace.com/integration-hub/integrated-kafka/`, `.../kafka-source/`, `.../kafka-connect-sink/` (verified 2026-07-03).
+
+- **Integrated Kafka bridge** (broker-native, broker 10.6.1+) is the default recommendation: no separate Kafka Connect runtime to operate, free with a valid Solace support plan, bidirectional (source + target), and can interconnect Kafka clusters through Solace as a WAN-optimized, order-retaining mesh. Prefer it unless a constraint below applies.
+- **Kafka Connect Source connector** (self-managed, Kafka Connect framework) — direction: **Solace → Kafka** (streams Solace queue/topic events to a Kafka topic; keyed or non-keyed).
+- **Kafka Connect Sink connector** (self-managed) — direction: **Kafka → Solace** (streams Kafka records to a Solace topic and/or queue).
+- **Choose the standalone Kafka Connect connectors** when the team already runs a Kafka Connect cluster or needs the Connect ecosystem (SMTs, converters, existing connector fleet); otherwise the integrated bridge is simpler and cheaper. Connector *configuration* detail lives in each connector's GitHub repo linked from its Integration Hub page — point developers there rather than restating config here.
+
 ---
 
 ## Integration platforms

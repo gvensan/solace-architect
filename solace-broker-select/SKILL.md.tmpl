@@ -120,17 +120,36 @@ After the user confirms:
 
 ---
 
-## Step 4: Sizing notes and write artifacts
+## Step 4: Sizing, VPN design, and write artifacts
 
-Provide sizing guidance based on the selected broker type:
+Compute a defensible sizing using the methodology in the platform reference
+(Performance and sizing section) — the recommendation is incomplete without it:
 
-- **Event broker service:** Which service class? (Developer, Enterprise, Enterprise+).
-  Developer is free tier for evaluation. Enterprise and Enterprise+ differ in message
-  spool, connection limits, and features.
-- **Software Event Broker:** Container resource requirements. Standard, Enterprise, and
-  Enterprise+ editions. Minimum and recommended CPU/memory.
-- **Appliance:** Model selection guidance — but flag that specific model selection requires
-  Solace engagement.
+1. **Connection count** — sum producer, consumer, Micro-Integration, and management connections.
+2. **Message rate** — peak events/second from the brief, factored by message size.
+3. **Spool calculation** — message size × retention period × message rate for Guaranteed queues.
+4. **Service class / edition mapping** — event broker service: Developer (dev/test), Enterprise,
+   Enterprise Kilo (verify current names at `docs.solace.com/Cloud/cloud-service-class-comparison.htm`).
+   Software Event Broker: Standard/Enterprise editions + container CPU/memory.
+   Appliance: flag that model selection requires Solace engagement.
+
+Write an explicit `sizing` block in the artifact with inputs, computed values, and the mapping —
+numbers carry their conditions and source. Note SDKPerf as the tool to validate the
+throughput/latency baseline before committing an edition.
+
+**Message VPN design.** Also decide and record the VPN layout (platform reference, Message VPNs
+section): how many VPNs and why (VPNs are the unit of multi-tenancy — isolated topic space,
+credentials, ACLs, quotas), naming convention, per-VPN quota sizing (connections, spool, rates),
+and when multiple brokers beat multiple VPNs (HA fails over all VPNs together — VPN-level
+failover granularity is not supported). Single-app single-site projects usually need one VPN;
+say so explicitly rather than skipping the question.
+
+**Deployment mechanism.** If the recommendation is a self-managed Software Event Broker on
+Kubernetes, name the **Solace PubSub+ Kubernetes Operator** as the deployment path (manages
+broker pods as StatefulSets, persistent volumes for spool, ConfigMaps for config; supports HA
+setup and rolling upgrades; Helm charts are the primary install mechanism) rather than raw
+manifests. For event broker services, note the **Solace Cloud Console** as the provisioning and
+management pane.
 
 Save the broker recommendation artifact:
 
