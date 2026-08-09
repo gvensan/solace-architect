@@ -755,6 +755,12 @@ full D<N> decision brief format.
 Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
 execution — the plan orchestrator handles sequencing.
 
+## Change Capture
+
+If the operator states a requirement or design change outside this skill's scope, do not apply it and do not fold it into the artifact you are writing. Append it to the `open_items:` list in `open-items.yaml` with `type: change-request`, the next CR-NNN `id`, `status: pending`, `verbatim` (operator's exact words), `restated` (your paraphrase), `suspected_owner` (skill), `raised_during`, `raised_at`. Continue the current step. Name captured change requests in your closing summary; they are processed by `/solace-change`. In-scope refinements and questions are not change requests.
+
+**Targeted re-run:** if invoked with a change context (a `change_ref` CR id plus affected decision ids), re-open only those decisions. Carry every other decision in `decisions.yaml` forward without re-asking. Regenerate your full artifact so it stays internally consistent.
+
 ## Completion Status Protocol
 
 When completing a skill workflow, report status using one of:
@@ -965,6 +971,36 @@ not need to manually thread context — the project infrastructure handles it.
 **Handling interruptions:** If the user stops mid-plan, the plan's progress is saved.
 When the plan skill is re-invoked, it reads `progress.yaml`, identifies where things
 left off, and offers to continue.
+
+### Change-request gate (before blueprint assembly)
+
+Never finalize an engagement over an unprocessed change queue. After the review
+and validation skills have run, and **before** invoking `/solace-blueprint`,
+check for pending change requests:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 - "$ACTIVE" << 'PYEOF'
+import sys, yaml, os
+path = f"projects/{sys.argv[1]}/open-items.yaml"
+items = (yaml.safe_load(open(path)) or {}).get("open_items", []) if os.path.exists(path) else []
+is_pending = lambda i: i.get("type") == "change-request" and str(i.get("status", "pending")).lower() == "pending" and not i.get("reviewed")
+pending = [i for i in items if is_pending(i)]
+if pending:
+    print(f"PENDING_CHANGE_REQUESTS: {len(pending)}")
+    for i in pending:
+        print(f"  {i.get('id')} - {i.get('restated') or i.get('verbatim')}")
+else:
+    print("NO_PENDING_CHANGE_REQUESTS")
+PYEOF
+```
+
+If this prints `PENDING_CHANGE_REQUESTS`, stop and tell the operator to run
+`/solace-change` (or `/solace-change CR-NNN` for a specific one) before the
+finalize phase continues. In **auto mode**, this gate always falls back to
+interactive - never auto-finalize over pending change requests. Requests the
+operator has explicitly deferred (`status: deferred`, or `reviewed: true`)
+do not gate; note them in the transition and proceed.
 
 ### Open-item gate (before blueprint assembly)
 

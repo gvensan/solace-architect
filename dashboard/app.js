@@ -283,6 +283,88 @@ function getOpenItems(openItems) {
   return openItems?.open_items || [];
 }
 
+// ── Change requests + artifact freshness (docs/solace-change-skill.md §11) ──
+// Change requests live in open-items.yaml as entries with type: change-request.
+// Entries WITHOUT that type are ordinary open items and must keep rendering
+// exactly as before, so every consumer picks one of these two filtered views.
+// The dashboard is strictly read-only here: it never applies/rejects/defers a
+// change request - it surfaces the exact /solace-change command to paste.
+function getChangeRequests(openItems) {
+  return getOpenItems(openItems).filter(i => i && i.type === 'change-request');
+}
+function getPlainOpenItems(openItems) {
+  return getOpenItems(openItems).filter(i => !i || i.type !== 'change-request');
+}
+
+// Artifact freshness from progress.yaml's OPTIONAL top-level `artifacts:` map.
+// Absent map, or an artifact with no entry, means current - never badge then.
+function getArtifactFreshness(progress) {
+  const map = progress?.artifacts;
+  if (!map || typeof map !== 'object' || Array.isArray(map)) return {};
+  return map;
+}
+function getStaleArtifacts(progress) {
+  return Object.entries(getArtifactFreshness(progress))
+    .filter(([, v]) => v && (v.state === 'stale' || v.state === 'divergent'))
+    .map(([key, v]) => ({ key, ...v }));
+}
+
+// Freshness key -> artifacts/ directory. Mirrors the `artifacts:` block in
+// scripts/skill-dependencies.yaml (the single source of truth for the graph);
+// keep this map in sync when that file changes. The generic `reviews` key is
+// accepted as a legacy alias for the four review-* keys.
+const ARTIFACT_KEY_DIRS = {
+  'discovery-brief': '01-discovery',
+  'topic-taxonomy': '02-topic-design',
+  'broker-recommendation': '03-broker-select',
+  'sam-design': '04-sam-design',
+  'protocol-map': '05-protocol-select',
+  'dmr-topology': '06-mesh-design',
+  'ha-dr-topology': '07-ha-dr',
+  'micro-integration-map': '08-integration',
+  'migration-plan': '09-migration',
+  'review-architect': '10-reviews',
+  'review-ops': '10-reviews',
+  'review-security': '10-reviews',
+  'review-dev': '10-reviews',
+  'reviews': '10-reviews',
+  'validation-report': '11-validation',
+  'blueprint': '12-blueprint',
+  'diagrams': '12-blueprint/diagrams',
+  'ep-design': '13-event-portal',
+  'ep-provisioned': '13-event-portal',
+  'executive': '14-executive',
+  'arch-blueprint': '15-arch-blueprint',
+};
+
+// Copyable CLI command chip: click copies the command to the clipboard.
+// Rendered anywhere the dashboard points at pending/stale state, so the user
+// always has the one command to paste into the CLI next.
+function cmdChip(cmd) {
+  const esc = escHtml(String(cmd)).replace(/"/g, '&quot;');
+  return `<button type="button" class="cmd-chip" data-cmd="${esc}" title="Copy to clipboard"><code>${escHtml(String(cmd))}</code></button>`;
+}
+document.addEventListener('click', async (e) => {
+  const chip = e.target.closest && e.target.closest('[data-cmd]');
+  if (!chip) return;
+  e.preventDefault();
+  const cmd = chip.getAttribute('data-cmd') || '';
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(cmd);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = cmd;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    chip.classList.add('cmd-chip-copied');
+    setTimeout(() => chip.classList.remove('cmd-chip-copied'), 1400);
+  } catch { /* clipboard unavailable; chip text is still selectable */ }
+});
+
 const SEV_BADGE = { blocking: 'badge-critical', high: 'badge-important', medium: 'badge-review', advisory: 'badge-advisory' };
 const STATUS_BADGE = { open: 'badge-open', 'in-progress': 'badge-in-progress', resolved: 'badge-complete' };
 
@@ -383,7 +465,7 @@ async function loadData() {
 function pollFingerprint() {
   if (!state.current) return '';
   return [state.current.progress, state.current.decisions, state.current.context,
-    (state.current.artifactFiles || []).length].join('|');
+    state.current.openItems, (state.current.artifactFiles || []).length].join('|');
 }
 
 let _lastFingerprint = '';
@@ -655,7 +737,7 @@ function updateThemeIcon() {
 
 /* ─── VIEWS ─── */
 
-const views = { overview, timeline, decisions, openitems: openItemsView, artifacts, stats, export: exportView };
+const views = { overview, timeline, decisions, openitems: openItemsView, changes: changesView, artifacts, stats, export: exportView };
 
 async function overview() {
   const { progress, decisions: dec, files, context } = state.data;
@@ -675,8 +757,10 @@ async function overview() {
     return st === 'complete' || st === 'unrecorded';
   }).map(sk => ({ skill: sk }));
   const totalArtifacts = files?.length || 0;
-  const openItems = getOpenItems(state.data.openItems);
+  const openItems = getPlainOpenItems(state.data.openItems);
   const openCount = openItems.filter(i => (i.status||'open') !== 'resolved').length;
+  const changeRequests = getChangeRequests(state.data.openItems);
+  const pendingCRs = changeRequests.filter(c => (c.status || 'pending').toLowerCase() === 'pending');
 
   const discoveryFile = (files || []).find(f => f.includes('discovery') && f.endsWith('.md'));
   let systemsList = [];
@@ -897,6 +981,25 @@ async function overview() {
         }
         return '';
       })()}
+      ${(() => {
+        // Pending change requests card. Only projects that have captured at
+        // least one change request show it; zero pending renders neutral
+        // (plain text), never celebratory. Non-zero shows the count plus the
+        // copyable command to drain the queue.
+        if (changeRequests.length === 0) return '';
+        if (pendingCRs.length === 0) {
+          return `<div class="card card-clickable" data-nav="changes" title="View change requests">
+            <div class="card-label">Change Requests</div>
+            <div class="card-value" style="font-size:18px;color:var(--text-muted)">None pending</div>
+            <div class="card-sub">No pending change requests</div>
+          </div>`;
+        }
+        return `<div class="card card-clickable" data-nav="changes" title="View change requests" style="border-left:3px solid var(--orange)">
+          <div class="card-label">Change Requests</div>
+          <div class="card-value">${pendingCRs.length}</div>
+          <div class="card-sub">pending · run ${cmdChip('/solace-change')}</div>
+        </div>`;
+      })()}
     </div>
     ${systemsList.length > 0 ? `
     <div class="section" style="margin-top:8px">
@@ -943,7 +1046,9 @@ async function overview() {
 
   view.querySelectorAll('.card-clickable').forEach(card => {
     card.style.cursor = 'pointer';
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (ev) => {
+      // A click on an embedded copy chip copies the command; don't navigate.
+      if (ev.target.closest && ev.target.closest('[data-cmd]')) return;
       const nav = card.dataset.nav;
       if (nav) navigateTo(nav);
     });
@@ -1367,8 +1472,10 @@ function renderTimelineDetail(entry) {
 function decisions() {
   const { items, mode } = getDecisions(state.data.decisions);
 
-  const userDecs = items.filter(d => d.id || (d.skill && !d.source));
-  const findings = items.filter(d => d.source);
+  // Decisions written by /solace-change carry source: change-request but are
+  // real decisions, not review findings - keep them in the decisions table.
+  const userDecs = items.filter(d => d.id || (d.skill && !d.source) || d.source === 'change-request');
+  const findings = items.filter(d => d.source && d.source !== 'change-request');
 
   const decBySkill = {};
   userDecs.forEach(d => {
@@ -1442,15 +1549,38 @@ function renderDecisionTable(decs, title) {
     <div class="table-wrap"><table>
       <thead><tr><th>Decision</th><th>Skill</th><th>Value</th><th>Rationale</th></tr></thead>
       <tbody>
-        ${decs.map(d => `<tr>
+        ${decs.map(d => {
+          // Superseded decisions stay visible (history is append-only) but
+          // render struck-through with a jump link to the superseding entry.
+          const superseded = d.superseded_by ? escHtml(String(d.superseded_by)).replace(/"/g, '&quot;') : '';
+          // Anchor by id: OR decision: key - projects use either convention.
+          const rowKey = d.id || d.decision;
+          const rowId = rowKey ? ` id="decrow-${escHtml(String(rowKey))}"` : '';
+          const supNote = superseded
+            ? `<div class="dec-superseded-note">superseded by <a href="#" class="dec-jump" data-dec="${superseded}">${superseded}</a></div>` : '';
+          return `<tr${rowId}${superseded ? ' class="dec-superseded"' : ''}>
           <td><span class="badge badge-user">${escHtml(d.id || d.decision || '')}</span></td>
           <td>${dashSkillLink(d.skill)}</td>
-          <td style="color:var(--text)">${escHtml(d.label || d.value || d.choice || '')}</td>
-          <td style="color:var(--text-dim);font-size:13px">${softenCitations(escHtml(d.question || d.rationale || ''))}</td>
-        </tr>`).join('')}
+          <td style="color:var(--text)"><span class="dec-value">${escHtml(d.label || d.value || d.choice || '')}</span>${supNote}</td>
+          <td style="color:var(--text-dim);font-size:13px"><span class="dec-rationale">${softenCitations(escHtml(d.question || d.rationale || ''))}</span></td>
+        </tr>`;
+        }).join('')}
       </tbody>
     </table></div>`;
 }
+
+// Jump from a superseded decision to the superseding entry: scroll to its row
+// (when the current table filter shows it) and flash it briefly.
+document.addEventListener('click', (e) => {
+  const j = e.target.closest && e.target.closest('.dec-jump');
+  if (!j) return;
+  e.preventDefault();
+  const row = document.getElementById('decrow-' + j.getAttribute('data-dec'));
+  if (!row) return;
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('row-flash');
+  setTimeout(() => row.classList.remove('row-flash'), 1600);
+});
 
 function renderFindingsTable(findings, title) {
   if (findings.length === 0) return `<div class="empty"><p>No findings</p></div>`;
@@ -1475,7 +1605,8 @@ function renderFindingsTable(findings, title) {
 /* ─── OPEN ITEMS ─── */
 
 function openItemsView() {
-  const items = getOpenItems(state.data.openItems);
+  // Ordinary open items only - change-request entries have their own Changes view.
+  const items = getPlainOpenItems(state.data.openItems);
 
   if (items.length === 0) {
     const view = document.getElementById('view');
@@ -1572,6 +1703,183 @@ function renderOpenItemsTable(items, title) {
       </tbody>
     </table></div>`;
 }
+
+/* ─── CHANGES ─── */
+
+// Read-only viewer for change requests (docs/solace-change-skill.md §11).
+// Surfaces the queue, the verbatim vs restated delta, links to the decision a
+// change produced, and the exact /solace-change command to paste into the CLI.
+// No apply/reject/defer controls - those live in the CLI skill only.
+
+const CR_STATUS_BADGE = {
+  pending: 'badge-in-progress',
+  applied: 'badge-complete',
+  deferred: 'badge-skipped',
+  rejected: 'badge-missing',
+};
+
+// The decision linked to a change request: either the decision carries
+// change_ref back to the CR, or the CR carries decision_ref forward.
+function crLinkedDecision(cr, decItems) {
+  return decItems.find(d =>
+    (d.change_ref && d.change_ref === cr.id) ||
+    (cr.decision_ref && (d.id === cr.decision_ref || d.decision === cr.decision_ref))
+  ) || null;
+}
+
+function changesView() {
+  const crs = getChangeRequests(state.data.openItems);
+  const { items: decItems } = getDecisions(state.data.decisions);
+  const view = document.getElementById('view');
+
+  if (crs.length === 0) {
+    view.innerHTML = `
+      <div class="section"><h1>Change Requests</h1></div>
+      <div class="empty">
+        <p>No change requests captured for this project.</p>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px">Mid-conversation corrections are captured as change requests by the skills; process them with /solace-change.</p>
+      </div>`;
+    document.getElementById('rightSidebar').classList.add('hidden');
+    return;
+  }
+
+  const byStatus = {};
+  crs.forEach(c => { const s = (c.status || 'pending').toLowerCase(); byStatus[s] = (byStatus[s] || 0) + 1; });
+  const pending = crs.filter(c => (c.status || 'pending').toLowerCase() === 'pending');
+
+  view.innerHTML = `
+    <div class="section">
+      <h1>Change Requests</h1>
+      <p style="color:var(--text-dim);margin-top:4px">${pending.length} of ${crs.length} change request${crs.length !== 1 ? 's' : ''} pending</p>
+      ${pending.length > 0 ? `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--text-dim)">Process the queue:</span>
+        ${cmdChip('/solace-change')}
+      </div>` : ''}
+    </div>
+    <div class="split-layout">
+      <div class="split-sidebar" id="crSidebar">
+        <div class="split-sidebar-group">By Status</div>
+        <div class="split-sidebar-item active" data-filter="all">All (${crs.length})</div>
+        ${['pending','applied','deferred','rejected'].filter(s => byStatus[s]).map(s =>
+          `<div class="split-sidebar-item" data-filter="${s}">${s.charAt(0).toUpperCase()+s.slice(1)} (${byStatus[s]})</div>`
+        ).join('')}
+      </div>
+      <div class="split-content" id="crContent">
+        ${renderChangesTable(crs, 'All Change Requests', crs, decItems)}
+      </div>
+    </div>`;
+
+  document.getElementById('crSidebar').addEventListener('click', e => {
+    const item = e.target.closest('.split-sidebar-item');
+    if (!item) return;
+    document.querySelectorAll('#crSidebar .split-sidebar-item').forEach(el => el.classList.remove('active'));
+    item.classList.add('active');
+    const f = item.dataset.filter;
+    const content = document.getElementById('crContent');
+    if (f === 'all') {
+      content.innerHTML = renderChangesTable(crs, 'All Change Requests', crs, decItems);
+    } else {
+      const filtered = crs.filter(c => (c.status || 'pending').toLowerCase() === f);
+      content.innerHTML = renderChangesTable(filtered, f.charAt(0).toUpperCase() + f.slice(1) + ' Change Requests', crs, decItems);
+    }
+  });
+
+  // Row click toggles the detail row; copy chips and jump links keep their own behavior.
+  document.getElementById('crContent').addEventListener('click', e => {
+    if (e.target.closest && (e.target.closest('[data-cmd]') || e.target.closest('.cr-jump') || e.target.closest('a'))) return;
+    const row = e.target.closest && e.target.closest('tr.cr-row');
+    if (!row) return;
+    const detail = row.nextElementSibling;
+    if (detail && detail.classList.contains('cr-detail')) {
+      const opening = detail.style.display === 'none';
+      detail.style.display = opening ? '' : 'none';
+      row.classList.toggle('cr-row-open', opening);
+    }
+  });
+}
+
+function renderChangesTable(list, title, allCrs, decItems) {
+  if (list.length === 0) return `<div class="empty"><p>No change requests match this filter</p></div>`;
+  const esc = v => escHtml(String(v ?? ''));
+  const fmtDate = iso => { const t = Date.parse(iso || ''); return t ? new Date(t).toLocaleDateString() : '--'; };
+  const skillName = sk => sk ? (SKILL_LABELS[sk] || esc(sk)) : '--';
+  const rows = list.map(cr => {
+    const st = (cr.status || 'pending').toLowerCase();
+    const ownerSkill = cr.owner || cr.suspected_owner || '';
+    const ownerNote = !cr.owner && cr.suspected_owner
+      ? ' <span style="color:var(--text-muted);font-size:11px">(suspected)</span>' : '';
+    const action = st === 'pending' && cr.id
+      ? cmdChip(`/solace-change ${cr.id}`)
+      : (st === 'applied' && cr.applied_at
+        ? `<span class="skill-timing">applied ${fmtDate(cr.applied_at)}</span>`
+        : `<span class="skill-timing">${esc(st)}</span>`);
+    const dec = crLinkedDecision(cr, decItems);
+    const subs = allCrs.filter(c => cr.id && c.parent === cr.id);
+    const detail = `
+      <div class="cr-detail-grid">
+        <div>
+          <div class="detail-section-title">Verbatim (operator's words, unedited)</div>
+          <blockquote class="cr-verbatim">&ldquo;${esc(cr.verbatim)}&rdquo;</blockquote>
+          <div class="detail-section-title">Restated</div>
+          <p class="cr-restated">${softenCitations(esc(cr.restated || '--'))}</p>
+        </div>
+        <div>
+          <div class="detail-section-title">Details</div>
+          <div class="cr-meta">
+            <div><span class="cr-meta-label">Raised during</span> ${skillName(cr.raised_during)}</div>
+            <div><span class="cr-meta-label">Raised at</span> ${esc(cr.raised_at || '--')}</div>
+            <div><span class="cr-meta-label">Blocking</span> ${cr.blocking ? '<span class="badge badge-critical">YES</span>' : 'no'}</div>
+            ${cr.reviewed !== undefined ? `<div><span class="cr-meta-label">Reviewed</span> ${cr.reviewed ? 'yes' : 'no'}</div>` : ''}
+            ${cr.parent ? `<div><span class="cr-meta-label">Part of</span> <a href="#" class="cr-jump" data-cr="${esc(cr.parent)}">${esc(cr.parent)}</a></div>` : ''}
+            ${subs.length ? `<div><span class="cr-meta-label">Sub-requests</span> ${subs.map(s2 => `<a href="#" class="cr-jump" data-cr="${esc(s2.id)}">${esc(s2.id)}</a>`).join(' ')}</div>` : ''}
+          </div>
+          ${dec ? `
+          <div class="detail-section-title" style="margin-top:12px">Linked decision</div>
+          <div class="cr-decision">
+            <span class="badge badge-user">${esc(dec.id || dec.decision || '')}</span>
+            ${dec.disposition ? `<span class="badge ${dec.disposition === 'applied' ? 'badge-complete' : 'badge-missing'}">${esc(dec.disposition)}</span>` : ''}
+            <div style="margin-top:6px;color:var(--text)">${softenCitations(esc(dec.label || dec.value || dec.choice || ''))}</div>
+            ${dec.rationale ? `<div style="margin-top:4px;color:var(--text-dim);font-size:13px">${softenCitations(esc(dec.rationale))}</div>` : ''}
+            ${dec.supersedes ? `<div style="margin-top:4px;font-size:12px;color:var(--text-muted)">supersedes <a href="#decisions" class="xref-link" onclick="navigateTo('decisions');return false;">${esc(dec.supersedes)}</a></div>` : ''}
+          </div>` : (cr.decision_ref ? `<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">decision ref: ${esc(cr.decision_ref)}</div>` : '')}
+        </div>
+      </div>`;
+    return `<tr class="cr-row" id="crrow-${esc(cr.id)}" title="Click to expand">
+      <td style="white-space:nowrap"><span class="badge badge-user">${esc(cr.id)}</span>${cr.blocking ? ' <span class="badge badge-critical" title="Blocks further progress until processed">BLOCKING</span>' : ''}</td>
+      <td><span class="badge ${CR_STATUS_BADGE[st] || 'badge-in-progress'}">${esc(st)}</span></td>
+      <td>${skillName(ownerSkill)}${ownerNote}</td>
+      <td>${skillName(cr.raised_during)}</td>
+      <td style="white-space:nowrap"><span class="skill-timing">${fmtDate(cr.raised_at)}</span></td>
+      <td>${action}</td>
+    </tr>
+    <tr class="cr-detail" style="display:none"><td colspan="6">${detail}</td></tr>`;
+  }).join('');
+  return `
+    <h2 style="margin-top:0">${title}</h2>
+    <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px">Click a row for the verbatim request, restated delta, and linked decision. This view is read-only - apply changes from the CLI.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>Status</th><th>Owner</th><th>Raised During</th><th>Date</th><th>Next Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+// Jump link between change-request rows (parent / sub-request cross-links):
+// scroll to the target row, expand its detail, flash it briefly.
+document.addEventListener('click', (e) => {
+  const j = e.target.closest && e.target.closest('.cr-jump');
+  if (!j) return;
+  e.preventDefault();
+  const row = document.getElementById('crrow-' + j.getAttribute('data-cr'));
+  if (!row) return;
+  const detail = row.nextElementSibling;
+  if (detail && detail.classList.contains('cr-detail') && detail.style.display === 'none') {
+    detail.style.display = '';
+    row.classList.add('cr-row-open');
+  }
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('row-flash');
+  setTimeout(() => row.classList.remove('row-flash'), 1600);
+});
 
 /* ─── ARTIFACTS ─── */
 
@@ -1674,6 +1982,26 @@ function artifacts() {
     groups[group].push(f);
   });
 
+  // Freshness badges (docs/solace-change-skill.md §11): stale/divergent states
+  // from progress.yaml's optional artifacts map, keyed to tree groups by their
+  // top-level directory via ARTIFACT_KEY_DIRS. Divergent outranks stale when
+  // several keys share a directory. Absent data means current - no badge.
+  const staleByDir = {};
+  for (const s of getStaleArtifacts(state.data.progress)) {
+    const dir = (ARTIFACT_KEY_DIRS[s.key] || '').split('/')[0];
+    if (!dir) continue;
+    const prev = staleByDir[dir];
+    if (!prev || (s.state === 'divergent' && prev.state !== 'divergent')) staleByDir[dir] = s;
+  }
+  const freshnessBadge = (group) => {
+    const s = staleByDir[group];
+    if (!s) return '';
+    const cmd = s.change_ref ? `/solace-change ${s.change_ref}` : '/solace-change';
+    const reason = s.stale_reason || (s.state === 'divergent' ? 'live state differs from design' : 'upstream inputs changed');
+    const tip = `${s.change_ref ? s.change_ref + ' - ' : ''}${reason}. Click to copy the fix command: ${cmd}`;
+    return ` <button type="button" class="fresh-badge fresh-${s.state}" data-cmd="${escHtml(cmd).replace(/"/g, '&quot;')}" title="${escHtml(tip).replace(/"/g, '&quot;')}">${s.state}</button>`;
+  };
+
   const view = document.getElementById('view');
   view.innerHTML = `
     <div class="section">
@@ -1701,7 +2029,7 @@ function artifacts() {
           <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
             ${groupEntries.map(([group, gFiles]) => `
               <div style="display:flex;align-items:center;gap:12px">
-                <div style="width:140px;min-width:140px;font-size:13px;text-align:right;color:var(--text-dim)">${group.replace(/^\d+-/, '')}</div>
+                <div style="width:140px;min-width:140px;font-size:13px;text-align:right;color:var(--text-dim)">${group.replace(/^\d+-/, '')}${freshnessBadge(group)}</div>
                 <div style="flex:1;height:20px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden">
                   <div style="height:100%;width:${((gFiles.length / files.length) * 100).toFixed(1)}%;background:var(--accent);opacity:0.7;border-radius:4px;min-width:2px"></div>
                 </div>
@@ -1718,7 +2046,7 @@ function artifacts() {
     <div class="overline" style="margin-bottom:8px">FILES</div>
     ${Object.entries(groups).map(([group, items]) => `
       <div style="margin-bottom:4px">
-        <div style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);padding:8px 0 2px">${group.replace(/^\d+-/, '')}</div>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);padding:8px 0 2px">${group.replace(/^\d+-/, '')}${freshnessBadge(group)}</div>
         ${items.map(f => `<a href="#" class="toc-link artifact-link" data-path="${f}" title="${f}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;padding:4px 12px">${f.split('/').pop()}</a>`).join('')}
       </div>
     `).join('')}`;
@@ -2250,7 +2578,7 @@ async function exportView() {
       </tbody>
     </table></div>` });
 
-  const oiItems = getOpenItems(state.data.openItems);
+  const oiItems = getPlainOpenItems(state.data.openItems);
   if (oiItems.length > 0) {
     const oiOpen = oiItems.filter(i => i.status !== 'resolved').length;
     const oiBySev = {};
@@ -2813,9 +3141,11 @@ ${roiSum('Total annual value', 'v')}
     if (s.isNewGroup && !seen.has(s.group)) { seen.add(s.group); groups.push(s.group); }
   }
 
-  const rawOpenItems = getOpenItems(state.data.openItems);
+  const rawOpenItems = getPlainOpenItems(state.data.openItems);
   // Pack-filter by source skill (same rule as findings). Open items typically have
   // a `source` field pointing to the review skill that surfaced them.
+  // Change-request entries are excluded here; their report presence is the
+  // stale-inputs banner below plus the change log artifact when present.
   const openItems = filterByPackSkills(rawOpenItems, packFilters.finding_skills);
   const openCount = openItems.filter(i => i.status !== 'resolved').length;
 
@@ -2883,6 +3213,20 @@ ${roiSum('Total annual value', 'v')}
     return html;
   })();
 
+  // Stale-inputs banner (docs/solace-change-skill.md §10/§11): every pack
+  // generated while any artifact freshness entry is stale or divergent carries
+  // a dated banner listing each artifact, its reason, and the causing CR.
+  // Absent freshness data means current, so no banner (backward compatible).
+  const staleArts = getStaleArtifacts(state.data.progress);
+  const staleBannerHtml = staleArts.length ? `
+<div class="stale-banner">
+  <strong>STALE INPUTS (${new Date().toLocaleDateString()}):</strong>
+  ${staleArts.map(s =>
+    `${escHtml(s.key)}: ${escHtml(s.stale_reason || s.state)}${s.change_ref ? ' (' + escHtml(String(s.change_ref)) + ')' : ''}`
+  ).join(', ')}.
+  <span class="stale-banner-fix">Run <code>/solace-change</code> to process the queue and regenerate before sharing.</span>
+</div>` : '';
+
   const reportHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <title>${escHtml(context?.display_name || state.current.slug)} — ${escHtml(packLabel)}</title>
@@ -2906,6 +3250,14 @@ a:hover{color:#00C895}
 .page-header .eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;font-weight:700;color:#00C895}
 .page-header h1{font-family:'Figtree',sans-serif;font-size:32px;font-weight:700;color:#fff;margin:6px 0 8px}
 .page-header .subtitle{color:#8BA4B8;font-size:14px;line-height:1.5;max-width:720px}
+.stale-banner{background:#FEF3C7;border-top:1px solid #F59E0B;border-bottom:1px solid #F59E0B;border-left:4px solid #F59E0B;color:#7C4A03;padding:12px 40px;font-size:13px;line-height:1.6}
+.stale-banner strong{color:#92400E;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px}
+.stale-banner code{background:rgba(146,64,3,0.1);color:#7C4A03}
+.stale-banner-fix{display:block;margin-top:2px;font-size:12px}
+body.dark .stale-banner{background:#3a2f16;border-color:#5c4a1f;color:#d4b978}
+body.dark .stale-banner strong{color:#F59E0B}
+body.dark .stale-banner code{background:rgba(245,158,11,0.12);color:#d4b978}
+@media print{.stale-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 .stat-row{display:flex;gap:32px;margin-top:16px}
 .stat-item .stat-label{font-family:'Space Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#8BA4B8;font-weight:700}
 .stat-item .stat-value{font-size:22px;font-weight:700;color:#00C895}
@@ -3289,7 +3641,7 @@ body.dark .report-copy-btn:hover{background:#00C895;color:#03213B;border-color:#
     <div class="stat-item"><div class="stat-label">User Wait</div><div class="stat-value">${fmtTime(totalWait)}</div></div>
   </div>
 </div>
-
+${staleBannerHtml}
 <div class="layout">
   <nav class="sidebar">
     <div class="toc-title">On this page</div>

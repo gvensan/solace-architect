@@ -2,6 +2,10 @@
 name: solace-broker-select
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - broker-recommendation
+consumes:
+  - discovery-brief
 description: |
   Select the Solace broker deployment model: Cloud event broker services, Software
   Event Broker, or Appliance Event Broker. Evaluates latency, regulatory, team capacity,

@@ -1770,3 +1770,110 @@ main.has-status-bar { padding-bottom: 56px; }
     padding: 8px !important;
   }
 }
+
+/* ── Change requests, artifact freshness, copyable CLI chips ─────────────
+   Read-only companions to /solace-change (docs/solace-change-skill.md §11):
+   the dashboard never applies changes, it hands the user the command. */
+
+/* Copyable CLI command chip - click copies data-cmd to the clipboard. */
+.cmd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,200,149,0.08);
+  border: 1px solid rgba(0,200,149,0.35);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  vertical-align: middle;
+}
+.cmd-chip code {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  padding: 0;
+}
+.cmd-chip:hover { background: rgba(0,200,149,0.16); border-color: var(--accent); }
+.cmd-chip::after { content: '\2398'; font-size: 11px; color: var(--text-muted); }
+.cmd-chip.cmd-chip-copied { border-color: var(--accent); }
+.cmd-chip.cmd-chip-copied::after {
+  content: 'copied';
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Artifact freshness badge (stale = amber, divergent = red). Click copies
+   the fix command carried in data-cmd; details live in the title tooltip. */
+.fresh-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.fresh-badge.fresh-stale { background: rgba(252,168,41,0.15); color: var(--orange); border-color: rgba(252,168,41,0.4); }
+.fresh-badge.fresh-divergent { background: rgba(255,80,80,0.18); color: #FF5050; border-color: rgba(255,80,80,0.45); }
+.fresh-badge:hover { filter: brightness(1.15); }
+.fresh-badge.cmd-chip-copied { border-color: var(--accent); color: var(--accent); }
+
+/* Changes view: expandable change-request rows. */
+.cr-row { cursor: pointer; }
+.cr-row.cr-row-open td { border-bottom: none; }
+.cr-detail > td { background: var(--bg-card); border-left: 2px solid var(--accent); }
+.cr-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 10px 6px;
+}
+@media (max-width: 900px) { .cr-detail-grid { grid-template-columns: 1fr; } }
+.cr-verbatim {
+  border-left: 3px solid var(--orange);
+  margin: 6px 0 12px;
+  padding: 6px 12px;
+  color: var(--text);
+  font-style: italic;
+  background: rgba(252,168,41,0.06);
+  border-radius: 0 6px 6px 0;
+}
+.cr-restated { color: var(--text-dim); font-size: 13px; line-height: 1.6; margin: 4px 0; }
+.cr-meta { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--text-dim); }
+.cr-meta-label {
+  display: inline-block;
+  min-width: 96px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.cr-decision { font-size: 13px; }
+.cr-jump { color: var(--accent); font-weight: 700; text-decoration: none; }
+.cr-jump:hover { text-decoration: underline; }
+
+/* Decisions view: superseded decisions stay visible but struck-through. */
+.dec-superseded .dec-value,
+.dec-superseded .dec-rationale { text-decoration: line-through; opacity: 0.65; }
+.dec-superseded-note { font-size: 12px; color: var(--text-muted); margin-top: 4px; text-decoration: none; }
+.dec-jump { color: var(--accent); font-weight: 700; text-decoration: none; }
+.dec-jump:hover { text-decoration: underline; }
+
+/* Brief highlight when jumping to a cross-linked row. */
+.row-flash { animation: row-flash 1.6s ease; }
+@keyframes row-flash {
+  0% { background: rgba(0,200,149,0.25); }
+  100% { background: transparent; }
+}

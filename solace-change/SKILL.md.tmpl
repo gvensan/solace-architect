@@ -1,0 +1,301 @@
+---
+name: solace-change
+preamble-tier: 2
+version: 0.1.0
+produces: []
+consumes: []
+description: |
+  Change-request compiler for mid-engagement design changes. Use whenever a
+  requirement changed after design, the user says "we need to change X",
+  asks what breaks if we change Y, wants impact analysis of a design change,
+  wants to apply, reject, or defer a pending change request, or when
+  open-items.yaml holds pending change-request entries. Classifies the
+  change, computes the downstream blast radius from the declared dependency
+  graph, records the decision, and re-runs the owning skills in dependency
+  order. Never edits design artifacts directly.
+allowed-tools:
+  - Bash
+  - Read
+  - Edit
+  - Write
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-change - Change Request Processing
+
+You are running the change-request compiler. Your job: take stated design changes
+(queued in `open-items.yaml` or given inline), classify them, compute their blast
+radius, get explicit confirmation, record the decision, and route regeneration
+through the owning skills. You never write design artifacts yourself; regeneration
+always goes through the skill that owns the artifact, so there is exactly one code
+path per output file.
+
+Two hard rules:
+- **No change is silently applied.** Capture is not application. Application is
+  explicit and confirmed (Step 5).
+- **Record before executing** (Step 6). A crash mid-run must leave a truthful,
+  resumable state, never a silent partial application.
+
+---
+
+## Step 0: Project check and mode dispatch
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+if [ -z "$ACTIVE" ]; then
+  echo "NO_ACTIVE_PROJECT"
+else
+  echo "PROJECT: $ACTIVE"
+  cat "projects/$ACTIVE/open-items.yaml" 2>/dev/null
+fi
+```
+
+If no active project, tell the user to run `/solace-discovery` first and stop.
+
+Pending change requests are entries in `open-items.yaml` with
+`type: change-request` and `status: pending`. Entries **without**
+`type: change-request` are ordinary open items; ignore them entirely.
+Drain mode skips entries marked `reviewed: true` (operator-deferred); naming
+a specific `CR-NNN` re-activates it regardless of `reviewed` or a `deferred`
+status.
+
+Determine the invocation mode from the arguments:
+
+| Invocation | Behavior |
+|---|---|
+| `/solace-change` | Drain: process all pending change requests (not `reviewed: true`), one at a time |
+| `/solace-change list` | Show the queue with classification and blast radius. **Read-only: no writes, no skill invocation.** |
+| `/solace-change "<text>"` | Create a `CR-NNN` entry from the text first, then process it |
+| `/solace-change CR-003` | Process that one request (re-activates a deferred or reviewed entry) |
+| `/solace-change --dry-run` | Classification + impact + live-tenant check (Steps 2-4), stop before the Step 5 confirm; write nothing |
+| `/solace-change reject CR-003 "<reason>"` | Record rejection with rationale; no regeneration |
+| `/solace-change defer CR-003` | Keep pending, mark `reviewed: true` so it stops resurfacing |
+
+For inline text, append the entry to the top-level `open_items:` list in
+`open-items.yaml` before processing (next `CR-NNN` id, `type: change-request`,
+`status: pending`, `raised_during: solace-change`, current UTC timestamp, the
+text as `verbatim`, your paraphrase as `restated`). Create the file with
+`open_items: []` if absent, matching the existing open-item convention.
+
+If the queue is empty and no inline text was given: report "No pending change
+requests." and exit. Do not invent work.
+
+For `reject`: set the entry's `status: rejected`, write a `decisions.yaml` entry
+(Step 6 shape, `disposition: rejected`, rationale required), and stop. No
+artifact changes. For `defer`: set `reviewed: true`, leave `status: pending`, stop.
+
+Process requests one at a time, oldest first. For each, run Steps 2-8 before
+taking up the next.
+
+---
+
+## Step 1: Compound check
+
+A single request may span owners (e.g. a schema field **and** a topic address).
+If the classification table below matches two or more owners for genuinely
+separate parts of the request, split it: sub-requests `CR-NNNa`, `CR-NNNb` in
+`open-items.yaml`, each with `parent: CR-NNN`, ordered by the dependency graph.
+Process each sub-request separately, upstream owner first. Never process a
+compound change as one undifferentiated blob.
+
+---
+
+## Step 2: Classify
+
+Produce an explicit delta for the request:
+
+```
+FROM: <current state, quoted from the artifact, with file path>
+TO:   <proposed state>
+CONTRADICTS: <decision id(s) from decisions.yaml, if any>
+OWNER: <owning skill>
+CLASS: cosmetic | local | structural | breaking-live
+```
+
+The `FROM` side must be **read out of the actual artifact with the Read tool**,
+never recalled from conversation. If the current state cannot be located in any
+artifact, say so and treat the change as an addition (no `supersedes`).
+
+Owning skill, by change signal:
+
+| Change signal | Owner |
+|---|---|
+| Topic level, hierarchy, wildcard subscription, delivery mode (Direct / Guaranteed) | `/solace-topic-design` |
+| Payload schema, field addition/removal, event version | `/solace-event-portal` (topic address also moving = compound, see Step 1) |
+| Messaging protocol per integration point, client SDK | `/solace-protocol-select` |
+| Broker deployment model, sizing, region, tier | `/solace-broker-select` (often cascades to mesh + HA/DR) |
+| DMR topology, multi-site, multi-cloud placement | `/solace-mesh-design` |
+| RPO/RTO, replication, failover posture | `/solace-ha-dr` |
+| Micro-Integration choice, Integration Hub vs custom, Kafka bridge | `/solace-integration` |
+| Agents, Gateways, OrchestratorAgent, A2A topics, authorization model | `/solace-sam-design` |
+| Migration source system, phasing, cutover strategy | `/solace-migration` |
+| ACL model, TLS, auth propagation, PII handling | `/solace-security-review` |
+| Monitoring, capacity, runbook gaps | `/solace-ops-review` |
+| Non-functional requirement: volume, latency, retention, throughput | `intake.yaml` amendment; owner is `/solace-discovery` (brief re-synthesis), then fan out |
+| Business scope, cost basis, ROI assumption | `/solace-executive` |
+| Nothing matches | **Stop.** Set `status: deferred`, reason `unclassified`, and ask the operator |
+
+When two entries plausibly apply to the same part of the request, do not guess.
+Use AskUserQuestion with the candidate owners as options, stating what each
+would re-run.
+
+Change classes:
+- `cosmetic` - wording or naming, no downstream effect
+- `local` - owning artifact only; nothing consumes the changed aspect
+- `structural` - crosses artifact boundaries (anything the impact report shows as affecting other skills)
+- `breaking-live` - conflicts with provisioned Event Portal state (Step 4)
+
+---
+
+## Step 3: Compute impact
+
+Never estimate the blast radius by intuition. Run the deterministic resolver:
+
+```bash
+ACTIVE=$(cat projects/.active)
+bun run change:impact --skill <owning-skill> --project "$ACTIVE" --json
+```
+
+If `bun` is unavailable in this environment, read `scripts/skill-dependencies.yaml`
+and trace the `consumes` edges from the changed artifacts by hand, following the
+same transitive-closure rule; say that you did so.
+
+Present three buckets from the report, plainly:
+
+- **Re-decide** - design skills holding decisions keyed to a changed artifact.
+  Targeted re-run, not a full re-interview.
+- **Re-review** - review skills whose findings the change invalidates.
+- **Regenerate** - deterministic derivatives (validation report, blueprint,
+  arch blueprint, diagrams, executive, AsyncAPI exports).
+
+Also state: artifacts explicitly **unaffected** (the operator needs to see the
+boundary), artifacts **absent** in this project (not scheduled), the number of
+skills in the sequence, whether any will ask questions, and a rough wait.
+
+For `list` mode: stop here. Write nothing. For `--dry-run`: continue through
+the Step 4 live-tenant check, then stop before the Step 5 confirm. Write nothing.
+
+---
+
+## Step 4: Live-tenant check
+
+If the impact report says `live_conflict: true` (the project has
+`13-event-portal/provisioned.yaml` and the change touches a provisioned topic
+address, schema, or application produce/consume graph):
+
+1. Classify the change `breaking-live`.
+2. Do **not** propose an in-place edit of the live tenant. Present the
+   versioning path instead: new event version or new schema version,
+   coexistence window, deprecation plan for the old version.
+3. Require explicit confirmation before anything reaches `/solace-ep-provision`.
+4. Mark `ep-provisioned` as `divergent` in `progress.yaml` (Step 6) until
+   reconciled.
+
+Never mass-mutate a live tenant from this skill.
+
+---
+
+## Step 5: Confirm
+
+Present the delta (Step 2), blast radius and cost (Step 3), and the live-tenant
+path if applicable. Ask with AskUserQuestion, full D<N> format:
+
+- **A) Apply now** - record and execute the sequence.
+- **B) Defer** - keep pending, revisit later.
+- **C) Reject** - record with rationale, no changes.
+- **D) Modify** - the restatement missed the intent; correct it and re-classify.
+
+Check `execution_mode` in `decisions.yaml`:
+- `auto`: `cosmetic` and `local` changes may apply without asking; log the full
+  rationale as if asked. `structural` and `breaking-live` **always** pause for
+  this confirmation, regardless of mode.
+- `interactive` (or unset): always ask.
+
+---
+
+## Step 6: Record before executing
+
+All bookkeeping happens **before** any skill is invoked, in this order:
+
+1. **`decisions.yaml`** - append an entry in the existing decision shape
+   (`decision`, `rationale`, `skill`, `value`) plus:
+
+```yaml
+  source: change-request
+  change_ref: CR-001
+  supersedes: <superseded decision's `decision` key>   # omit for additions
+  disposition: applied        # or: rejected
+```
+
+2. **Supersession** - add `superseded_by: <new decision key>` to the superseded
+   entry. Never delete it. Decision history is append-only.
+
+3. **`open-items.yaml`** - set the change request's `status: applied` (or
+   `rejected` / `deferred`), add `decision_ref` and `applied_at`.
+
+4. **`progress.yaml`** - mark freshness under a top-level `artifacts:` map
+   (create it if absent; it is additive and optional - a missing map means
+   everything is current):
+
+```yaml
+artifacts:
+  topic-taxonomy: { state: stale, stale_since: <ts>, change_ref: CR-001, stale_reason: "CR-001 applied, regeneration pending" }
+  protocol-map:   { state: stale, stale_since: <ts>, change_ref: CR-001, stale_reason: "CR-001 changed topic-taxonomy" }
+```
+
+Always set `change_ref` on stale entries (structured, not only inside the
+`stale_reason` text) - validate, blueprint, and the dashboard read it.
+
+Mark stale now, before Step 7 runs: the **changed artifacts themselves** (the
+decision is recorded but the artifact not yet regenerated - a crash in this
+window must not leave them claiming `current`), plus every artifact in the
+impact report's re-decide / re-review / regenerate buckets (`divergent`
+instead of `stale` for a live conflict).
+
+---
+
+## Step 7: Execute the sequence
+
+Invoke each skill in the impact report's `skill_sequence`, in order, via the
+Skill tool (same mechanics as `/solace-plan` Step 3, including its
+`execution_mode` handling). For the owning skill and each re-decide skill, state
+the change context when invoking: the `change_ref`, the affected decision ids,
+and the instruction to re-open only those decisions per the Targeted Re-run
+contract in the preamble. Review, validation, and assembly skills run normally.
+
+Sequence rules:
+- `/solace-executive` runs **only if** the change altered cost, risk, scope, or
+  timeline. State the test explicitly before running or skipping it.
+- `/solace-ep-provision` runs only on the confirmed versioning path from Step 4,
+  and honors its own opt-in gate.
+- After each skill completes, flip its artifacts to `state: current` in
+  `progress.yaml`.
+- If a skill fails or the user interrupts: leave the remaining artifacts
+  `stale`, record which step failed in the change request's entry
+  (`failed_at_step`), and exit with exact resume instructions
+  (`/solace-change CR-NNN` resumes: already-current artifacts are skipped).
+  Partial state must be truthful.
+
+---
+
+## Step 8: Report
+
+Append a section to `artifacts/16-changes/change-log.md` (create the file with
+a `# Change Log` header if absent). One section per change request:
+
+```markdown
+## CR-001 - <one-line title> (<date>)
+
+**Stated:** "<verbatim>"
+**Restated:** <restated delta>
+**Class:** structural · **Owner:** /solace-topic-design · **Decision:** <decision key>
+**Regenerated:** <artifacts now current>
+**Still stale:** <artifacts left stale, or "none">
+**Disposition:** applied
+```
+
+Close with a summary: what changed, what regenerated, what is still stale, and
+what remains pending in the queue (with the exact command to process it).

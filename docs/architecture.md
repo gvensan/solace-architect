@@ -51,7 +51,7 @@ The `{{PREAMBLE}}` placeholder is the most important resolver. It generates the 
 | Tier | Sections included | Use case |
 |------|-------------------|----------|
 | T1 | Bootstrap bash, grounding rules, naming conventions, grounding loading, validation hook, dependency enforcement, project management, timing instrumentation, voice (minimal), completion status | Lightweight utility skills |
-| T2 | T1 + AskUserQuestion format, writing style, completeness principle, confusion protocol, continuous checkpoint, context health, next-step chaining | Interactive skills (discovery, design) |
+| T2 | T1 + AskUserQuestion format, writing style, completeness principle, confusion protocol, continuous checkpoint, context health, next-step chaining, change capture | Interactive skills (discovery, design) |
 | T3 | T2 + repo ownership, search before building | Skills that modify code or infrastructure |
 | T4 | T3 (full preamble) | Reserved for future expansion |
 
@@ -102,6 +102,7 @@ Each generator in `scripts/resolvers/preamble/` produces one section:
 | `generate-continuous-checkpoint.ts` | Continuous Checkpoint | WIP commit discipline when CHECKPOINT_MODE is continuous |
 | `generate-context-health.ts` | Context Health | Progress summaries during long sessions |
 | `generate-next-step-chaining.ts` | Next Step Chaining | 3-option interactive routing (Continue/Skip/Custom) with auto/interactive execution mode |
+| `generate-change-capture.ts` | Change Capture | Out-of-scope change statements captured to open-items.yaml as change requests; targeted re-run contract for /solace-change |
 | `generate-completion-status.ts` | Completion Status | DONE / BLOCKED / NEEDS_CONTEXT protocol |
 | `generate-preamble-bash.ts` | Preamble bash | Branch detection + skill name echo |
 | `generate-repo-mode-section.ts` | Repo Ownership | Code modification guidelines |
@@ -223,6 +224,7 @@ The remaining skills run automatically via `/solace-plan` or can be invoked indi
 | Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration`, `/solace-event-portal`, `/solace-ep-provision` | Solace platform knowledge, artifact generation (YAML, diagrams, configs). `/solace-ep-provision` additionally calls the EP Designer MCP to create live tenant objects — opt-in via `preferences.provision_event_portal: true` at intake. |
 | Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives with interactive finding resolution |
 | Finalize | `/solace-validate`, `/solace-blueprint`, `/solace-executive` | Consistency checks, antipattern detection, final blueprint assembly, executive summary |
+| Change | `/solace-change` | Mid-engagement change requests: capture, classification, blast radius from `scripts/skill-dependencies.yaml`, confirmed re-runs of affected skills in dependency order |
 | Utility | `/solace-diagrams`, `/solace-help` | Diagram regeneration, skill catalog, workflow overview, active project status |
 
 Each skill directory follows the naming convention: `solace-<skill-name>/SKILL.md.tmpl`.

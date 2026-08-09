@@ -42,7 +42,7 @@ Skip any one layer and an integration team finds out about it during week four o
 
 ## The skill catalog
 
-The toolkit packages this surface area into 24 skills, each invokable as a slash command:
+The toolkit packages this surface area into 25 skills, each invokable as a slash command:
 
 | Category | Skills |
 |---|---|
@@ -282,7 +282,7 @@ Iteration is cheap:
 
 The dashboard always reflects the current state. No stale Confluence page to chase.
 
-If you do Solace EDA work — as a solutions architect, a consultant, or an enterprise architect with a real engagement on your desk — clone it, run `./install-sa.sh`, and try `/solace-discovery` on the next project that lands.
+If you do Solace EDA work — as a solutions architect, a consultant, or an enterprise architect with a real engagement on your desk — clone it, run `./install-solace-architect.sh`, and try `/solace-discovery` on the next project that lands.
 
 The first run is the convincing one.
 

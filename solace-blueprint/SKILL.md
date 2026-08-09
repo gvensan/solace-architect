@@ -2,6 +2,24 @@
 name: solace-blueprint
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - blueprint
+  - diagrams
+consumes:
+  - discovery-brief
+  - topic-taxonomy
+  - broker-recommendation
+  - sam-design
+  - protocol-map
+  - dmr-topology
+  - ha-dr-topology
+  - micro-integration-map
+  - migration-plan
+  - review-architect
+  - review-ops
+  - review-security
+  - review-dev
+  - validation-report
 description: |
   Final blueprint assembly. Pulls all project artifacts into a single engineering
   handoff package: architecture document, Mermaid diagrams, SAM YAML configs,
@@ -757,6 +775,12 @@ full D<N> decision brief format.
 Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
 execution — the plan orchestrator handles sequencing.
 
+## Change Capture
+
+If the operator states a requirement or design change outside this skill's scope, do not apply it and do not fold it into the artifact you are writing. Append it to the `open_items:` list in `open-items.yaml` with `type: change-request`, the next CR-NNN `id`, `status: pending`, `verbatim` (operator's exact words), `restated` (your paraphrase), `suspected_owner` (skill), `raised_during`, `raised_at`. Continue the current step. Name captured change requests in your closing summary; they are processed by `/solace-change`. In-scope refinements and questions are not change requests.
+
+**Targeted re-run:** if invoked with a change context (a `change_ref` CR id plus affected decision ids), re-open only those decisions. Carry every other decision in `decisions.yaml` forward without re-asking. Regenerate your full artifact so it stays internally consistent.
+
 ## Completion Status Protocol
 
 When completing a skill workflow, report status using one of:
@@ -795,6 +819,29 @@ pass before assembling the blueprint. Run `/solace-validate` first."
 Use AskUserQuestion with the full D<N> format. Default recommendation: A (Run validation).
 - **A) Run validation first** — ensures consistency before final assembly.
 - **B) Proceed without validation** — skip validation, accept the risk of inconsistencies.
+
+### Stale-input gate
+
+Check the `artifacts:` map in `progress.yaml` (written by `/solace-change`).
+**If the map is absent, or an artifact has no entry, it is current** - this
+gate fires only on explicit `stale` or `divergent` markers.
+
+If any consumed artifact is marked `stale` or `divergent`, **refuse to
+assemble** unless the skill was invoked with `--allow-stale`:
+
+1. List each stale artifact with its `stale_reason` and causing `CR-NNN`.
+2. Print the exact fix: `/solace-change CR-NNN` if the change is
+   mid-application, otherwise the owning skill to re-run, then `/solace-blueprint`.
+3. Stop. A blueprint assembled from stale inputs looks authoritative and is not.
+
+With `--allow-stale`: proceed, but stamp a visible banner immediately under the
+title of `architecture.md`:
+
+```markdown
+> **⚠ STALE INPUTS (<date>):** assembled while <artifact list> were stale
+> (<CR-NNN>: <stale_reason>). This blueprint is a snapshot, not the current
+> design. Re-run the owning skills and reassemble before handoff.
+```
 
 Read all project state:
 

@@ -219,6 +219,36 @@ not need to manually thread context — the project infrastructure handles it.
 When the plan skill is re-invoked, it reads `progress.yaml`, identifies where things
 left off, and offers to continue.
 
+### Change-request gate (before blueprint assembly)
+
+Never finalize an engagement over an unprocessed change queue. After the review
+and validation skills have run, and **before** invoking `/solace-blueprint`,
+check for pending change requests:
+
+```bash
+ACTIVE=$(cat projects/.active)
+python3 - "$ACTIVE" << 'PYEOF'
+import sys, yaml, os
+path = f"projects/{sys.argv[1]}/open-items.yaml"
+items = (yaml.safe_load(open(path)) or {}).get("open_items", []) if os.path.exists(path) else []
+is_pending = lambda i: i.get("type") == "change-request" and str(i.get("status", "pending")).lower() == "pending" and not i.get("reviewed")
+pending = [i for i in items if is_pending(i)]
+if pending:
+    print(f"PENDING_CHANGE_REQUESTS: {len(pending)}")
+    for i in pending:
+        print(f"  {i.get('id')} - {i.get('restated') or i.get('verbatim')}")
+else:
+    print("NO_PENDING_CHANGE_REQUESTS")
+PYEOF
+```
+
+If this prints `PENDING_CHANGE_REQUESTS`, stop and tell the operator to run
+`/solace-change` (or `/solace-change CR-NNN` for a specific one) before the
+finalize phase continues. In **auto mode**, this gate always falls back to
+interactive - never auto-finalize over pending change requests. Requests the
+operator has explicitly deferred (`status: deferred`, or `reviewed: true`)
+do not gate; note them in the transition and proceed.
+
 ### Open-item gate (before blueprint assembly)
 
 Blocking open items must not pass silently into the blueprint. After the review and

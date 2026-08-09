@@ -7,7 +7,7 @@
  *
  * Tier system:
  *   T1: core bootstrap + voice (trimmed) + grounding + naming + grounding-loading + validation + dependencies + project-mgmt + timing + completion
- *   T2: T1 + voice (full) + ask format + writing style + completeness + confusion + checkpoint + context health + next-step chaining
+ *   T2: T1 + voice (full) + ask format + writing style + completeness + confusion + checkpoint + context health + next-step chaining + change capture
  *   T3: T2 + repo-mode + search-before-building
  *   T4: same as T3 (TEST_FAILURE_TRIAGE is a separate {{}} placeholder, not preamble)
  */
@@ -42,6 +42,7 @@ import { generateConfusionProtocol } from './preamble/generate-confusion-protoco
 import { generateContinuousCheckpoint } from './preamble/generate-continuous-checkpoint';
 import { generateContextHealth } from './preamble/generate-context-health';
 import { generateNextStepChaining } from './preamble/generate-next-step-chaining';
+import { generateChangeCapture } from './preamble/generate-change-capture';
 
 // Tier 3+ repo mode + search
 import { generateRepoModeSection } from './preamble/generate-repo-mode-section';
@@ -53,7 +54,7 @@ export { generateTestFailureTriage } from './preamble/generate-test-failure-tria
 // Preamble Composition (tier → sections)
 // ─────────────────────────────────────────────
 // T1: bootstrap + grounding + naming + grounding-loading + validation + dependencies + project-mgmt + timing + voice(trimmed) + completion
-// T2: T1 + voice(full) + ask + writing-style + completeness + confusion + checkpoint + context-health + next-step-chaining
+// T2: T1 + voice(full) + ask + writing-style + completeness + confusion + checkpoint + context-health + next-step-chaining + change-capture
 // T3: T2 + repo-mode + search
 // T4: same as T3
 export function generatePreamble(ctx: TemplateContext): string {
@@ -79,6 +80,7 @@ export function generatePreamble(ctx: TemplateContext): string {
       generateContinuousCheckpoint(),
       generateContextHealth(),
       generateNextStepChaining(),
+      generateChangeCapture(),
     ] : []),
     ...(tier >= 3 ? [generateRepoModeSection(), generateSearchBeforeBuildingSection(ctx)] : []),
     generateCompletionStatus(ctx),

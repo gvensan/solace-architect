@@ -60,8 +60,23 @@ If a project is active, read its progress:
 cat projects/$(cat projects/.active 2>/dev/null)/progress.yaml 2>/dev/null || echo "NO_PROGRESS"
 ```
 
+Also count pending change requests (pending status, not marked reviewed):
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null)
+python3 - "$ACTIVE" << 'PYEOF'
+import sys, yaml, os
+path = f"projects/{sys.argv[1]}/open-items.yaml"
+items = (yaml.safe_load(open(path)) or {}).get("open_items", []) if os.path.exists(path) else []
+n = sum(1 for i in items if i.get("type") == "change-request" and str(i.get("status", "pending")).lower() == "pending" and not i.get("reviewed"))
+print(f"PENDING_CHANGE_REQUESTS: {n}")
+PYEOF
+```
+
 If there is an active project with progress data, display the project status summary
 (completed skills, interrupted skills, not started, total artifacts, recommended next step).
+If the count above is non-zero, add a line:
+`Pending change requests: <N> - run /solace-change to process them.`
 
 If no active project exists, print:
 
@@ -106,5 +121,7 @@ Print:
 
   Utility:
     /solace-diagrams           Regenerate Mermaid diagrams (all or by name)
+    /solace-change             Apply a mid-engagement design change: classify,
+                               show blast radius, re-run affected skills
 ```
 

@@ -21,7 +21,7 @@ The skills assume an expert operator who can verify "architectural inference, no
 
 ## What it does
 
-Solace Architect is a toolkit of 24 skills (prompt templates) that AI coding agents read at invocation time. You drive it with slash commands (`/solace-intake`, `/solace-discovery`, `/solace-plan`), or capture requirements through a local HTML form (`bun run intake`). Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and writing real artifacts to disk — markdown documents, Mermaid diagrams, YAML configs, and a runbook. See [Outputs and reports](#outputs-and-reports) for where everything lands and how to share it.
+Solace Architect is a toolkit of 25 skills (prompt templates) that AI coding agents read at invocation time. You drive it with slash commands (`/solace-intake`, `/solace-discovery`, `/solace-plan`), or capture requirements through a local HTML form (`bun run intake`). Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and writing real artifacts to disk — markdown documents, Mermaid diagrams, YAML configs, and a runbook. See [Outputs and reports](#outputs-and-reports) for where everything lands and how to share it.
 
 One skill, [`/solace-ep-provision`](#event-portal-provisioning-mcp), bridges the design output to a live Solace Cloud tenant via the [Solace Event Portal Designer MCP](https://github.com/SolaceLabs/solace-platform-mcp/tree/main/solace-event-portal-designer-mcp). See the **Event Portal provisioning (MCP)** section below for setup.
 
@@ -37,26 +37,26 @@ Prerequisites: [Bun](https://bun.sh) >= 1.0.0
 ```bash
 git clone https://github.com/solacecommunity/solace-architect.git
 cd solace-architect
-./install-sa.sh
+./install-solace-architect.sh
 ```
 
-What `install-sa.sh` does:
+What `install-solace-architect.sh` does:
 
 1. Installs Bun dependencies.
 2. Generates SKILL.md files for all 10 supported AI agent hosts.
 3. Symlinks the Claude Code skills into `~/.claude/skills/` so you can invoke them as slash commands.
 
-Re-running `./install-sa.sh` is safe — it refreshes the symlinks against the current source after edits.
+Re-running `./install-solace-architect.sh` is safe — it refreshes the symlinks against the current source after edits.
 
 ### Uninstall
 
 ```bash
-./uninstall-sa.sh
+./uninstall-solace-architect.sh
 ```
 
 Removes only the symlinks under `~/.claude/skills/` that point back to this repo (it reads the symlink target before deleting, so unrelated skills are left alone). Your local copy of the repo, the `projects/` folder, the `intake/` folder, and any other local environment are untouched.
 
-To wipe everything Solace Architect added — including the cloned repo — run `./uninstall-sa.sh` first, then delete the repo directory.
+To wipe everything Solace Architect added — including the cloned repo — run `./uninstall-solace-architect.sh` first, then delete the repo directory.
 
 ## Getting started
 
@@ -129,9 +129,17 @@ Or call any single skill directly when you only need one slice:
 
 ### Iterating and re-assembling
 
-Every skill can be re-run at any time — you don't have to restart the engagement to refine a decision. After re-running any design or review skill, run `/solace-validate` to confirm consistency, then `/solace-blueprint` to refresh the engineering handoff package (`architecture.md`, runbook, diagrams, configs) with the updated content. Run `/solace-executive` after that if the business framing changed too.
+The recommended path for any mid-engagement change is one command:
 
-Typical iteration cycle:
+```
+/solace-change "the payment schema needs a tenant id field"
+```
+
+`/solace-change` classifies the change, names the owning skill, computes the downstream blast radius from the declared dependency graph (`scripts/skill-dependencies.yaml`), shows you what would be re-decided, re-reviewed, and regenerated, and, on your confirmation, runs the affected skills in dependency order. Design changes stated mid-skill are also captured automatically into `open-items.yaml` as pending change requests; run `/solace-change` (all pending) or `/solace-change CR-003` (one specific request) to process them, `/solace-change list` to inspect the queue, and `/solace-change --dry-run` for the impact report alone. Nothing is applied without confirmation, superseded decisions stay in `decisions.yaml` with a `superseded_by` link, and each applied change is logged to `artifacts/16-changes/change-log.md`.
+
+While a change is mid-application, downstream artifacts are marked stale in `progress.yaml`: `/solace-validate` reports them as findings, `/solace-blueprint` refuses to assemble over them (override with `--allow-stale`, which stamps a banner), and the dashboard badges them with the exact command to fix.
+
+Manual re-runs remain fully supported for single-slice work where you know the blast radius yourself:
 
 ```
 /solace-topic-design     # change something upstream
@@ -289,6 +297,7 @@ Full catalog of every skill. For the recommended flow, see [Getting started](#ge
 | Assembly | Blueprint | `/solace-blueprint` | Final assembly into an engineering handoff package. |
 | Assembly | Architecture Blueprint (4+1) | `/solace-architecture-blueprint` | Repackages the engineering blueprint into Kruchten's 4+1 view (logical, process, development, physical, scenarios) for implementation teams onboarding to the design. |
 | Finalize | Executive | `/solace-executive` | Executive summary for CXO and business leaders: ROI, risk reduction, strategic value. |
+| Change | Change Requests | `/solace-change` | Processes mid-engagement design changes: classifies, computes blast radius from the dependency graph, records the decision, re-runs owning skills in order. Never edits artifacts directly. |
 | Utility | Projects | `/solace-projects` | Project dashboard: status, timing, summary, compare, switch projects. |
 | Utility | Diagrams | `/solace-diagrams` | Regenerate Mermaid diagrams for the current project (all or by name). |
 | Utility | Help | `/solace-help` | Lists available skills, shows recommended workflow, displays active project status. |
@@ -349,7 +358,7 @@ bun run build                          # generate for all 10 hosts
 bun run gen:skill-docs --host codex    # generate for a single host
 ```
 
-For Claude Code, `./install-sa.sh` handles generation and symlinks in one step.
+For Claude Code, `./install-solace-architect.sh` handles generation and symlinks in one step.
 
 ## Grounding documents
 

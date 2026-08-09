@@ -2,6 +2,17 @@
 name: solace-ops-review
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - review-ops
+consumes:
+  - topic-taxonomy
+  - broker-recommendation
+  - sam-design
+  - protocol-map
+  - dmr-topology
+  - ha-dr-topology
+  - micro-integration-map
+  - migration-plan
 description: |
   Operations readiness review. Evaluates whether the architecture is operable:
   monitoring coverage, failure modes, capacity planning, upgrade paths, runbook

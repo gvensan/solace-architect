@@ -2,6 +2,11 @@
 name: solace-migration
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - migration-plan
+consumes:
+  - discovery-brief
+  - topic-taxonomy
 description: |
   Plan migrations from Kafka, RabbitMQ, TIBCO, or IBM MQ to Solace. Designs phased
   coexistence strategy, Micro-Integration bridging, topic mapping from source to Solace
@@ -753,6 +758,12 @@ full D<N> decision brief format.
 
 Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
 execution — the plan orchestrator handles sequencing.
+
+## Change Capture
+
+If the operator states a requirement or design change outside this skill's scope, do not apply it and do not fold it into the artifact you are writing. Append it to the `open_items:` list in `open-items.yaml` with `type: change-request`, the next CR-NNN `id`, `status: pending`, `verbatim` (operator's exact words), `restated` (your paraphrase), `suspected_owner` (skill), `raised_during`, `raised_at`. Continue the current step. Name captured change requests in your closing summary; they are processed by `/solace-change`. In-scope refinements and questions are not change requests.
+
+**Targeted re-run:** if invoked with a change context (a `change_ref` CR id plus affected decision ids), re-open only those decisions. Carry every other decision in `decisions.yaml` forward without re-asking. Regenerate your full artifact so it stays internally consistent.
 
 ## Completion Status Protocol
 

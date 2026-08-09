@@ -2,6 +2,18 @@
 name: solace-architect-review
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - review-architect
+consumes:
+  - discovery-brief
+  - topic-taxonomy
+  - broker-recommendation
+  - sam-design
+  - protocol-map
+  - dmr-topology
+  - ha-dr-topology
+  - micro-integration-map
+  - migration-plan
 description: |
   Architecture review from an architect perspective. Evaluates trade-offs, component
   choices, topology decisions, and identifies simpler alternatives. Reads all project

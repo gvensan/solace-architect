@@ -2,6 +2,9 @@
 name: solace-intake
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - discovery-brief
+consumes: []
 description: |
   Generate a pre-engagement intake template for customers, or import a completed
   intake file to bootstrap discovery and run the full Solace Architect engagement
@@ -759,6 +762,12 @@ full D<N> decision brief format.
 Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
 execution — the plan orchestrator handles sequencing.
 
+## Change Capture
+
+If the operator states a requirement or design change outside this skill's scope, do not apply it and do not fold it into the artifact you are writing. Append it to the `open_items:` list in `open-items.yaml` with `type: change-request`, the next CR-NNN `id`, `status: pending`, `verbatim` (operator's exact words), `restated` (your paraphrase), `suspected_owner` (skill), `raised_during`, `raised_at`. Continue the current step. Name captured change requests in your closing summary; they are processed by `/solace-change`. In-scope refinements and questions are not change requests.
+
+**Targeted re-run:** if invoked with a change context (a `change_ref` CR id plus affected decision ids), re-open only those decisions. Carry every other decision in `decisions.yaml` forward without re-asking. Regenerate your full artifact so it stays internally consistent.
+
 ## Completion Status Protocol
 
 When completing a skill workflow, report status using one of:
@@ -863,7 +872,7 @@ If `python-docx` is not installed, tell the user:
 > Then re-run `/solace-intake --template`.
 
 If the builder script is not found at any expected location, generate YAML and
-Markdown instead, and suggest the user run `./install-sa.sh` from the Solace
+Markdown instead, and suggest the user run `./install-solace-architect.sh` from the Solace
 Architect repo to install all assets.
 
 **If HTML (B) or All (E) was selected:**
@@ -882,7 +891,7 @@ echo "HTML BUILDER: $HTMLBLD"
 python3 "$HTMLBLD" --output intake/solace-intake-template.html
 ```
 
-If the HTML builder is not found, suggest running `./install-sa.sh` from the Solace
+If the HTML builder is not found, suggest running `./install-solace-architect.sh` from the Solace
 Architect repo to install all assets. The HTML form needs `PyYAML` for routing-rule
 embedding; if missing, install with `pip install pyyaml` and re-run.
 
@@ -1951,6 +1960,7 @@ Follow its instructions from top to bottom, **skipping these sections** (already
 - Cross-Skill Dependencies
 - Project Management
 - AskUserQuestion Format
+- Change Capture
 - Completeness Principle — Boil the Lake
 - Search Before Building
 - Completion Status Protocol
@@ -1970,6 +1980,7 @@ Follow its instructions from top to bottom, **skipping these sections** (already
 - Cross-Skill Dependencies
 - Project Management
 - AskUserQuestion Format
+- Change Capture
 - Completeness Principle — Boil the Lake
 - Search Before Building
 - Completion Status Protocol

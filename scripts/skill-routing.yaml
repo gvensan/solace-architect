@@ -13,7 +13,8 @@
 #   command   — slash command users type
 #   phase     — design | review | finalize | utility
 #   outcome   — customer-facing one-line description (used in HTML preview)
-#   trigger   — always | conditional
+#   trigger   — always | conditional | never (utility skills listed for graph
+#               completeness only; never intake-triggered, hidden from preview)
 #   when      — (conditional only) list of intake conditions that include this skill.
 #               Each condition is an object with field/op/value.
 #               op = equals | in | not_empty | contains_any
@@ -25,6 +26,12 @@ refreshed: 2026-05-11
 # ── Design phase ──────────────────────────────────────────────────────────────
 
 skills:
+  - name: solace-change
+    command: /solace-change
+    phase: utility
+    trigger: never
+    outcome: Change-request processing — mid-engagement only, never intake-triggered
+
   - name: solace-topic-design
     command: /solace-topic-design
     phase: design

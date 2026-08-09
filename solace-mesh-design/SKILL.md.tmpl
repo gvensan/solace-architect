@@ -2,6 +2,11 @@
 name: solace-mesh-design
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - dmr-topology
+consumes:
+  - discovery-brief
+  - broker-recommendation
 description: |
   Design DMR topologies for multi-site, multi-cloud, and hybrid Solace deployments.
   Selects single broker, DMR cluster, or external-link federation based on scale,

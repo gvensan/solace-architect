@@ -25,7 +25,11 @@
 #                       omit the field = show all decisions
 #     finding_skills  — same as decision_skills, for the review findings table
 #
-# Blueprint pack uses an empty filters block — it includes everything.
+# Blueprint pack uses an empty filters block — it includes everything, which
+# also pulls in 16-changes/change-log.md (the /solace-change narrative log)
+# once a project has one. Reports generated while progress.yaml marks any
+# artifact stale carry a dated stale-inputs banner (rendered by the dashboard
+# report generator; applies to every pack).
 
 version: 1
 

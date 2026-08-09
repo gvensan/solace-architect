@@ -2,6 +2,12 @@
 name: solace-integration
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - micro-integration-map
+consumes:
+  - discovery-brief
+  - broker-recommendation
+  - sam-design
 description: |
   Design the Micro-Integration strategy for Solace architectures. Determines which
   backends need cloud-managed vs self-managed Micro-Integrations, checks Integration

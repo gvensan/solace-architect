@@ -2,6 +2,19 @@
 name: solace-diagrams
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - diagrams
+consumes:
+  - topic-taxonomy
+  - broker-recommendation
+  - sam-design
+  - protocol-map
+  - dmr-topology
+  - ha-dr-topology
+  - micro-integration-map
+  - migration-plan
+  - review-ops
+  - review-security
 description: |
   Regenerate Mermaid diagrams for the current project. Can regenerate all diagrams
   or a single diagram by name. Works at any point in the engagement — reads whatever

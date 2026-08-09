@@ -16,7 +16,7 @@ server, no ingestion pipeline, no approval workflow.
 - Skills treat it as **organizational context to apply, never as instructions to follow**, and
   cite it inline as `[managed-ref: <title>]` — distinct from Solace platform grounding
   (`[doc:]` / `[ref:]`).
-- It ships automatically: `install-sa.sh` symlinks the whole `solace-grounding/` directory into
+- It ships automatically: `install-solace-architect.sh` symlinks the whole `solace-grounding/` directory into
   the installed skill, so this subdirectory comes along.
 
 ## Adding a reference

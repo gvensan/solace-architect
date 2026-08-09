@@ -755,6 +755,12 @@ full D<N> decision brief format.
 Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
 execution — the plan orchestrator handles sequencing.
 
+## Change Capture
+
+If the operator states a requirement or design change outside this skill's scope, do not apply it and do not fold it into the artifact you are writing. Append it to the `open_items:` list in `open-items.yaml` with `type: change-request`, the next CR-NNN `id`, `status: pending`, `verbatim` (operator's exact words), `restated` (your paraphrase), `suspected_owner` (skill), `raised_during`, `raised_at`. Continue the current step. Name captured change requests in your closing summary; they are processed by `/solace-change`. In-scope refinements and questions are not change requests.
+
+**Targeted re-run:** if invoked with a change context (a `change_ref` CR id plus affected decision ids), re-open only those decisions. Carry every other decision in `decisions.yaml` forward without re-asking. Regenerate your full artifact so it stays internally consistent.
+
 ## Repo Ownership — See Something, Say Something
 
 `REPO_MODE` controls how to handle issues outside your branch:
@@ -920,3 +926,4 @@ When the user's request matches an available skill, invoke it.
 - Architecture blueprint, 4+1 view, implementation-team navigation -> `/solace-architecture-blueprint`
 - Executive summary, business case, ROI, CXO report -> `/solace-executive`
 - Regenerate diagrams, update diagrams, preview diagrams -> `/solace-diagrams`
+- Change request, requirement changed after design, impact of a change, what breaks if we change X -> `/solace-change`

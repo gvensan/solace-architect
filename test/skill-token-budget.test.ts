@@ -17,10 +17,14 @@ const PER_SKILL_TOKEN_CEILING = 40_000;
 // flagging, claim classification) was promoted into the shared preamble, and
 // again from 300k when gap-closure content landed in broker-select/ops-review/
 // dev-review (sizing methodology, VPN design, monitoring strategy, SEMP IaC,
-// Schema Registry design, client tuning). Deliberate per-skill features, not
-// runaway preamble growth — the guard still catches unbounded growth and
-// per-skill files stay far under 40k.
-const TOTAL_TOKEN_WARNING = 310_000;
+// Schema Registry design, client tuning). Raised from 310k to 330k ahead of
+// the /solace-change work (docs/solace-change-skill.md): measured baseline
+// ~302k, expected delta ~12-18k (new T3 change skill, ~60-token change-capture
+// rule multiplied across T2+ preambles, produces/consumes frontmatter, and
+// stale-input guards in validate/blueprint/plan). Deliberate per-skill
+// features, not runaway preamble growth — the guard still catches unbounded
+// growth and per-skill files stay far under 40k.
+const TOTAL_TOKEN_WARNING = 330_000;
 
 function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);

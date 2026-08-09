@@ -19,8 +19,8 @@ bun run url:check    # check all grounding document URLs for health
 bun run dashboard    # launch project dashboard at http://localhost:3000
 bun run intake       # launch interactive intake HTML form at http://localhost:3001
 bun run grounding    # launch managed-grounding admin console at http://localhost:3002
-./install-sa.sh      # full install: deps + generate + symlink into ~/.claude/skills/
-./uninstall-sa.sh    # remove all skill symlinks from ~/.claude/skills/
+./install-solace-architect.sh      # full install: deps + generate + symlink into ~/.claude/skills/
+./uninstall-solace-architect.sh    # remove all skill symlinks from ~/.claude/skills/
 ```
 
 ## Grounding documents
@@ -86,6 +86,7 @@ and blueprint skills automatically.
 | Finalize | Engineering Handoff (incl. 4+1 views) | `/solace-blueprint` + `/solace-architecture-blueprint` |
 | Finalize | Executive Summary | `/solace-executive` |
 | Finalize | Diagram Refresh | `/solace-diagrams` |
+| Change | Change Requests | `/solace-change` |
 | Utility | Help | `/solace-help` |
 
 Engineering Handoff is presented as a single dashboard tile. Under the hood it
@@ -119,6 +120,7 @@ Individual skills (for re-running specific steps or skipping the orchestrator):
 - Operations review -> invoke /solace-ops-review
 - Security review -> invoke /solace-security-review
 - Developer experience review -> invoke /solace-dev-review
+- Change request, requirement changed, impact of a design change, what breaks if we change X, apply a pending change -> invoke /solace-change
 - Validation, consistency checks -> invoke /solace-validate
 - Blueprint assembly -> invoke /solace-blueprint
 - Architecture blueprint, 4+1 view, view-oriented blueprint for engineering teams -> invoke /solace-architecture-blueprint
@@ -160,6 +162,8 @@ solace-architect/
     intake-server.ts      # Local HTTP server for hosted intake form (mirrors dashboard.ts)
     grounding-admin.ts    # Local HTTP admin console for managed grounding (SSRF-guarded URL/paste ingest -> digest.md)
     skill-routing.yaml    # Single source of truth for which skills run per intake (consumed by build-intake-html.py)
+    skill-dependencies.yaml # Declared produces/consumes graph per skill (consumed by change-impact.ts)
+    change-impact.ts      # Deterministic blast-radius resolver for /solace-change (bun run change:impact)
     resolvers/            # Template resolver modules
       index.ts            # Resolver registry (9 entries)
       types.ts            # TemplateContext, HostPaths, Host type
@@ -207,6 +211,7 @@ solace-architect/
   solace-ep-provision/    # /solace-ep-provision
   solace-executive/       # /solace-executive
   solace-diagrams/        # /solace-diagrams
+  solace-change/          # /solace-change
   solace-projects/        # /solace-projects
   solace-help/            # /solace-help
   test/                   # Test suite
@@ -219,8 +224,8 @@ solace-architect/
   projects/               # Project data (gitignored, local to user)
   SKILL.md.tmpl           # Root skill template
   SKILL.md                # Generated root skill
-  install-sa.sh           # Install script
-  uninstall-sa.sh         # Remove script
+  install-solace-architect.sh           # Install script
+  uninstall-solace-architect.sh         # Remove script
   VERSION                 # Current version tag
   docs/                   # Strategy, architecture, and reference docs
     architecture.md       # How the template pipeline works
@@ -245,12 +250,13 @@ SKILL.md files are **generated** from `.tmpl` templates. To update:
 
 **Token ceiling:** Generated SKILL.md files trip a warning above 160KB (~40K tokens)
 per file. There is also a **total** budget across all skills, enforced by
-`test/skill-token-budget.test.ts` (currently 300K, raised from 275K when the grounding
-discipline was promoted into the shared preamble). Both guard against runaway preamble
-growth, not against well-designed large skills. **The shared preamble multiplies across
-all ~25 skills** — the total currently sits only ~2K tokens under the ceiling, so any
-addition to a preamble generator (`scripts/resolvers/preamble/*`) must trim existing
-preamble or bump the ceiling first.
+`test/skill-token-budget.test.ts` (currently 330K; history of raises is documented
+in that file's inline comment). Both guard against runaway preamble growth, not
+against well-designed large skills. **The shared preamble multiplies across all
+~25 skills**, so any addition to a preamble generator
+(`scripts/resolvers/preamble/*`) must be measured with `bun run skill:check`
+first; trim existing preamble before reaching for a ceiling bump, and never
+raise the ceiling without an inline comment naming the cause and measured delta.
 
 **Merge conflicts on SKILL.md files:** NEVER resolve conflicts on generated SKILL.md
 files by accepting either side. Instead: (1) resolve conflicts on the `.tmpl` templates
