@@ -1,6 +1,6 @@
 {
   "name": "solace-architect",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Solace Architect — Claude Code skills for event-driven architecture on the Solace platform.",
   "license": "MIT",
   "type": "module",
@@ -12,6 +12,7 @@
     "dev:skill": "bun run scripts/dev-skill.ts",
     "url:check": "bun run scripts/url-health-check.ts",
     "url:check:verbose": "bun run scripts/url-health-check.ts --verbose",
+    "change:impact": "bun run scripts/change-impact.ts",
     "dashboard": "bun run scripts/dashboard.ts",
     "intake": "bun run scripts/intake-server.ts",
     "grounding": "bun run scripts/grounding-admin.ts"

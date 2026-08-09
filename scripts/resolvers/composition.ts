@@ -28,6 +28,7 @@ export function generateInvokeSkill(ctx: TemplateContext, args?: string[]): stri
     'Cross-Skill Dependencies',
     'Project Management',
     'AskUserQuestion Format',
+    'Change Capture',
     'Completeness Principle — Boil the Lake',
     'Search Before Building',
     'Completion Status Protocol',

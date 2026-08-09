@@ -1,29 +1,23 @@
 ---
-name: solace-architect-review
+name: solace-change
 preamble-tier: 2
 version: 0.1.0
-produces:
-  - review-architect
-consumes:
-  - discovery-brief
-  - topic-taxonomy
-  - broker-recommendation
-  - sam-design
-  - protocol-map
-  - dmr-topology
-  - ha-dr-topology
-  - micro-integration-map
-  - migration-plan
+produces: []
+consumes: []
 description: |
-  Architecture review from an architect perspective. Evaluates trade-offs, component
-  choices, topology decisions, and identifies simpler alternatives. Reads all project
-  artifacts and produces specific, actionable findings grounded in Solace documentation.
-  Use after technical domain skills are complete.
+  Change-request compiler for mid-engagement design changes. Use whenever a
+  requirement changed after design, the user says "we need to change X",
+  asks what breaks if we change Y, wants impact analysis of a design change,
+  wants to apply, reject, or defer a pending change request, or when
+  open-items.yaml holds pending change-request entries. Classifies the
+  change, computes the downstream blast radius from the declared dependency
+  graph, records the decision, and re-runs the owning skills in dependency
+  order. Never edits design artifacts directly.
 allowed-tools:
   - Bash
   - Read
-  - WebFetch
-  - WebSearch
+  - Edit
+  - Write
   - AskUserQuestion
 interactive: true
 ---
@@ -35,7 +29,7 @@ interactive: true
 ```bash
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
-echo "SKILL: solace-architect-review"
+echo "SKILL: solace-change"
 ```
 
 ## Grounding Discipline
@@ -783,16 +777,24 @@ When completing a skill workflow, report status using one of:
 
 Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
 
-# /solace-architect-review — Architecture Review
+# /solace-change - Change Request Processing
 
-You are running the architect review skill. Your job is to review the current
-architecture through an architect's lens: are the trade-offs sound? Are component
-choices defensible? Does the topology match the constraints? Are there simpler
-alternatives that achieve the same goals?
+You are running the change-request compiler. Your job: take stated design changes
+(queued in `open-items.yaml` or given inline), classify them, compute their blast
+radius, get explicit confirmation, record the decision, and route regeneration
+through the owning skills. You never write design artifacts yourself; regeneration
+always goes through the skill that owns the artifact, so there is exactly one code
+path per output file.
+
+Two hard rules:
+- **No change is silently applied.** Capture is not application. Application is
+  explicit and confirmed (Step 5).
+- **Record before executing** (Step 6). A crash mid-run must leave a truthful,
+  resumable state, never a silent partial application.
 
 ---
 
-## Step 0: Project and dependency check
+## Step 0: Project check and mode dispatch
 
 ```bash
 ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
@@ -800,249 +802,253 @@ if [ -z "$ACTIVE" ]; then
   echo "NO_ACTIVE_PROJECT"
 else
   echo "PROJECT: $ACTIVE"
-  cat "projects/$ACTIVE/progress.yaml" 2>/dev/null
+  cat "projects/$ACTIVE/open-items.yaml" 2>/dev/null
 fi
 ```
 
-Requires at least one technical skill complete (topic-design, sam-design, broker-select,
-mesh-design, ha-dr, protocol-select, integration, or migration). If none are complete,
-warn: "No technical artifacts to review. Run at least one technical domain skill first."
+If no active project, tell the user to run `/solace-discovery` first and stop.
 
-Read all available artifacts:
+Pending change requests are entries in `open-items.yaml` with
+`type: change-request` and `status: pending`. Entries **without**
+`type: change-request` are ordinary open items; ignore them entirely.
+Drain mode skips entries marked `reviewed: true` (operator-deferred); naming
+a specific `CR-NNN` re-activates it regardless of `reviewed` or a `deferred`
+status.
+
+Determine the invocation mode from the arguments:
+
+| Invocation | Behavior |
+|---|---|
+| `/solace-change` | Drain: process all pending change requests (not `reviewed: true`), one at a time |
+| `/solace-change list` | Show the queue with classification and blast radius. **Read-only: no writes, no skill invocation.** |
+| `/solace-change "<text>"` | Create a `CR-NNN` entry from the text first, then process it |
+| `/solace-change CR-003` | Process that one request (re-activates a deferred or reviewed entry) |
+| `/solace-change --dry-run` | Classification + impact + live-tenant check (Steps 2-4), stop before the Step 5 confirm; write nothing |
+| `/solace-change reject CR-003 "<reason>"` | Record rejection with rationale; no regeneration |
+| `/solace-change defer CR-003` | Keep pending, mark `reviewed: true` so it stops resurfacing |
+
+For inline text, append the entry to the top-level `open_items:` list in
+`open-items.yaml` before processing (next `CR-NNN` id, `type: change-request`,
+`status: pending`, `raised_during: solace-change`, current UTC timestamp, the
+text as `verbatim`, your paraphrase as `restated`). Create the file with
+`open_items: []` if absent, matching the existing open-item convention.
+
+If the queue is empty and no inline text was given: report "No pending change
+requests." and exit. Do not invent work.
+
+For `reject`: set the entry's `status: rejected`, write a `decisions.yaml` entry
+(Step 6 shape, `disposition: rejected`, rationale required), and stop. No
+artifact changes. For `defer`: set `reviewed: true`, leave `status: pending`, stop.
+
+Process requests one at a time, oldest first. For each, run Steps 2-8 before
+taking up the next.
+
+---
+
+## Step 1: Compound check
+
+A single request may span owners (e.g. a schema field **and** a topic address).
+If the classification table below matches two or more owners for genuinely
+separate parts of the request, split it: sub-requests `CR-NNNa`, `CR-NNNb` in
+`open-items.yaml`, each with `parent: CR-NNN`, ordered by the dependency graph.
+Process each sub-request separately, upstream owner first. Never process a
+compound change as one undifferentiated blob.
+
+---
+
+## Step 2: Classify
+
+Produce an explicit delta for the request:
+
+```
+FROM: <current state, quoted from the artifact, with file path>
+TO:   <proposed state>
+CONTRADICTS: <decision id(s) from decisions.yaml, if any>
+OWNER: <owning skill>
+CLASS: cosmetic | local | structural | breaking-live
+```
+
+The `FROM` side must be **read out of the actual artifact with the Read tool**,
+never recalled from conversation. If the current state cannot be located in any
+artifact, say so and treat the change as an addition (no `supersedes`).
+
+Owning skill, by change signal:
+
+| Change signal | Owner |
+|---|---|
+| Topic level, hierarchy, wildcard subscription, delivery mode (Direct / Guaranteed) | `/solace-topic-design` |
+| Payload schema, field addition/removal, event version | `/solace-event-portal` (topic address also moving = compound, see Step 1) |
+| Messaging protocol per integration point, client SDK | `/solace-protocol-select` |
+| Broker deployment model, sizing, region, tier | `/solace-broker-select` (often cascades to mesh + HA/DR) |
+| DMR topology, multi-site, multi-cloud placement | `/solace-mesh-design` |
+| RPO/RTO, replication, failover posture | `/solace-ha-dr` |
+| Micro-Integration choice, Integration Hub vs custom, Kafka bridge | `/solace-integration` |
+| Agents, Gateways, OrchestratorAgent, A2A topics, authorization model | `/solace-sam-design` |
+| Migration source system, phasing, cutover strategy | `/solace-migration` |
+| ACL model, TLS, auth propagation, PII handling | `/solace-security-review` |
+| Monitoring, capacity, runbook gaps | `/solace-ops-review` |
+| Non-functional requirement: volume, latency, retention, throughput | `intake.yaml` amendment; owner is `/solace-discovery` (brief re-synthesis), then fan out |
+| Business scope, cost basis, ROI assumption | `/solace-executive` |
+| Nothing matches | **Stop.** Set `status: deferred`, reason `unclassified`, and ask the operator |
+
+When two entries plausibly apply to the same part of the request, do not guess.
+Use AskUserQuestion with the candidate owners as options, stating what each
+would re-run.
+
+Change classes:
+- `cosmetic` - wording or naming, no downstream effect
+- `local` - owning artifact only; nothing consumes the changed aspect
+- `structural` - crosses artifact boundaries (anything the impact report shows as affecting other skills)
+- `breaking-live` - conflicts with provisioned Event Portal state (Step 4)
+
+---
+
+## Step 3: Compute impact
+
+Never estimate the blast radius by intuition. Run the deterministic resolver:
 
 ```bash
 ACTIVE=$(cat projects/.active)
-cat "projects/$ACTIVE/intake.yaml" 2>/dev/null
-cat "projects/$ACTIVE/artifacts/01-discovery/discovery-brief.md" 2>/dev/null
-cat "projects/$ACTIVE/decisions.yaml" 2>/dev/null
-for dir in 02-topic-design 04-sam-design 03-broker-select 05-protocol-select 06-mesh-design 07-ha-dr 08-integration 09-migration; do
-  for f in "projects/$ACTIVE/artifacts/$dir"/*.md; do
-    [ -f "$f" ] && echo "=== $f ===" && cat "$f"
-  done 2>/dev/null
-done
+bun run change:impact --skill <owning-skill> --project "$ACTIVE" --json
 ```
 
----
+If `bun` is unavailable in this environment, read `scripts/skill-dependencies.yaml`
+and trace the `consumes` edges from the changed artifacts by hand, following the
+same transitive-closure rule; say that you did so.
 
-## Candidate checks (verify first)
+Present three buckets from the report, plainly:
 
-From `intake.yaml` + artifacts — a conservative floor; confirm/dismiss each, then add judgment findings:
+- **Re-decide** - design skills holding decisions keyed to a changed artifact.
+  Targeted re-run, not a full re-interview.
+- **Re-review** - review skills whose findings the change invalidates.
+- **Regenerate** - deterministic derivatives (validation report, blueprint,
+  arch blueprint, diagrams, executive, AsyncAPI exports).
 
-- **Over-engineered mesh:** if `requirements.topology == single_site` but a mesh/DMR artifact
-  specifies DMR, federation, multi-region, or external links → likely over-engineered (Important).
-  A single site rarely needs DMR. Do not infer multi-site from the free-text `sites_and_regions`.
+Also state: artifacts explicitly **unaffected** (the operator needs to see the
+boundary), artifacts **absent** in this project (not scheduled), the number of
+skills in the sequence, whether any will ask questions, and a rough wait.
 
-## Step 1: Structural review
-
-Evaluate the architecture's structural soundness:
-
-**Component selection:**
-- Is the broker type appropriate for the constraints? Would a different type better
-  serve the latency, regulatory, or operational requirements?
-- Are the selected protocols the simplest that meet requirements? Over-engineered
-  protocol choices add operational complexity.
-- Is the DMR topology the simplest that serves the deployment? A single broker is
-  simpler than a DMR cluster. A DMR cluster is simpler than multi-site with external links.
-
-**Topic taxonomy:**
-- Does the taxonomy follow `Domain/Noun/Verb/Version/Properties` consistently?
-- Are delivery modes assigned correctly? Direct for non-persistent best-effort paths,
-  Guaranteed for lossless delivery where every message must arrive.
-- Are there topics that could be consolidated without losing routing precision?
-
-**SAM topology (if applicable):**
-- Is the agent granularity appropriate? Too many agents increase operational complexity.
-  Too few reduce authorization granularity.
-- Do Gateway selections match channel requirements?
-- Is the authorization model complete — scopes propagate from Gateway through
-  OrchestratorAgent to each agent's tools?
+For `list` mode: stop here. Write nothing. For `--dry-run`: continue through
+the Step 4 live-tenant check, then stop before the Step 5 confirm. Write nothing.
 
 ---
 
-## Step 2: Trade-off analysis
+## Step 4: Live-tenant check
 
-For each major design decision in `decisions.yaml`, evaluate:
+If the impact report says `live_conflict: true` (the project has
+`13-event-portal/provisioned.yaml` and the change touches a provisioned topic
+address, schema, or application produce/consume graph):
 
-1. **What was chosen and why** — restate the decision and its rationale.
-2. **What was traded off** — what capability or simplicity was sacrificed?
-3. **Is the trade-off sound given the constraints?** — does the rationale hold up
-   against the project's stated requirements?
-4. **Is there a simpler alternative?** — could the same goal be achieved with fewer
-   moving parts? Simpler architectures are more operable.
+1. Classify the change `breaking-live`.
+2. Do **not** propose an in-place edit of the live tenant. Present the
+   versioning path instead: new event version or new schema version,
+   coexistence window, deprecation plan for the old version.
+3. Require explicit confirmation before anything reaches `/solace-ep-provision`.
+4. Mark `ep-provisioned` as `divergent` in `progress.yaml` (Step 6) until
+   reconciled.
 
----
-
-## Step 3: Gap analysis
-
-Check for architectural gaps:
-
-- **Failure paths:** Is every failure mode documented? What happens when a broker
-  goes down? When a Micro-Integration fails? When a SAM agent times out?
-- **Scaling boundaries:** Where will this architecture hit scaling limits first?
-  What is the plan when it does?
-- **Operational visibility:** Can the ops team see what's happening at every layer?
-  Are metrics, traces, and logs flowing?
-- **Security model completeness:** Does the security design cover every integration
-  point? Are there unprotected paths?
-- **Integration path verification:** For every custom Micro-Integration in the
-  integration map, re-read `~/.claude/skills/solace-architect/solace-grounding/integration-hub-catalog.md`. Verify
-  that no cataloged Micro-Integration — direct or via a well-known intermediate
-  system (see the "Common indirect paths" section of the catalog) — covers the same
-  path. If a simpler cataloged path exists, flag it as an **Important** finding.
+Never mass-mutate a live tenant from this skill.
 
 ---
 
-## Step 4: Classify findings
+## Step 5: Confirm
 
-After completing steps 1–3, classify every finding by severity:
+Present the delta (Step 2), blast radius and cost (Step 3), and the live-tenant
+path if applicable. Ask with AskUserQuestion, full D<N> format:
 
-- **Critical** — architectural decisions that will cause production failures or
-  security vulnerabilities.
-- **Important** — gaps that should be addressed before production but won't cause
-  immediate failures.
-- **Advisory** — improvements that would make the architecture more robust or simpler.
+- **A) Apply now** - record and execute the sequence.
+- **B) Defer** - keep pending, revisit later.
+- **C) Reject** - record with rationale, no changes.
+- **D) Modify** - the restatement missed the intent; correct it and re-classify.
 
-Each finding must:
-- Be specific (name the component, topic, agent, or link)
-- Reference the relevant Solace documentation or antipattern
-- Propose a concrete alternative
-
----
-
-## Finding Confidence
-
-Score every finding 1–10 in its header — this grades the *finding* and is distinct from the
-Grounding Discipline's confidence flagging, which grades how well a *claim* is sourced. Ground
-the score in the artifact/doc that supports it: 8–10 verified · 6–7 strong inference · 4–5 show
-with a "verify" caveat · 1–3 omit unless severity would be Critical (then state what would confirm it).
+Check `execution_mode` in `decisions.yaml`:
+- `auto`: `cosmetic` and `local` changes may apply without asking; log the full
+  rationale as if asked. `structural` and `breaking-live` **always** pause for
+  this confirmation, regardless of mode.
+- `interactive` (or unset): always ask.
 
 ---
 
-## Step 5: Resolve findings interactively
+## Step 6: Record before executing
 
-## Interactive Finding Resolution
+All bookkeeping happens **before** any skill is invoked, in this order:
 
-After completing all analysis steps, present findings to the user one at a time.
-Categorize each finding as either a **confirmation** (no issue) or an **issue** (needs action).
-
-### Confirmations (no issue found)
-
-For areas where the architecture is sound, present them grouped as a confirmation block.
-Do not ask for user input on these — just display them:
-
-```
-✓ Confirmed — No Issues
-  • <area>: <why it's sound>
-  • <area>: <why it's sound>
-  • <area>: <why it's sound>
-```
-
-### Issues (action needed)
-
-Walk through each issue one at a time using AskUserQuestion. Present in severity order
-(Critical first, then Important, then Advisory).
-
-For each issue, present:
-
-```
-Finding <N>/<total> — <severity> (confidence: <X>/10) — <artifact>:<section>
-
-  Issue:    <one-sentence description of the problem>
-  Impact:   <what happens if this is not addressed>
-  Fix:      <concrete, specific proposed remediation>
-  Artifact: <which project artifact would be updated>
-
-  A) Apply — update <artifact> with the proposed fix
-  B) Defer — log this finding for later; proceed to next
-  C) Discuss — I have questions before deciding
-```
-
-**Apply:** Update the referenced artifact in place. Add a decision entry to `decisions.yaml`
-recording what was changed, why, and which review surfaced it:
+1. **`decisions.yaml`** - append an entry in the existing decision shape
+   (`decision`, `rationale`, `skill`, `value`) plus:
 
 ```yaml
-- decision: "<what was changed>"
-  rationale: "<finding description>"
-  source: "<review skill name>"
-  severity: "<critical|important|advisory>"
-  action: applied
+  source: change-request
+  change_ref: CR-001
+  supersedes: <superseded decision's `decision` key>   # omit for additions
+  disposition: applied        # or: rejected
 ```
 
-**Defer:** Do not modify any artifact. Add a decision entry recording the deferral:
+2. **Supersession** - add `superseded_by: <new decision key>` to the superseded
+   entry. Never delete it. Decision history is append-only.
+
+3. **`open-items.yaml`** - set the change request's `status: applied` (or
+   `rejected` / `deferred`), add `decision_ref` and `applied_at`.
+
+4. **`progress.yaml`** - mark freshness under a top-level `artifacts:` map
+   (create it if absent; it is additive and optional - a missing map means
+   everything is current):
 
 ```yaml
-- decision: "Deferred: <finding description>"
-  rationale: "<user's reason if given, otherwise 'deferred without comment'>"
-  source: "<review skill name>"
-  severity: "<critical|important|advisory>"
-  action: deferred
+artifacts:
+  topic-taxonomy: { state: stale, stale_since: <ts>, change_ref: CR-001, stale_reason: "CR-001 applied, regeneration pending" }
+  protocol-map:   { state: stale, stale_since: <ts>, change_ref: CR-001, stale_reason: "CR-001 changed topic-taxonomy" }
 ```
 
-Then **also record an open item** so the deferral is tracked in one place and can gate
-downstream steps. Append to `projects/<slug>/open-items.yaml` (create it with `open_items: []`
-if absent). Assign the next `OI-NNN` id (read the file, take the highest existing number + 1,
-zero-padded to 3 digits; start at OI-001). Map the finding severity to the open-item ladder:
-**critical → blocking, important → high, advisory → advisory**.
+Always set `change_ref` on stale entries (structured, not only inside the
+`stale_reason` text) - validate, blueprint, and the dashboard read it.
 
-```yaml
-- id: OI-<NNN>
-  description: "<finding description>"
-  source: "<review skill name>"
-  source_ref: "artifacts/10-reviews/<review>.md"
-  severity: "<blocking|high|advisory>"
-  resolution: "<the proposed fix from the finding — what would resolve it>"
-  status: open
-  created: "<UTC timestamp>"
-  updated: "<UTC timestamp>"
-```
-
-A **blocking** open item (from a deferred *critical* finding) will pause the affected design
-step in `/solace-plan` until it is resolved; high/advisory items are surfaced but never block.
-
-**Discuss:** Answer the user's questions. After discussion, re-present the same finding
-with the Apply/Defer choice. Do not advance to the next finding until this one is resolved.
-
-### Execution mode behavior
-
-Check `decisions.yaml` for `execution_mode`:
-- **`interactive`** or **not set**: Walk through every issue with Apply/Defer/Discuss.
-- **`auto`**: Auto-apply Advisory and Important findings. Pause for Apply/Defer/Discuss
-  only on Critical findings — these always require explicit user consent.
-
-### Final summary
-
-After all findings are resolved, present a resolution summary before writing the artifact:
-
-```
-Finding Resolution Summary
-  Applied:  <count> findings (<list severity breakdown>)
-  Deferred: <count> findings (<list severity breakdown>)
-  No issue: <count> areas confirmed
-
-  Open items created: <count> (<N blocking, N high, N advisory>)
-  Artifacts updated: <list of modified artifact files>
-```
-
-Then write the review document. The document must reflect the resolution status of each
-finding — mark applied findings as "APPLIED" and deferred findings as "DEFERRED" so the
-record is clear when read later or picked up by `/solace-validate`.
+Mark stale now, before Step 7 runs: the **changed artifacts themselves** (the
+decision is recorded but the artifact not yet regenerated - a crash in this
+window must not leave them claiming `current`), plus every artifact in the
+impact report's re-decide / re-review / regenerate buckets (`divergent`
+instead of `stale` for a live conflict).
 
 ---
 
-## Step 6: Write findings and complete
+## Step 7: Execute the sequence
 
-Save the review document with resolution status on each finding:
+Invoke each skill in the impact report's `skill_sequence`, in order, via the
+Skill tool (same mechanics as `/solace-plan` Step 3, including its
+`execution_mode` handling). For the owning skill and each re-decide skill, state
+the change context when invoking: the `change_ref`, the affected decision ids,
+and the instruction to re-open only those decisions per the Targeted Re-run
+contract in the preamble. Review, validation, and assembly skills run normally.
 
-```bash
-ACTIVE=$(cat projects/.active)
-mkdir -p "projects/$ACTIVE/artifacts/10-reviews"
-cat > "projects/$ACTIVE/artifacts/10-reviews/architect-review.md" << 'EOF'
-<paste the structured review findings with APPLIED/DEFERRED status>
-EOF
+Sequence rules:
+- `/solace-executive` runs **only if** the change altered cost, risk, scope, or
+  timeline. State the test explicitly before running or skipping it.
+- `/solace-ep-provision` runs only on the confirmed versioning path from Step 4,
+  and honors its own opt-in gate.
+- After each skill completes, flip its artifacts to `state: current` in
+  `progress.yaml`.
+- If a skill fails or the user interrupts: leave the remaining artifacts
+  `stale`, record which step failed in the change request's entry
+  (`failed_at_step`), and exit with exact resume instructions
+  (`/solace-change CR-NNN` resumes: already-current artifacts are skipped).
+  Partial state must be truthful.
+
+---
+
+## Step 8: Report
+
+Append a section to `artifacts/16-changes/change-log.md` (create the file with
+a `# Change Log` header if absent). One section per change request:
+
+```markdown
+## CR-001 - <one-line title> (<date>)
+
+**Stated:** "<verbatim>"
+**Restated:** <restated delta>
+**Class:** structural · **Owner:** /solace-topic-design · **Decision:** <decision key>
+**Regenerated:** <artifacts now current>
+**Still stale:** <artifacts left stale, or "none">
+**Disposition:** applied
 ```
 
-Update decisions.yaml with all applied and deferred entries from the resolution.
-Update progress to complete.
-
-**Next step routing:** present using the Next Step Chaining protocol.
-- Primary: `/solace-ops-review` — Operations Review
+Close with a summary: what changed, what regenerated, what is still stale, and
+what remains pending in the queue (with the exact command to process it).

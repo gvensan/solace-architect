@@ -2,6 +2,12 @@
 name: solace-ha-dr
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - ha-dr-topology
+consumes:
+  - discovery-brief
+  - broker-recommendation
+  - dmr-topology
 description: |
   Design HA and DR topologies for Solace deployments. Maps data classes to RPO/RTO
   requirements, configures replication groups, designs failover behavior, and documents

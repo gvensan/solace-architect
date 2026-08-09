@@ -6,7 +6,7 @@ Solace Architect is an open-source toolkit for Claude Code that closes that gap.
 
 ## What it does
 
-Solace Architect is a set of 24 skills that compose into an interview-style architectural session. The skills cover six categories:
+Solace Architect is a set of 25 skills that compose into an interview-style architectural session. The skills cover seven categories:
 
 1. **Discovery.** Eliciting the business problem clearly. Surfacing latency, throughput, regulatory, organizational, and budget constraints. Inventorying the existing landscape.
 2. **Technical domain.** Solace platform knowledge: topic taxonomy design, broker selection, SAM agent topology, protocol selection, DMR mesh design, HA/DR, migration planning, and Micro-Integration strategy.
@@ -14,6 +14,7 @@ Solace Architect is a set of 24 skills that compose into an interview-style arch
 4. **Orchestration.** Sequencing skills based on dependencies, threading context and decisions across skill invocations.
 5. **Validation.** Consistency checks, antipattern detection, completeness checks before the blueprint goes to engineering.
 6. **Assembly.** Final blueprint assembly into an engineering handoff package.
+7. **Change.** Mid-engagement change requests: capture, classification, blast-radius analysis from the declared skill dependency graph, and confirmed re-runs of the affected skills in order.
 
 The toolkit is anchored to event-driven architecture broadly, not to Solace Agent Mesh specifically. Event mesh-only architectures are a first-class output. SAM enters when the problem genuinely calls for it.
 

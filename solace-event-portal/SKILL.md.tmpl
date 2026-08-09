@@ -2,6 +2,13 @@
 name: solace-event-portal
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - ep-design
+consumes:
+  - discovery-brief
+  - topic-taxonomy
+  - broker-recommendation
+  - review-dev
 description: |
   Event Portal governance design. Maps the architecture into Event Portal objects:
   application domains, event objects with schema bindings, runtime broker connections,

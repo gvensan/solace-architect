@@ -2,6 +2,11 @@
 name: solace-ep-provision
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - ep-provisioned
+consumes:
+  - ep-design
+  - topic-taxonomy
 description: |
   Provision the Event Portal model designed by /solace-event-portal into a live
   Solace Cloud tenant via the Solace Event Portal Designer MCP. Creates application

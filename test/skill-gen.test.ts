@@ -53,10 +53,11 @@ describe('resolver registry', () => {
 });
 
 describe('template discovery', () => {
-  test('discovers all 25 skill templates', () => {
+  test('discovers all 26 skill templates', () => {
     // Update when adding/removing skills. Run discoverTemplates() to verify.
+    // 26 = 25 + solace-change (change-request compiler, v0.2.0).
     const templates = discoverTemplates(ROOT);
-    expect(templates.length).toBe(25);
+    expect(templates.length).toBe(26);
   });
 
   test('all templates produce output files', () => {

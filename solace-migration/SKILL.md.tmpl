@@ -2,6 +2,11 @@
 name: solace-migration
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - migration-plan
+consumes:
+  - discovery-brief
+  - topic-taxonomy
 description: |
   Plan migrations from Kafka, RabbitMQ, TIBCO, or IBM MQ to Solace. Designs phased
   coexistence strategy, Micro-Integration bridging, topic mapping from source to Solace

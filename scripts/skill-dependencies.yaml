@@ -1,0 +1,166 @@
+# Skill dependency graph - single source of truth for /solace-change impact
+# analysis (docs/solace-change-skill.md §5.1).
+#
+# Consumed by:
+#   - scripts/change-impact.ts          (deterministic blast-radius resolver)
+#   - test/skill-dependencies.test.ts   (graph validation, frontmatter mirror)
+#
+# Every skill that writes under projects/<slug>/artifacts/ appears here.
+# `produces` / `consumes` are mirrored in each skill's SKILL.md.tmpl
+# frontmatter; a test asserts the two agree. Edges were derived by reading
+# each template's input/output sections - do not add edges by intuition.
+#
+# Edge channels: most edges are literal file reads. A few flow through
+# decisions.yaml rather than artifact reads (marked "decision channel"
+# below); they are real dependencies for impact purposes.
+#
+# `kind` drives the impact buckets:
+#   design   -> re_decide   (holds decisions; needs a targeted re-run)
+#   review   -> re_review   (findings invalidated by upstream change)
+#   assemble -> regenerate  (deterministic derivative; no new decisions)
+#
+# `live: true` marks artifacts backed by external state (Solace Cloud
+# tenant). Changes touching them are breaking-live, never in-place edits.
+#
+# `dir` values describe the CURRENT artifact numbering. Legacy projects may
+# differ (e.g. 13-executive); change-impact.ts resolves actual locations from
+# progress.yaml recorded paths first, these dirs second.
+
+version: 1
+
+artifacts:
+  discovery-brief:       { dir: 01-discovery,       file: discovery-brief.md }
+  topic-taxonomy:        { dir: 02-topic-design,    file: topic-taxonomy.md }
+  broker-recommendation: { dir: 03-broker-select,   file: broker-recommendation.md }
+  sam-design:            { dir: 04-sam-design,      file: "*" }
+  protocol-map:          { dir: 05-protocol-select, file: protocol-map.md }
+  dmr-topology:          { dir: 06-mesh-design,     file: dmr-topology.md }
+  ha-dr-topology:        { dir: 07-ha-dr,           file: ha-dr-topology.md }
+  micro-integration-map: { dir: 08-integration,     file: micro-integration-map.md }
+  migration-plan:        { dir: 09-migration,       file: migration-plan.md }
+  review-architect:      { dir: 10-reviews,         file: architect-review.md }
+  review-ops:            { dir: 10-reviews,         file: ops-review.md }
+  review-security:       { dir: 10-reviews,         file: security-review.md }
+  review-dev:            { dir: 10-reviews,         file: dev-review.md }
+  validation-report:     { dir: 11-validation,      file: validation-report.md }
+  blueprint:             { dir: 12-blueprint,       file: architecture.md }
+  diagrams:              { dir: 12-blueprint/diagrams, file: "*" }
+  ep-design:             { dir: 13-event-portal,    file: event-portal-design.md }
+  ep-provisioned:        { dir: 13-event-portal,    file: provisioned.yaml, live: true }
+  executive:             { dir: 14-executive,       file: executive-summary.md }
+  arch-blueprint:        { dir: 15-arch-blueprint,  file: "*" }
+
+skills:
+  # ── Design ────────────────────────────────────────────────
+  solace-discovery:
+    kind: design
+    consumes: []
+    produces: [discovery-brief]
+  solace-intake:
+    # Import mode bootstraps the discovery brief directly from intake.yaml.
+    kind: design
+    consumes: []
+    produces: [discovery-brief]
+  solace-topic-design:
+    kind: design
+    consumes: [discovery-brief]
+    produces: [topic-taxonomy]
+  solace-broker-select:
+    kind: design
+    consumes: [discovery-brief]
+    produces: [broker-recommendation]
+  solace-sam-design:
+    kind: design
+    consumes: [discovery-brief, topic-taxonomy]
+    produces: [sam-design]
+  solace-protocol-select:
+    # topic-taxonomy is a decision channel: delivery-mode decisions recorded
+    # by topic design drive protocol choices via decisions.yaml.
+    kind: design
+    consumes: [discovery-brief, topic-taxonomy]
+    produces: [protocol-map]
+  solace-mesh-design:
+    kind: design
+    consumes: [discovery-brief, broker-recommendation]
+    produces: [dmr-topology]
+  solace-ha-dr:
+    kind: design
+    consumes: [discovery-brief, broker-recommendation, dmr-topology]
+    produces: [ha-dr-topology]
+  solace-integration:
+    kind: design
+    consumes: [discovery-brief, broker-recommendation, sam-design]
+    produces: [micro-integration-map]
+  solace-migration:
+    # topic-taxonomy is a decision channel: topic-mapping.md maps source
+    # system topics onto the taxonomy recorded in decisions.yaml.
+    kind: design
+    consumes: [discovery-brief, topic-taxonomy]
+    produces: [migration-plan]
+  solace-event-portal:
+    # review-dev is a verified template read (schema-governance findings
+    # feed the EP design). It does not create a cycle: nothing downstream
+    # of ep-design feeds any review input.
+    kind: design
+    consumes: [discovery-brief, topic-taxonomy, broker-recommendation, review-dev]
+    produces: [ep-design]
+
+  # ── Review ────────────────────────────────────────────────
+  solace-architect-review:
+    kind: review
+    consumes: [discovery-brief, topic-taxonomy, broker-recommendation, sam-design,
+               protocol-map, dmr-topology, ha-dr-topology, micro-integration-map,
+               migration-plan]
+    produces: [review-architect]
+  solace-ops-review:
+    kind: review
+    consumes: [topic-taxonomy, broker-recommendation, sam-design, protocol-map,
+               dmr-topology, ha-dr-topology, micro-integration-map, migration-plan]
+    produces: [review-ops]
+  solace-security-review:
+    kind: review
+    consumes: [discovery-brief, topic-taxonomy, broker-recommendation, sam-design,
+               protocol-map, dmr-topology, ha-dr-topology, micro-integration-map]
+    produces: [review-security]
+  solace-dev-review:
+    kind: review
+    consumes: [topic-taxonomy, sam-design, protocol-map, micro-integration-map]
+    produces: [review-dev]
+
+  # ── Assemble ──────────────────────────────────────────────
+  solace-validate:
+    kind: assemble
+    consumes: [discovery-brief, topic-taxonomy, broker-recommendation, sam-design,
+               protocol-map, dmr-topology, ha-dr-topology, micro-integration-map,
+               migration-plan, review-architect, review-ops, review-security,
+               review-dev, ep-design]
+    produces: [validation-report]
+  solace-diagrams:
+    kind: assemble
+    consumes: [topic-taxonomy, broker-recommendation, sam-design, protocol-map,
+               dmr-topology, ha-dr-topology, micro-integration-map, migration-plan,
+               review-ops, review-security]
+    produces: [diagrams]
+  solace-blueprint:
+    kind: assemble
+    consumes: [discovery-brief, topic-taxonomy, broker-recommendation, sam-design,
+               protocol-map, dmr-topology, ha-dr-topology, micro-integration-map,
+               migration-plan, review-architect, review-ops, review-security,
+               review-dev, validation-report]
+    produces: [blueprint, diagrams]
+  solace-architecture-blueprint:
+    kind: assemble
+    consumes: [discovery-brief, topic-taxonomy, broker-recommendation, sam-design,
+               protocol-map, dmr-topology, ha-dr-topology, micro-integration-map,
+               migration-plan, review-architect, review-ops, review-security,
+               review-dev, validation-report]
+    produces: [arch-blueprint]
+  solace-executive:
+    kind: assemble
+    consumes: [discovery-brief, blueprint, validation-report, review-architect,
+               review-ops, review-security, review-dev]
+    produces: [executive]
+  solace-ep-provision:
+    kind: assemble
+    consumes: [ep-design, topic-taxonomy]
+    produces: [ep-provisioned]

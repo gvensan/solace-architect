@@ -17,10 +17,10 @@ By the end, you will understand what each skill does, when to use it, what it as
 ```bash
 git clone https://github.com/solacecommunity/solace-architect.git
 cd solace-architect
-./install-sa.sh
+./install-solace-architect.sh
 ```
 
-`install-sa.sh` installs dependencies, generates SKILL.md files, and symlinks skills into `~/.claude/skills/solace-architect/`. Verify it worked:
+`install-solace-architect.sh` installs dependencies, generates SKILL.md files, and symlinks skills into `~/.claude/skills/solace-architect/`. Verify it worked:
 
 ```bash
 bun test
@@ -1288,6 +1288,8 @@ Starting from a conversation about a banking assistant, Solace Architect produce
 | 21 | `/solace-projects` | Project status, web dashboard, HTML report | 2-5 min |
 
 **Total: ~2-3 hours for a complete architecture engagement.**
+
+Requirements rarely stay frozen for those hours. If a design change comes up mid-engagement or after the blueprint is assembled, do not re-run skills by hand: run `/solace-change "<the change>"` (or just `/solace-change` to process changes captured earlier). It classifies the change, shows which artifacts are affected and which are not, and re-runs the owning skills in dependency order after you confirm. `/solace-change --dry-run` gives you the impact report without touching anything.
 
 The `projects/retail-banking-chat-agent/` directory contains everything: the discovery brief, every design decision with rationale, all review findings, the validation report, and the assembled blueprint. The `decisions.yaml` file contains a complete audit trail of every architectural choice made across the engagement. The HTML report packages it all into a single file you can share.
 

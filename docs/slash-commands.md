@@ -29,6 +29,7 @@ Solace Architect provides 23 slash commands organized into five categories: Star
 | `/solace-validate` | Finalize | Run antipattern detection, consistency checks, and requirement tracing |
 | `/solace-blueprint` | Finalize | Assemble all artifacts into a single engineering handoff package |
 | `/solace-executive` | Finalize | Executive summary for CXO: ROI, risk reduction, strategic value |
+| `/solace-change` | Change | Process mid-engagement design changes: classify, show blast radius, re-run affected skills |
 | `/solace-diagrams` | Utility | Regenerate Mermaid diagrams for the current project (all or by name) |
 | `/solace-help` | Utility | Show available skills, workflow overview, and active project status |
 
@@ -167,9 +168,12 @@ Every skill checks project state before running. This table shows what must be c
 | `/solace-blueprint` | ≥1 technical skill complete | Validation complete |
 | `/solace-executive` | ≥1 technical skill complete | Blueprint complete |
 | `/solace-diagrams` | ≥1 technical artifact exists | More artifacts = more diagrams generated |
+| `/solace-change` | Active project | Pending change requests in `open-items.yaml` (or give the change inline) |
 | `/solace-help` | None | None |
 
 Skills with soft prerequisites will run without them but produce better output when they are available. Skills with hard prerequisites will warn and redirect if the prerequisite is missing.
+
+The machine-readable produces/consumes graph behind `/solace-change` impact analysis lives in `scripts/skill-dependencies.yaml`; inspect any change's blast radius with `bun run change:impact --skill <name> --json`.
 
 ---
 
@@ -1205,6 +1209,51 @@ For a banking chatbot on Event broker service: the executive summary frames the 
 ---
 
 # Utility
+
+---
+
+## `/solace-change`
+
+**Category:** Change
+**Preamble tier:** T2
+**Prerequisites:** An active project. Pending change requests in `open-items.yaml`, or a change given inline.
+
+### When to use
+
+- A requirement or design decision changed after the affected skill already ran.
+- You said "we need to change X" mid-engagement and it was captured as a pending change request.
+- You want an impact analysis: what breaks if we change Y?
+- You want to apply, reject, or defer a specific pending change request.
+
+### Intent
+
+The change-request compiler. Classifies a stated change, names the owning skill, computes the downstream blast radius from the declared dependency graph (`scripts/skill-dependencies.yaml` via `bun run change:impact`), gets explicit confirmation, records the decision (superseded decisions are kept with a `superseded_by` link), marks downstream artifacts stale in `progress.yaml`, and re-runs the owning skills in dependency order. Never edits design artifacts directly; regeneration always routes through the owning skill.
+
+### Invocations
+
+| Invocation | Behavior |
+|---|---|
+| `/solace-change` | Process all pending change requests, one at a time |
+| `/solace-change list` | Show the queue with classification and blast radius (read-only) |
+| `/solace-change "<text>"` | Capture and process this change now |
+| `/solace-change CR-003` | Process one specific request |
+| `/solace-change --dry-run` | Classification + impact report only, no writes |
+| `/solace-change reject CR-003 "<reason>"` | Record rejection with rationale |
+| `/solace-change defer CR-003` | Keep pending, stop resurfacing it |
+
+### Dependency map
+
+Impact is computed, not guessed: the transitive closure over `consumes` edges in `scripts/skill-dependencies.yaml`, bucketed into re-decide (design skills, targeted re-run of only the affected decisions), re-review (invalidated reviews), and regenerate (validation report, blueprint, diagrams, executive). Changes touching a provisioned Event Portal (`provisioned.yaml`) are classified breaking-live and always propose a versioning path, never an in-place tenant edit.
+
+### Outputs
+
+- **Artifacts:** `artifacts/16-changes/change-log.md` (append-only narrative log)
+- **Project state:** `decisions.yaml` entry per disposition, change-request status in `open-items.yaml`, per-artifact freshness in `progress.yaml`
+- **Progress:** stale artifacts are flipped to current as each re-run completes; interruption leaves truthful stale markers and resume instructions
+
+### Example
+
+Mid-engagement, the operator decides topic addresses need a version level. `/solace-change "topics need a version segment"` classifies it as structural, owner `/solace-topic-design`, shows that protocol selection, integration, EP design, all four reviews, validation, and blueprint are affected while broker selection and HA/DR are not, and on confirmation re-runs the sequence with only the taxonomy-structure decision re-opened.
 
 ---
 

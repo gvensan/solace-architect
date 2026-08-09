@@ -1,6 +1,8 @@
 {
+  "$schema": "https://json-schema.org/claude-code-settings.json",
   "permissions": {
     "allow": [
+      "Bash",
       "Skill(solace-intake)",
       "Skill(solace-discovery)",
       "Skill(solace-plan)",
@@ -23,6 +25,15 @@
       "Skill(solace-executive)",
       "Skill(solace-diagrams)",
       "Skill(solace-help)"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(git push *)",
+      "Read(.env)",
+      "Read(**/.env)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)"
     ]
-  }
+  },
+  "sandbox": { "enabled": true }
 }

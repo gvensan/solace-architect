@@ -2,6 +2,23 @@
 name: solace-validate
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - validation-report
+consumes:
+  - discovery-brief
+  - topic-taxonomy
+  - broker-recommendation
+  - sam-design
+  - protocol-map
+  - dmr-topology
+  - ha-dr-topology
+  - micro-integration-map
+  - migration-plan
+  - review-architect
+  - review-ops
+  - review-security
+  - review-dev
+  - ep-design
 description: |
   Comprehensive consistency and completeness check across all project artifacts.
   Runs antipattern detection, cross-component consistency checks, decision conflict
@@ -756,6 +773,12 @@ full D<N> decision brief format.
 Skip next-step routing if the current skill was invoked as part of a `/solace-plan`
 execution — the plan orchestrator handles sequencing.
 
+## Change Capture
+
+If the operator states a requirement or design change outside this skill's scope, do not apply it and do not fold it into the artifact you are writing. Append it to the `open_items:` list in `open-items.yaml` with `type: change-request`, the next CR-NNN `id`, `status: pending`, `verbatim` (operator's exact words), `restated` (your paraphrase), `suspected_owner` (skill), `raised_during`, `raised_at`. Continue the current step. Name captured change requests in your closing summary; they are processed by `/solace-change`. In-scope refinements and questions are not change requests.
+
+**Targeted re-run:** if invoked with a change context (a `change_ref` CR id plus affected decision ids), re-open only those decisions. Carry every other decision in `decisions.yaml` forward without re-asking. Regenerate your full artifact so it stays internally consistent.
+
 ## Completion Status Protocol
 
 When completing a skill workflow, report status using one of:
@@ -1003,6 +1026,29 @@ Look for:
 
 ---
 
+## Step 4b: Artifact freshness check
+
+Read the `artifacts:` map in `progress.yaml` (written by `/solace-change`).
+**If the map is absent, or an artifact has no entry, treat it as current and
+raise nothing** - projects that predate change tracking must validate clean.
+
+For every entry with `state: stale` or `state: divergent`, raise a finding:
+
+- A stale **design artifact** that feeds the blueprint (topic taxonomy, broker
+  recommendation, SAM design, protocol map, DMR topology, HA/DR topology,
+  Micro-Integration map, migration plan, EP design): severity `high`.
+- A stale **review or derivative** (reviews, validation report, diagrams,
+  executive): severity `medium`.
+- A `divergent` live artifact (`ep-provisioned`): severity `high`, and name the
+  reconciliation path (re-run `/solace-ep-provision` on the confirmed
+  versioning plan).
+
+Each finding names the artifact, its `stale_reason`, and the causing change
+request (`CR-NNN`), plus the fix: `/solace-change CR-NNN` if the change is
+still mid-application, otherwise the owning skill to re-run.
+
+---
+
 ## Step 5: Write validation report and complete
 
 Structure the report:
@@ -1031,6 +1077,9 @@ Structure the report:
 
 ## Decision Conflicts
 <any contradictions found>
+
+## Artifact Freshness
+<stale or divergent artifacts with causing CR-NNN and fix — or "all artifacts current">
 
 ## Open Items Recorded
 <list any OI-NNN items this validation added to open-items.yaml, with severity — or "none">

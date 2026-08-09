@@ -2,6 +2,11 @@
 name: solace-protocol-select
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - protocol-map
+consumes:
+  - discovery-brief
+  - topic-taxonomy
 description: |
   Select messaging protocols per integration point: SMF, MQTT, AMQP, JMS, REST,
   WebSocket. Matches protocol capabilities to client requirements, latency budgets,

@@ -2,6 +2,17 @@
 name: solace-security-review
 preamble-tier: 2
 version: 0.1.0
+produces:
+  - review-security
+consumes:
+  - discovery-brief
+  - topic-taxonomy
+  - broker-recommendation
+  - sam-design
+  - protocol-map
+  - dmr-topology
+  - ha-dr-topology
+  - micro-integration-map
 description: |
   Security posture review. Evaluates ACL model, TLS configuration, authentication
   and authorization propagation, regulatory compliance (PCI-DSS, HIPAA, etc.),
