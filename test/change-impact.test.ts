@@ -40,11 +40,15 @@ function assertTopologicallyValid(sequence: string[]) {
 describe('topic-taxonomy change', () => {
   const report = computeImpact(graph, 'solace-topic-design');
 
-  test('protocol, integration, migration, EP design need re-decide', () => {
+  test('protocol, integration, migration, EP design, mesh need re-decide', () => {
     expect(report.re_decide).toContain('solace-protocol-select');
     expect(report.re_decide).toContain('solace-integration');
     expect(report.re_decide).toContain('solace-migration');
     expect(report.re_decide).toContain('solace-event-portal');
+    // Edge proven by CR-002: DMR topology embeds replication topic patterns.
+    expect(report.re_decide).toContain('solace-mesh-design');
+    // Transitive: HA/DR consumes dmr-topology.
+    expect(report.re_decide).toContain('solace-ha-dr');
   });
 
   test('reviews are invalidated', () => {
@@ -58,10 +62,8 @@ describe('topic-taxonomy change', () => {
     expect(report.regenerate).toContain('validation-report');
   });
 
-  test('broker and HA/DR are explicitly unaffected', () => {
+  test('broker and discovery are explicitly unaffected', () => {
     expect(report.unaffected).toContain('broker-recommendation');
-    expect(report.unaffected).toContain('ha-dr-topology');
-    expect(report.unaffected).toContain('dmr-topology');
     expect(report.unaffected).toContain('discovery-brief');
   });
 

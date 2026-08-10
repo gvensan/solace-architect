@@ -1289,7 +1289,25 @@ Starting from a conversation about a banking assistant, Solace Architect produce
 
 **Total: ~2-3 hours for a complete architecture engagement.**
 
-Requirements rarely stay frozen for those hours. If a design change comes up mid-engagement or after the blueprint is assembled, do not re-run skills by hand: run `/solace-change "<the change>"` (or just `/solace-change` to process changes captured earlier). It classifies the change, shows which artifacts are affected and which are not, and re-runs the owning skills in dependency order after you confirm. `/solace-change --dry-run` gives you the impact report without touching anything.
+## Handling a mid-engagement change
+
+Requirements rarely stay frozen. When a design change comes up mid-engagement or after the blueprint is assembled, do not re-run skills by hand - the toolkit tracks changes end to end.
+
+**Changes are captured automatically.** If you say "actually, the schema needs a tenant field" while any skill is running, it is not silently folded into whatever artifact is being written - it lands in `open-items.yaml` as a pending change request (`CR-NNN`) with your exact words, and the skill's closing summary tells you so. Nothing is applied until you process it.
+
+**Preview before committing.** `/solace-change --dry-run "<the change>"` gives you the full picture and writes nothing: which skill owns the change, the FROM state quoted from the actual artifact, the change class, and the deterministic blast radius - what gets re-decided, re-reviewed, and regenerated, and (just as important) what is explicitly unaffected.
+
+**Apply with one confirmation.** A worked example - renaming the topic root domain:
+
+```
+/solace-change "rename the root domain from payments to paymentsystems"
+```
+
+The skill classifies it (owner: `/solace-topic-design`, class: structural), computes the blast radius (4 design skills to re-decide, 4 reviews to re-validate, 5 derivatives to regenerate; broker and discovery untouched), and asks once: apply / defer / reject / modify. On apply it records the decision, marks the affected artifacts stale, then re-runs the owning skills in dependency order - each design skill re-opens *only* the affected decision and carries everything else forward, so the whole cascade takes minutes, not a re-interview. Skills whose artifacts turn out to carry no trace of the change are verified and skipped with a stated reason. When it finishes, everything is `current` again and the story is logged in `artifacts/16-changes/change-log.md`.
+
+**If it gets interrupted**, the state stays truthful: the request shows `applying`, unregenerated artifacts stay marked stale, `/solace-validate` reports them, `/solace-blueprint` refuses to assemble over them (override: `--allow-stale`), and `/solace-change CR-NNN` resumes where it stopped. The dashboard's Changes view shows the queue with the exact command to run next.
+
+Other verbs when you need them: `/solace-change list` (read-only queue view), `reject CR-NNN "<reason>"`, `defer CR-NNN ["<reason>"]`, and `resolve OI-NNN "<note>"` for the ordinary open items reviews raise. For the mechanical half on its own, `bun run change:impact --skill <name> --project <slug>` prints the blast radius of any hypothetical change without touching the model or the project.
 
 The `projects/retail-banking-chat-agent/` directory contains everything: the discovery brief, every design decision with rationale, all review findings, the validation report, and the assembled blueprint. The `decisions.yaml` file contains a complete audit trail of every architectural choice made across the engagement. The HTML report packages it all into a single file you can share.
 

@@ -1233,17 +1233,84 @@ The change-request compiler. Classifies a stated change, names the owning skill,
 
 | Invocation | Behavior |
 |---|---|
-| `/solace-change` | Process all pending change requests, one at a time |
-| `/solace-change list` | Show the queue with classification and blast radius (read-only) |
-| `/solace-change "<text>"` | Capture and process this change now |
-| `/solace-change CR-003` | Process one specific request |
-| `/solace-change --dry-run` | Classification + impact report only, no writes |
-| `/solace-change reject CR-003 "<reason>"` | Record rejection with rationale |
-| `/solace-change defer CR-003` | Keep pending, stop resurfacing it |
+| `/solace-change` | Drain: process all pending change requests, one at a time (skips ones you deferred; resumes interrupted ones) |
+| `/solace-change list` | Show the queue with classification and blast radius (read-only, writes nothing) |
+| `/solace-change "<text>"` | Capture this change as a new CR-NNN entry, then process it |
+| `/solace-change CR-003` | Process one specific request (re-activates a deferred entry, resumes an interrupted one) |
+| `/solace-change --dry-run ["<text>"]` | Classification + impact + live-tenant check, stop before the confirm. Writes nothing - with inline text, not even the CR entry |
+| `/solace-change reject <CR\|OI> "<reason>"` | Record rejection with rationale (prompted for if missing, never invented) |
+| `/solace-change defer <CR\|OI> ["<reason>"]` | Stop it resurfacing; optional reason recorded as `defer_reason` |
+| `/solace-change resolve OI-NNN "<note>"` | Mark an ordinary open item resolved with a required note |
+| `/solace-change --help` | Print this usage summary and the current queue state |
+
+### Change lifecycle
+
+A change request moves through explicit statuses in `open-items.yaml`, and every transition is recorded:
+
+```
+pending ──(confirm: apply)──> applying ──(sequence completes)──> applied
+   │                             │
+   │                             └─(interruption)─> stays `applying` + stale markers;
+   │                                                resume with /solace-change CR-NNN
+   ├──(reject)──> rejected   (decisions.yaml entry with rationale + change-log section)
+   └──(defer)───> pending + reviewed: true   (skipped by drain until re-activated)
+```
+
+- `applying` is the honesty state: the decision is recorded and downstream artifacts are marked stale *before* any regeneration runs, so a crash mid-cascade leaves a truthful, resumable picture instead of a silent partial application. The status flips to `applied` only as the very last write.
+- Applied and rejected changes both produce a `decisions.yaml` entry (`source: change-request`, `change_ref`) and a section in `artifacts/16-changes/change-log.md`. Superseded decisions are never deleted - they get `superseded_by` and stay visible (struck through in the dashboard).
+
+### Change classes
+
+| Class | Meaning | Confirmation |
+|---|---|---|
+| `cosmetic` | Wording/naming, no downstream effect | Auto-applies under `execution_mode: auto` |
+| `local` | Owning artifact only; nothing consumes the changed aspect | Auto-applies under `execution_mode: auto` |
+| `structural` | Crosses artifact boundaries (other skills affected) | **Always pauses** for your confirmation, any mode |
+| `breaking-live` | Conflicts with provisioned Event Portal state | Always pauses; proposes a versioning path (new event/schema version, coexistence window), never an in-place tenant edit |
+
+### Ordinary open items
+
+The disposition commands (`reject`/`defer`/`resolve`) also accept `OI-NNN` ids for the blocking/advisory findings that reviews and validation raise. `resolve` records a `resolution_note` and an auditable `decisions.yaml` entry; resolving a `blocking` item lifts the blueprint gate, deferring never does. Classification, impact analysis, and drain remain change-request-only.
 
 ### Dependency map
 
 Impact is computed, not guessed: the transitive closure over `consumes` edges in `scripts/skill-dependencies.yaml`, bucketed into re-decide (design skills, targeted re-run of only the affected decisions), re-review (invalidated reviews), and regenerate (validation report, blueprint, diagrams, executive). Changes touching a provisioned Event Portal (`provisioned.yaml`) are classified breaking-live and always propose a versioning path, never an in-place tenant edit.
+
+### The impact resolver CLI: `bun run change:impact`
+
+The deterministic half of the skill is a standalone CLI - same input, same answer, no model in the loop. `/solace-change` calls it at Step 3; you can call it directly anytime:
+
+```bash
+bun run change:impact --skill <skill-name> [--artifacts a,b] [--project <slug>] [--json]
+```
+
+| Flag | Purpose |
+|---|---|
+| `--skill` | The owning skill (required). Changed artifacts default to everything it produces |
+| `--artifacts` | Narrow the change to specific artifact keys (see `scripts/skill-dependencies.yaml` for the key list) |
+| `--project` | Make it project-aware: absent artifacts are reported and dropped from the schedule, and the live-tenant conflict check becomes real |
+| `--json` | Structured output (`owner`, `changed_artifacts`, `regenerate`, `re_review`, `re_decide`, `unaffected`, `absent`, `live_conflict`, `skill_sequence`) |
+
+Examples:
+
+```bash
+# What breaks if the broker recommendation changes? (design-time, no project)
+bun run change:impact --skill solace-broker-select
+
+# Same question for a real engagement - absent artifacts drop out,
+# live_conflict reflects whether provisioned.yaml actually exists
+bun run change:impact --skill solace-topic-design --project acme-payments
+
+# Only the diagrams changed, not the whole blueprint
+bun run change:impact --skill solace-blueprint --artifacts diagrams
+
+# Feed a script
+bun run change:impact --skill solace-event-portal --project acme-payments --json | jq '.skill_sequence'
+```
+
+Reading the output: **Re-decide** are design skills needing a targeted re-run (may ask questions), **Re-review** are invalidated review findings, **Regenerate** are mechanical derivatives, and **Unaffected** is enumerated explicitly - silence about an artifact is never evidence it is safe. `skill_sequence` is the topological order the skill executes verbatim. Exit codes: 0 ok, 1 unknown skill/artifact key, 2 cycle detected - safe for CI as a graph sanity check.
+
+The CLI deliberately does **not** accept a change description: turning prose into an owning skill is classification - a judgment call involving the taxonomy table, reading the artifact for the FROM state, and compound-change detection. That lives in the skill; use `/solace-change --dry-run "<your change>"` when you have words rather than a skill name.
 
 ### Outputs
 
@@ -1253,7 +1320,7 @@ Impact is computed, not guessed: the transitive closure over `consumes` edges in
 
 ### Example
 
-Mid-engagement, the operator decides topic addresses need a version level. `/solace-change "topics need a version segment"` classifies it as structural, owner `/solace-topic-design`, shows that protocol selection, integration, EP design, all four reviews, validation, and blueprint are affected while broker selection and HA/DR are not, and on confirmation re-runs the sequence with only the taxonomy-structure decision re-opened.
+Mid-engagement, the operator decides topic addresses need a version level. `/solace-change "topics need a version segment"` classifies it as structural, owner `/solace-topic-design`, shows that protocol selection, integration, mesh design (DMR replication patterns embed topic addresses), HA/DR, EP design, all four reviews, validation, and blueprint are affected while broker selection and the discovery brief are not, and on confirmation re-runs the sequence with only the taxonomy-structure decision re-opened.
 
 ---
 

@@ -328,6 +328,10 @@ These fixtures drive eval testing and provide reproducible test inputs for manua
 
 The canonical sources index follows three update rules: add URLs found during skill development, fix 404s, and push depth into the platform reference when topics gain real coverage.
 
+## Change-impact resolver
+
+`scripts/change-impact.ts` computes the deterministic blast radius of a design change from the declared produces/consumes graph in `scripts/skill-dependencies.yaml`: the transitive downstream closure, bucketed into re-decide (design skills), re-review (review skills), and regenerate (assembly derivatives), plus a topological re-run sequence. `/solace-change` calls it at classification time; run it standalone via `bun run change:impact --skill <name> [--project <slug>] [--json]`. Artifact locations resolve from `progress.yaml` recorded paths first so legacy project layouts are never misreported as absent. `test/skill-dependencies.test.ts` keeps the graph, the per-skill frontmatter mirror, and `skill-routing.yaml` mechanically reconciled.
+
 ## Dashboard
 
 The project dashboard is a lightweight Bun HTTP server (`scripts/dashboard.ts`) that serves a single-page app from the `dashboard/` directory. It provides a read-only view of project state for monitoring engagements in progress or reviewing completed ones.

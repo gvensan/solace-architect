@@ -80,8 +80,11 @@ skills:
     consumes: [discovery-brief, topic-taxonomy]
     produces: [protocol-map]
   solace-mesh-design:
+    # topic-taxonomy edge added after CR-002 in acme-payments-demo proved the
+    # DMR topology embeds selective-replication topic patterns - a taxonomy
+    # rename reached it but the graph did not schedule it.
     kind: design
-    consumes: [discovery-brief, broker-recommendation]
+    consumes: [discovery-brief, broker-recommendation, topic-taxonomy]
     produces: [dmr-topology]
   solace-ha-dr:
     kind: design

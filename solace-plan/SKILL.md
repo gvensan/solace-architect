@@ -984,7 +984,7 @@ python3 - "$ACTIVE" << 'PYEOF'
 import sys, yaml, os
 path = f"projects/{sys.argv[1]}/open-items.yaml"
 items = (yaml.safe_load(open(path)) or {}).get("open_items", []) if os.path.exists(path) else []
-is_pending = lambda i: i.get("type") == "change-request" and str(i.get("status", "pending")).lower() == "pending" and not i.get("reviewed")
+is_pending = lambda i: i.get("type") == "change-request" and (str(i.get("status", "pending")).lower() == "applying" or (str(i.get("status", "pending")).lower() == "pending" and not i.get("reviewed")))
 pending = [i for i in items if is_pending(i)]
 if pending:
     print(f"PENDING_CHANGE_REQUESTS: {len(pending)}")

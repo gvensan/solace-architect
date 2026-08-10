@@ -560,7 +560,8 @@ function renderProjectSelector() {
 
 function navigateTo(view) {
   if (!view || !views[view]) view = 'overview';
-  location.hash = view;
+  state.currentView = view;
+  if (location.hash !== '#' + view) location.hash = view;
   document.querySelectorAll('.nav-link').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
@@ -568,6 +569,13 @@ function navigateTo(view) {
   updateRightSidebar();
   updateStatusBar();
 }
+
+// Browser back/forward: the hash changes without a click, so re-render the
+// view the hash names. Guarded so navigateTo's own hash write is a no-op.
+window.addEventListener('hashchange', () => {
+  const v = (location.hash || '#overview').slice(1);
+  if (v !== state.currentView) navigateTo(views[v] ? v : 'overview');
+});
 
 document.getElementById('navLinks').addEventListener('click', e => {
   const link = e.target.closest('.nav-link');
@@ -760,7 +768,8 @@ async function overview() {
   const openItems = getPlainOpenItems(state.data.openItems);
   const openCount = openItems.filter(i => (i.status||'open') !== 'resolved').length;
   const changeRequests = getChangeRequests(state.data.openItems);
-  const pendingCRs = changeRequests.filter(c => (c.status || 'pending').toLowerCase() === 'pending');
+  // 'applying' = interrupted mid-cascade; it still needs operator action.
+  const pendingCRs = changeRequests.filter(c => ['pending', 'applying'].includes((c.status || 'pending').toLowerCase()));
 
   const discoveryFile = (files || []).find(f => f.includes('discovery') && f.endsWith('.md'));
   let systemsList = [];
@@ -1342,17 +1351,27 @@ async function overview() {
 /* ─── TIMELINE ─── */
 
 function timeline() {
-  const skills = getSkills(state.data.progress).filter(s => s.timing);
+  const allTimed = getSkills(state.data.progress).filter(s => s.timing);
+  // The orchestrator's wall time spans the whole engagement - as a bar it
+  // double-counts every skill it invoked and crushes the scale for the rest.
+  // Report it in the header line instead.
+  const orchestrator = allTimed.find(s => s.skill === 'solace-plan');
+  // Sequence order: sort by start timestamp, stable on progress.yaml order
+  // (which is run order) so equal or missing timestamps keep the sequence.
+  const skills = allTimed.filter(s => s.skill !== 'solace-plan')
+    .map((s, i) => ({ s, i, t: Date.parse(s.started || '') || 0 }))
+    .sort((a, b) => (a.t - b.t) || (a.i - b.i))
+    .map(x => x.s);
   const maxWall = Math.max(...skills.map(s => s.timing?.wall_sec || 0), 1);
   const totalExec = skills.reduce((a, s) => a + (s.timing?.execution_sec || 0), 0);
   const totalWait = skills.reduce((a, s) => a + (s.timing?.user_wait_sec || 0), 0);
-  const totalWall = skills.reduce((a, s) => a + (s.timing?.wall_sec || 0), 0);
+  const totalWall = orchestrator?.timing?.wall_sec || (totalExec + totalWait);
 
   document.getElementById('view').innerHTML = `
     <div class="section">
       <span class="overline">EXECUTION TIMELINE</span>
       <h1>Timeline</h1>
-      <p style="color:var(--text-dim);margin-top:8px">${skills.length} skills executed. ${fmtTime(totalExec)} execution / ${fmtTime(totalWait)} user wait / ${fmtTime(totalWall)} wall time.</p>
+      <p style="color:var(--text-dim);margin-top:8px">${skills.length} skills in run order. ${fmtTime(totalExec)} execution / ${fmtTime(totalWait)} user wait / ${fmtTime(totalWall)} engagement wall time.</p>
     </div>
     <div class="split-layout">
       <div class="split-sidebar" id="tlSidebar">
@@ -1385,21 +1404,33 @@ function timeline() {
 }
 
 function renderTimelineAll(skills, maxWall) {
+  // Waterfall mode when start timestamps genuinely vary: each bar offsets by
+  // its start within the engagement span, so the view reads as a sequence.
+  // Demo/backfilled projects with identical timestamps fall back to ordered
+  // duration bars (rows are already in run order either way).
+  const starts = skills.map(s => Date.parse(s.started || '') || 0);
+  const validStarts = starts.filter(Boolean);
+  const minStart = Math.min(...validStarts, Infinity);
+  const maxEnd = Math.max(...skills.map((s, i) => (starts[i] || 0) + (s.timing?.wall_sec || 0) * 1000), 0);
+  const span = maxEnd - minStart;
+  const waterfall = validStarts.length === skills.length && span > 0 && new Set(validStarts).size > 1;
   return `
-    <h2 style="margin-top:0">All Skills</h2>
+    <h2 style="margin-top:0">All Skills${waterfall ? ' <span style="font-size:12px;color:var(--text-muted);font-weight:normal">(sequence view - bars positioned by start time)</span>' : ''}</h2>
     <div class="timeline-container">
-      ${skills.map(s => {
+      ${skills.map((s, i) => {
         const t = s.timing;
-        const execPct = ((t.execution_sec / maxWall) * 100).toFixed(1);
-        const waitPct = ((t.user_wait_sec / maxWall) * 100).toFixed(1);
+        const scale = waterfall ? span / 1000 : maxWall;
+        const leftPct = waterfall ? (((starts[i] || minStart) - minStart) / span) * 100 : 0;
+        const execPct = Math.max((t.execution_sec / scale) * 100, 0.6);
+        const waitPct = (t.user_wait_sec / scale) * 100;
         return `<div class="timeline-entry">
           <div class="timeline-row">
             <div class="timeline-label">${SKILL_LABELS[s.skill] || s.skill}</div>
             <div class="timeline-bar-wrap">
-              <div class="timeline-bar exec" style="width:${execPct}%">
+              <div class="timeline-bar exec" style="left:${leftPct.toFixed(1)}%;width:${execPct.toFixed(1)}%">
                 ${t.execution_sec > 10 ? `<span class="timeline-bar-text">${fmtTime(t.execution_sec)}</span>` : ''}
               </div>
-              ${t.user_wait_sec > 0 ? `<div class="timeline-bar wait" style="left:${execPct}%;width:${waitPct}%"></div>` : ''}
+              ${t.user_wait_sec > 0 ? `<div class="timeline-bar wait" style="left:${(leftPct + execPct).toFixed(1)}%;width:${waitPct.toFixed(1)}%"></div>` : ''}
             </div>
             <div class="timeline-time">${fmtTime(t.wall_sec)}</div>
           </div>
@@ -1537,9 +1568,53 @@ function decisions() {
   });
 }
 
+// Where each skill's output lives, so a skill link can open the actual
+// artifact instead of dumping the user on the generic Artifacts page.
+// Reviews map to their specific file since they share 10-reviews/.
+const SKILL_ARTIFACT_TARGET = {
+  'solace-intake': '01-discovery/',
+  'solace-discovery': '01-discovery/',
+  'solace-topic-design': '02-topic-design/',
+  'solace-broker-select': '03-broker-select/',
+  'solace-sam-design': '04-sam-design/',
+  'solace-protocol-select': '05-protocol-select/',
+  'solace-mesh-design': '06-mesh-design/',
+  'solace-ha-dr': '07-ha-dr/',
+  'solace-integration': '08-integration/',
+  'solace-migration': '09-migration/',
+  'solace-architect-review': '10-reviews/architect-review.md',
+  'solace-ops-review': '10-reviews/ops-review.md',
+  'solace-security-review': '10-reviews/security-review.md',
+  'solace-dev-review': '10-reviews/dev-review.md',
+  'solace-validate': '11-validation/',
+  'solace-blueprint': '12-blueprint/architecture.md',
+  'solace-diagrams': '12-blueprint/diagrams/',
+  'solace-event-portal': '13-event-portal/',
+  'solace-ep-provision': '13-event-portal/',
+  'solace-executive': '14-executive/',
+  'solace-architecture-blueprint': '15-arch-blueprint/',
+  'solace-change': '16-changes/',
+};
+
+// Navigate to Artifacts and open the skill's primary artifact in the viewer.
+window.openSkillArtifacts = function (skill) {
+  navigateTo('artifacts');
+  const target = SKILL_ARTIFACT_TARGET[skill];
+  if (!target) return;
+  setTimeout(() => {
+    const links = Array.from(document.querySelectorAll('.artifact-link[data-path]'));
+    const hit = links.find(l => (l.dataset.path || '').startsWith(target)) ||
+                links.find(l => (l.dataset.path || '').startsWith(target.split('/')[0] + '/'));
+    if (hit) hit.click();
+  }, 50);
+};
+
 function dashSkillLink(skill) {
   const label = SKILL_LABELS[skill] || skill || '';
-  return label ? `<a href="#artifacts" class="xref-link" onclick="navigateTo('artifacts');return false;">${label}</a>` : '';
+  if (!label) return '';
+  const known = SKILL_ARTIFACT_TARGET[skill];
+  const title = known ? `Open ${label} output` : 'Open artifacts';
+  return `<a href="#artifacts" class="xref-link" title="${title}" onclick="openSkillArtifacts('${escHtml(String(skill || ''))}');return false;">${label}</a>`;
 }
 
 function renderDecisionTable(decs, title) {
@@ -1562,7 +1637,7 @@ function renderDecisionTable(decs, title) {
           <td><span class="badge badge-user">${escHtml(d.id || d.decision || '')}</span></td>
           <td>${dashSkillLink(d.skill)}</td>
           <td style="color:var(--text)"><span class="dec-value">${escHtml(d.label || d.value || d.choice || '')}</span>${supNote}</td>
-          <td style="color:var(--text-dim);font-size:13px"><span class="dec-rationale">${softenCitations(escHtml(d.question || d.rationale || ''))}</span></td>
+          <td style="color:var(--text-dim);font-size:13px"><span class="dec-rationale">${softenCitations(escHtml([d.question, d.reason || d.rationale].filter(Boolean).join(' - ') || ''))}</span>${d.change_ref || d.item_ref ? ` <span class="badge badge-user" title="Recorded by /solace-change">${escHtml(d.change_ref || d.item_ref)}</span>` : ''}</td>
         </tr>`;
         }).join('')}
       </tbody>
@@ -1686,18 +1761,22 @@ function renderOpenItemsTable(items, title) {
   return `
     <h2 style="margin-top:0">${title}</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>ID</th><th>Severity</th><th>Description</th><th>Source</th><th>Resolution Path</th><th>Status</th></tr></thead>
+      <thead><tr><th>ID</th><th>Severity</th><th>Description</th><th>Source</th><th>Resolution Path</th><th>Status</th><th>Action</th></tr></thead>
       <tbody>
         ${items.map(item => {
           const sev = (item.severity||'advisory').toLowerCase();
           const st = (item.status||'open').toLowerCase();
+          // Next-action guidance: open items carry the copyable CLI command
+          // (the skill prompts for the resolution note interactively).
+          const action = st === 'open' && item.id ? cmdChip(`/solace-change resolve ${item.id}`) : '';
           return `<tr>
             <td><span class="badge badge-user">${escHtml(item.id)}</span></td>
             <td><span class="badge ${SEV_BADGE[sev]||'badge-advisory'}">${sev}</span></td>
             <td style="color:var(--text)">${softenCitations(escHtml(item.description))}</td>
             <td>${dashSkillLink(item.source)}</td>
-            <td style="color:var(--text-dim);font-size:13px">${softenCitations(escHtml(item.resolution||''))}</td>
-            <td><span class="badge ${STATUS_BADGE[st]||'badge-open'}">${st}</span></td>
+            <td style="color:var(--text-dim);font-size:13px">${softenCitations(escHtml(item.resolution||''))}${item.resolution_note ? `<div style="margin-top:4px;color:var(--text)"><strong>Resolved:</strong> ${softenCitations(escHtml(item.resolution_note))}</div>` : ''}${item.defer_reason ? `<div style="margin-top:4px"><strong>Deferred:</strong> ${escHtml(item.defer_reason)}</div>` : ''}</td>
+            <td><span class="badge ${STATUS_BADGE[st]||'badge-open'}">${st}</span>${item.resolved_at || item.rejected_at ? `<div class="skill-timing" style="margin-top:2px">${fmtDate(item.resolved_at || item.rejected_at)}</div>` : ''}</td>
+            <td>${action}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1713,6 +1792,7 @@ function renderOpenItemsTable(items, title) {
 
 const CR_STATUS_BADGE = {
   pending: 'badge-in-progress',
+  applying: 'badge-in-progress',
   applied: 'badge-complete',
   deferred: 'badge-skipped',
   rejected: 'badge-missing',
@@ -1745,7 +1825,7 @@ function changesView() {
 
   const byStatus = {};
   crs.forEach(c => { const s = (c.status || 'pending').toLowerCase(); byStatus[s] = (byStatus[s] || 0) + 1; });
-  const pending = crs.filter(c => (c.status || 'pending').toLowerCase() === 'pending');
+  const pending = crs.filter(c => ['pending', 'applying'].includes((c.status || 'pending').toLowerCase()));
 
   view.innerHTML = `
     <div class="section">
@@ -1760,7 +1840,7 @@ function changesView() {
       <div class="split-sidebar" id="crSidebar">
         <div class="split-sidebar-group">By Status</div>
         <div class="split-sidebar-item active" data-filter="all">All (${crs.length})</div>
-        ${['pending','applied','deferred','rejected'].filter(s => byStatus[s]).map(s =>
+        ${['pending','applying','applied','deferred','rejected'].filter(s => byStatus[s]).map(s =>
           `<div class="split-sidebar-item" data-filter="${s}">${s.charAt(0).toUpperCase()+s.slice(1)} (${byStatus[s]})</div>`
         ).join('')}
       </div>
@@ -1808,7 +1888,7 @@ function renderChangesTable(list, title, allCrs, decItems) {
     const ownerSkill = cr.owner || cr.suspected_owner || '';
     const ownerNote = !cr.owner && cr.suspected_owner
       ? ' <span style="color:var(--text-muted);font-size:11px">(suspected)</span>' : '';
-    const action = st === 'pending' && cr.id
+    const action = (st === 'pending' || st === 'applying') && cr.id
       ? cmdChip(`/solace-change ${cr.id}`)
       : (st === 'applied' && cr.applied_at
         ? `<span class="skill-timing">applied ${fmtDate(cr.applied_at)}</span>`
@@ -1830,6 +1910,9 @@ function renderChangesTable(list, title, allCrs, decItems) {
             <div><span class="cr-meta-label">Raised at</span> ${esc(cr.raised_at || '--')}</div>
             <div><span class="cr-meta-label">Blocking</span> ${cr.blocking ? '<span class="badge badge-critical">YES</span>' : 'no'}</div>
             ${cr.reviewed !== undefined ? `<div><span class="cr-meta-label">Reviewed</span> ${cr.reviewed ? 'yes' : 'no'}</div>` : ''}
+            ${cr.defer_reason ? `<div><span class="cr-meta-label">Defer reason</span> ${esc(cr.defer_reason)}</div>` : ''}
+            ${cr.rejected_at ? `<div><span class="cr-meta-label">Rejected at</span> ${esc(String(cr.rejected_at))}</div>` : ''}
+            ${cr.applied_at ? `<div><span class="cr-meta-label">Applied at</span> ${esc(String(cr.applied_at))}</div>` : ''}
             ${cr.parent ? `<div><span class="cr-meta-label">Part of</span> <a href="#" class="cr-jump" data-cr="${esc(cr.parent)}">${esc(cr.parent)}</a></div>` : ''}
             ${subs.length ? `<div><span class="cr-meta-label">Sub-requests</span> ${subs.map(s2 => `<a href="#" class="cr-jump" data-cr="${esc(s2.id)}">${esc(s2.id)}</a>`).join(' ')}</div>` : ''}
           </div>
@@ -1839,7 +1922,7 @@ function renderChangesTable(list, title, allCrs, decItems) {
             <span class="badge badge-user">${esc(dec.id || dec.decision || '')}</span>
             ${dec.disposition ? `<span class="badge ${dec.disposition === 'applied' ? 'badge-complete' : 'badge-missing'}">${esc(dec.disposition)}</span>` : ''}
             <div style="margin-top:6px;color:var(--text)">${softenCitations(esc(dec.label || dec.value || dec.choice || ''))}</div>
-            ${dec.rationale ? `<div style="margin-top:4px;color:var(--text-dim);font-size:13px">${softenCitations(esc(dec.rationale))}</div>` : ''}
+            ${(dec.rationale || dec.reason) ? `<div style="margin-top:4px;color:var(--text-dim);font-size:13px">${softenCitations(esc(dec.rationale || dec.reason))}</div>` : ''}
             ${dec.supersedes ? `<div style="margin-top:4px;font-size:12px;color:var(--text-muted)">supersedes <a href="#decisions" class="xref-link" onclick="navigateTo('decisions');return false;">${esc(dec.supersedes)}</a></div>` : ''}
           </div>` : (cr.decision_ref ? `<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">decision ref: ${esc(cr.decision_ref)}</div>` : '')}
         </div>
