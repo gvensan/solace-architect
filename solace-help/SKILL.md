@@ -466,7 +466,7 @@ python3 - "$ACTIVE" << 'PYEOF'
 import sys, yaml, os
 path = f"projects/{sys.argv[1]}/open-items.yaml"
 items = (yaml.safe_load(open(path)) or {}).get("open_items", []) if os.path.exists(path) else []
-n = sum(1 for i in items if i.get("type") == "change-request" and str(i.get("status", "pending")).lower() == "pending" and not i.get("reviewed"))
+n = sum(1 for i in items if i.get("type") == "change-request" and (str(i.get("status", "pending")).lower() == "applying" or (str(i.get("status", "pending")).lower() == "pending" and not i.get("reviewed"))))
 print(f"PENDING_CHANGE_REQUESTS: {n}")
 PYEOF
 ```

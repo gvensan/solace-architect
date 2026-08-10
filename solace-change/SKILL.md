@@ -809,8 +809,13 @@ fi
 If no active project, tell the user to run `/solace-discovery` first and stop.
 
 Pending change requests are entries in `open-items.yaml` with
-`type: change-request` and `status: pending`. Entries **without**
-`type: change-request` are ordinary open items; ignore them entirely.
+`type: change-request` and `status: pending`. A request with
+`status: applying` was interrupted mid-cascade: drain mode and
+`/solace-change CR-NNN` both resume it (already-current artifacts are
+skipped). Entries **without**
+`type: change-request` are ordinary open items: they are never classified,
+impact-analyzed, or drained by this skill, but the **disposition commands**
+(`reject`, `defer`, `resolve`) accept their `OI-NNN` ids (see below).
 Drain mode skips entries marked `reviewed: true` (operator-deferred); naming
 a specific `CR-NNN` re-activates it regardless of `reviewed` or a `deferred`
 status.
@@ -824,8 +829,10 @@ Determine the invocation mode from the arguments:
 | `/solace-change "<text>"` | Create a `CR-NNN` entry from the text first, then process it |
 | `/solace-change CR-003` | Process that one request (re-activates a deferred or reviewed entry) |
 | `/solace-change --dry-run` | Classification + impact + live-tenant check (Steps 2-4), stop before the Step 5 confirm; write nothing |
-| `/solace-change reject CR-003 "<reason>"` | Record rejection with rationale; no regeneration |
-| `/solace-change defer CR-003` | Keep pending, mark `reviewed: true` so it stops resurfacing |
+| `/solace-change reject <CR-NNN\|OI-NNN> "<reason>"` | Record rejection with rationale; no regeneration |
+| `/solace-change defer <CR-NNN\|OI-NNN> ["<reason>"]` | Stop it resurfacing; reason recorded as `defer_reason` |
+| `/solace-change resolve OI-NNN "<note>"` | Mark an ordinary open item resolved, with the resolution note |
+| `/solace-change --help` | Print this invocation table, the status lifecycle (pending -> applying -> applied, or rejected / deferred), and the current queue counts. Read-only |
 
 For inline text, append the entry to the top-level `open_items:` list in
 `open-items.yaml` before processing (next `CR-NNN` id, `type: change-request`,
@@ -836,9 +843,30 @@ text as `verbatim`, your paraphrase as `restated`). Create the file with
 If the queue is empty and no inline text was given: report "No pending change
 requests." and exit. Do not invent work.
 
-For `reject`: set the entry's `status: rejected`, write a `decisions.yaml` entry
-(Step 6 shape, `disposition: rejected`, rationale required), and stop. No
-artifact changes. For `defer`: set `reviewed: true`, leave `status: pending`, stop.
+**Disposition commands** (`reject` / `defer` / `resolve`) work on both change
+requests and ordinary open items. Missing required input is collected
+interactively, never invented:
+
+- **`reject <id> "<reason>"`** - the rationale is required. If none was given
+  and the context does not make it obvious, prompt for it (free-text format)
+  before writing anything; never fabricate a reason. Then: set the entry's
+  `status: rejected` with `rejected_at`, write a `decisions.yaml` entry (Step 6
+  shape; `disposition: rejected`; `change_ref` for a CR, `item_ref` for an OI),
+  and append a disposition section to `16-changes/change-log.md` for CRs. No
+  artifact changes.
+- **`defer <id> ["<reason>"]`** - the reason is optional but valuable. If none
+  was given, prompt once (free-text, explicitly skippable). Record it as
+  `defer_reason` on the entry. For a CR: set `reviewed: true`, keep
+  `status: pending`. For an OI: set `reviewed: true`, keep `status: open`.
+  Deferring never lifts a gate: a `blocking` open item still gates the
+  blueprint until resolved or downgraded.
+- **`resolve OI-NNN "<note>"`** (open items only) - the note is required;
+  prompt if missing. Set `status: resolved`, `resolved_at`, and
+  `resolution_note`, and write a `decisions.yaml` entry
+  (`source: open-item`, `item_ref: OI-NNN`, `disposition: resolved`) so the
+  acceptance is auditable. Resolving a `blocking` item lifts the blueprint
+  gate. Change requests are not "resolved" by hand - they resolve by being
+  applied.
 
 Process requests one at a time, oldest first. For each, run Steps 2-8 before
 taking up the next.
@@ -986,8 +1014,12 @@ All bookkeeping happens **before** any skill is invoked, in this order:
 2. **Supersession** - add `superseded_by: <new decision key>` to the superseded
    entry. Never delete it. Decision history is append-only.
 
-3. **`open-items.yaml`** - set the change request's `status: applied` (or
-   `rejected` / `deferred`), add `decision_ref` and `applied_at`.
+3. **`open-items.yaml`** - set the change request's `status: applying` (or
+   `rejected` / `deferred` for those dispositions) and add `decision_ref`.
+   `applying` means the decision is recorded but regeneration is in flight -
+   the status flips to `applied` (with `applied_at`) only in Step 8, after the
+   sequence completes. An interruption leaves `applying` + stale markers,
+   which is the truthful, resumable state.
 
 4. **`progress.yaml`** - mark freshness under a top-level `artifacts:` map
    (create it if absent; it is additive and optional - a missing map means
@@ -1039,16 +1071,28 @@ Sequence rules:
 Append a section to `artifacts/16-changes/change-log.md` (create the file with
 a `# Change Log` header if absent). One section per change request:
 
+Use a bullet per field - single-newline field lines collapse into run-on
+paragraphs when the markdown renders:
+
 ```markdown
 ## CR-001 - <one-line title> (<date>)
 
-**Stated:** "<verbatim>"
-**Restated:** <restated delta>
-**Class:** structural · **Owner:** /solace-topic-design · **Decision:** <decision key>
-**Regenerated:** <artifacts now current>
-**Still stale:** <artifacts left stale, or "none">
-**Disposition:** applied
+- **Stated:** "<verbatim>"
+- **Restated:** <restated delta>
+- **Class:** structural · **Owner:** /solace-topic-design · **Decision:** <decision key>
+- **Regenerated:** <artifacts now current>
+- **Still stale:** <artifacts left stale, or "none">
+- **Disposition:** applied
 ```
+
+On successful completion of the sequence, flip the change request's
+`status: applying` to `status: applied` and set `applied_at` in
+`open-items.yaml` - this is the last write, so the status never claims more
+than what actually happened.
+
+Rejected change requests get the same section with `**Disposition:** rejected`
+and the recorded rationale in place of the Regenerated / Still stale lines, so
+the change log tells the whole story, not just the accepted half.
 
 Close with a summary: what changed, what regenerated, what is still stale, and
 what remains pending in the queue (with the exact command to process it).

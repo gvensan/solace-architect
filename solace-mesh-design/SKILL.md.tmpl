@@ -7,6 +7,7 @@ produces:
 consumes:
   - discovery-brief
   - broker-recommendation
+  - topic-taxonomy
 description: |
   Design DMR topologies for multi-site, multi-cloud, and hybrid Solace deployments.
   Selects single broker, DMR cluster, or external-link federation based on scale,

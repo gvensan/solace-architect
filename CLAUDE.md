@@ -16,6 +16,7 @@ bun run gen:skill-docs --host all # regenerate for all 10 hosts
 bun run skill:check  # health dashboard for all skills
 bun run dev:skill    # watch mode: auto-regen + validate on change
 bun run url:check    # check all grounding document URLs for health
+bun run change:impact --skill <name> [--project <slug>] [--json]  # blast radius of a design change (used by /solace-change)
 bun run dashboard    # launch project dashboard at http://localhost:3000
 bun run intake       # launch interactive intake HTML form at http://localhost:3001
 bun run grounding    # launch managed-grounding admin console at http://localhost:3002

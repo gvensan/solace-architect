@@ -146,7 +146,9 @@ The capture rule (§7) appends entries of this shape:
 ```yaml
 - id: CR-001
   type: change-request
-  status: pending          # pending | applied | deferred | rejected
+  status: pending          # pending | applying | applied | deferred | rejected
+                           # `applying` = decision recorded, regeneration in flight;
+                           # set at §8 Step 6, flipped to `applied` at Step 8
   raised_during: solace-topic-design      # skill active when captured
   raised_at: 2026-08-09T14:22:10Z
   verbatim: "actually the schema should carry a tenant id"
@@ -262,8 +264,12 @@ Triggering matters more than prose quality here. Write the `description` to be e
 | `/solace-change "<text>"` | Classify and process this change immediately; still creates a `CR-NNN` entry first |
 | `/solace-change CR-003` | Process one specific pending request |
 | `/solace-change --dry-run` | Classification + impact + live-tenant check (workflow steps 2-4), stop before the Step 5 confirm; write nothing |
-| `/solace-change reject CR-003 "<reason>"` | Record rejection with rationale; no regeneration |
-| `/solace-change defer CR-003` | Leave pending, mark reviewed so it stops surfacing every run |
+| `/solace-change reject <CR-NNN\|OI-NNN> "<reason>"` | Record rejection with rationale (prompted for if missing, never invented); no regeneration. Rejected CRs also get a disposition section in the change log |
+| `/solace-change defer <CR-NNN\|OI-NNN> ["<reason>"]` | Leave pending/open, mark reviewed so it stops surfacing; optional reason prompted for (skippable) and recorded as `defer_reason` |
+| `/solace-change resolve OI-NNN "<note>"` | Mark an ordinary open item resolved with a required `resolution_note`; records a `decisions.yaml` entry (`source: open-item`, `item_ref`). Resolving a blocking item lifts the blueprint gate; deferring never does |
+| `/solace-change --help` | Print the invocation table, status lifecycle, and current queue counts. Read-only |
+
+Disposition commands (`reject`/`defer`/`resolve`) are the one place this skill touches ordinary `OI-NNN` open items; classification, impact analysis, and drain remain change-request-only. Missing required input is collected interactively via the free-text prompt format, never fabricated.
 
 ### 8.3 Workflow
 
@@ -341,7 +347,7 @@ Returns:
   "regenerate": ["blueprint", "arch-blueprint", "diagrams", "validation-report"],
   "re_review": ["solace-security-review", "solace-dev-review"],
   "re_decide": ["solace-protocol-select", "solace-integration"],
-  "unaffected": ["broker-recommendation", "ha-dr-topology"],
+  "unaffected": ["broker-recommendation", "discovery-brief"],
   "absent": [],
   "live_conflict": false,
   "skill_sequence": ["solace-topic-design", "solace-protocol-select", "..."]
@@ -410,7 +416,7 @@ Extend the existing suite. All must pass under `bun test` (target: still under a
 - **No drift against routing:** every artifact-producing skill in `scripts/skill-routing.yaml` appears in `skill-dependencies.yaml`, and every skill in `skill-dependencies.yaml` appears in `skill-routing.yaml`. Two hand-maintained YAML sources of truth must be mechanically reconciled.
 
 **`test/change-impact.test.ts`**
-- Topic-taxonomy change → protocol-map, integration map, EP design, reviews, blueprint in `regenerate`/`re_decide`; `ha-dr-topology` and `broker-recommendation` in `unaffected`.
+- Topic-taxonomy change → protocol-map, integration map, EP design, DMR topology (replication patterns embed topic addresses) and transitively HA/DR, reviews, blueprint in `regenerate`/`re_decide`; `broker-recommendation` and `discovery-brief` in `unaffected`.
 - Broker-select change → mesh and HA/DR affected.
 - Executive-only change → no design skill scheduled.
 - Absent artifacts are excluded from the sequence.
