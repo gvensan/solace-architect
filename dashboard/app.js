@@ -92,6 +92,7 @@ function packIncludesSection(packFilters, sectionId) {
 }
 
 const SKILL_ORDER = [
+  'solace-intake-review',
   'solace-discovery', 'solace-plan', 'solace-topic-design', 'solace-broker-select',
   'solace-sam-design', 'solace-protocol-select', 'solace-mesh-design', 'solace-ha-dr',
   'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-ep-provision',
@@ -102,6 +103,7 @@ const SKILL_ORDER = [
 
 const SKILL_LABELS = {
   'solace-discovery': 'Discovery', 'solace-plan': 'Execution',
+  'solace-intake-review': 'Intake Review',
   'solace-topic-design': 'Topic Design', 'solace-broker-select': 'Broker Selection',
   'solace-sam-design': 'SAM Design', 'solace-protocol-select': 'Protocol Selection',
   'solace-mesh-design': 'Mesh Design', 'solace-ha-dr': 'HA/DR',
@@ -115,6 +117,7 @@ const SKILL_LABELS = {
 };
 
 const SKILL_PHASES = {
+  'solace-intake-review': 'Discovery',
   'solace-discovery': 'Discovery', 'solace-plan': 'Planning',
   'solace-topic-design': 'Design', 'solace-broker-select': 'Design',
   'solace-sam-design': 'Design', 'solace-protocol-select': 'Design',
@@ -129,7 +132,9 @@ const SKILL_PHASES = {
 };
 
 const SKILL_GROUPS = [
-  { phase: 'discovery', label: 'Discovery', skills: ['solace-discovery'] },
+  // Intake review is opt-in and runs before discovery consumes the intake, so
+  // it leads the discovery group rather than getting a group of its own.
+  { phase: 'discovery', label: 'Discovery', skills: ['solace-intake-review', 'solace-discovery'] },
   { phase: 'design', label: 'Design', skills: ['solace-topic-design', 'solace-broker-select', 'solace-sam-design', 'solace-protocol-select', 'solace-mesh-design', 'solace-ha-dr', 'solace-integration', 'solace-migration', 'solace-event-portal', 'solace-ep-provision'] },
   { phase: 'review', label: 'Review', skills: ['solace-architect-review', 'solace-ops-review', 'solace-security-review', 'solace-dev-review'] },
   { phase: 'finalize', label: 'Finalize', skills: ['solace-validate', 'solace-blueprint', 'solace-executive', 'solace-diagrams'] },
@@ -184,6 +189,7 @@ const STATUS_RANK = {
 // surface "artifacts on disk but not logged" and demote "logged complete but no
 // artifacts". Reviews share 10-reviews/, so they match specific files.
 const SKILL_ARTIFACT_MATCH = {
+  'solace-intake-review': f => f.startsWith('00-intake-review/'),
   'solace-discovery': f => f.startsWith('01-discovery/'),
   'solace-topic-design': f => f.startsWith('02-topic-design/'),
   'solace-broker-select': f => f.startsWith('03-broker-select/'),
@@ -314,6 +320,7 @@ function getStaleArtifacts(progress) {
 // keep this map in sync when that file changes. The generic `reviews` key is
 // accepted as a legacy alias for the four review-* keys.
 const ARTIFACT_KEY_DIRS = {
+  'intake-review': '00-intake-review',
   'discovery-brief': '01-discovery',
   'topic-taxonomy': '02-topic-design',
   'broker-recommendation': '03-broker-select',
@@ -1573,6 +1580,7 @@ function decisions() {
 // Reviews map to their specific file since they share 10-reviews/.
 const SKILL_ARTIFACT_TARGET = {
   'solace-intake': '01-discovery/',
+  'solace-intake-review': '00-intake-review/',
   'solace-discovery': '01-discovery/',
   'solace-topic-design': '02-topic-design/',
   'solace-broker-select': '03-broker-select/',
@@ -2023,6 +2031,7 @@ function artifactDefaultDescription(path) {
   const ext = path.split('.').pop();
   const groupLabel = group.replace(/^\d+-/, '');
   const groupHumans = {
+    '00-intake-review': 'Intake Review',
     '01-discovery': 'Discovery',
     '02-topic-design': 'Topic Design',
     '03-broker-select': 'Broker Selection',

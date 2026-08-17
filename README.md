@@ -21,7 +21,7 @@ The skills assume an expert operator who can verify "architectural inference, no
 
 ## What it does
 
-Solace Architect is a toolkit of 25 skills (prompt templates) that AI coding agents read at invocation time. You drive it with slash commands (`/solace-intake`, `/solace-discovery`, `/solace-plan`), or capture requirements through a local HTML form (`bun run intake`). Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and writing real artifacts to disk — markdown documents, Mermaid diagrams, YAML configs, and a runbook. See [Outputs and reports](#outputs-and-reports) for where everything lands and how to share it.
+Solace Architect is a toolkit of 26 skills (prompt templates) that AI coding agents read at invocation time. You drive it with slash commands (`/solace-intake`, `/solace-discovery`, `/solace-plan`), or capture requirements through a local HTML form (`bun run intake`). Each skill walks the agent through a structured workflow: asking the right questions, matching against reference architectures, applying Solace naming conventions, and writing real artifacts to disk — markdown documents, Mermaid diagrams, YAML configs, and a runbook. See [Outputs and reports](#outputs-and-reports) for where everything lands and how to share it.
 
 One skill, [`/solace-ep-provision`](#event-portal-provisioning-mcp), bridges the design output to a live Solace Cloud tenant via the [Solace Event Portal Designer MCP](https://github.com/SolaceLabs/solace-platform-mcp/tree/main/solace-event-portal-designer-mcp). See the **Event Portal provisioning (MCP)** section below for setup.
 
@@ -195,6 +195,7 @@ projects/<your-project>/
   open-items.yaml                    ← deferred findings + unaddressed requirements; blocking items gate blueprint
   progress.yaml                      ← per-skill status, timing, artifact list
   artifacts/
+    00-intake-review/findings.yaml         ← only when /solace-intake-review ran
     01-discovery/discovery-brief.md
     02-topic-design/topic-taxonomy.md
     03-broker-select/broker-recommendation.md
@@ -277,6 +278,7 @@ Full catalog of every skill. For the recommended flow, see [Getting started](#ge
 | Category | Skill | Command | Description |
 |----------|-------|---------|-------------|
 | Start here | Intake | `/solace-intake` | Generate intake templates for offline collection, or import a completed intake to bootstrap the full engagement. |
+| Start here | Intake Review | `/solace-intake-review` | Architect-grade critique of a completed intake before design consumes it: contradictions, event-model gaps, unnamed load-bearing choices, starved skills. Interactive reconciliation or `--report` mode. Advisory, never gates. |
 | Discovery | Discovery | `/solace-discovery` | Structured elicitation. Asks about systems, boundaries, events, protocols, requirements, and goals. Matches against reference architectures. Produces a discovery brief. |
 | Technical | Topic Design | `/solace-topic-design` | Maps data flows to `Domain/Noun/Verb/Version/Properties` taxonomy, assigns delivery modes, designs wildcard subscriptions, validates against antipatterns. |
 | Technical | Broker Selection | `/solace-broker-select` | Selects broker deployment model (Cloud, Software, Appliance) based on constraints. |

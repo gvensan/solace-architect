@@ -1377,8 +1377,9 @@ async function initLoadExistingBar() {
   for (const p of projects) {
     const opt = document.createElement('option');
     opt.value = p.slug;
-    opt.textContent = p.display_name + ' (' + p.slug + ')';
+    opt.textContent = p.display_name + ' (' + p.slug + ')' + (p.intake_reviewed ? ' [reviewed]' : '');
     opt.dataset.intakeFile = p.intake_file;
+    opt.dataset.intakeReviewed = p.intake_reviewed ? '1' : '';
     sel.appendChild(opt);
   }
   document.getElementById('load-existing-bar').style.display = 'flex';
@@ -1413,8 +1414,23 @@ async function onLoadExistingChange() {
     }
     const body = await res.json();
     loadData(body.data || {});
-    statusEl.textContent = 'Loaded ' + body.intake_file +
-      ' — edit and submit will overwrite that file if the project name is unchanged.';
+    // Submit ALWAYS writes intake/<slug>.yaml, even when the form loaded the
+    // canonical projects/<slug>/intake.yaml. Claiming it overwrites "that
+    // file" would be false in that case, and because the next load prefers
+    // the project copy the edit would appear to vanish. Name both files and
+    // the step that folds one into the other. The server deliberately does
+    // not write the project copy: /solace-intake Import Mode owns it and
+    // records provenance in decisions.yaml, so a direct write here would
+    // silently clobber review amendments.
+    const fromProjectCopy = String(body.intake_file || '').startsWith('projects/');
+    let msg = 'Loaded ' + body.intake_file + '. ';
+    msg += fromProjectCopy
+      ? 'Submitting writes a NEW submission to intake/, not back to this file. Run /solace-intake on that submission to fold your edits into the project copy.'
+      : 'Edit and submit will overwrite that file if the project name is unchanged.';
+    if (body.intake_reviewed) {
+      msg += ' Note: this intake was amended by /solace-intake-review, so values here reflect the reconciled copy; provenance is in the project dashboard (Decisions view).';
+    }
+    statusEl.textContent = msg;
   } catch (e) {
     statusEl.textContent = 'Failed: ' + (e && e.message ? e.message : e);
   }

@@ -66,6 +66,7 @@ and blueprint skills automatically.
 | Category | Skill | Slash command |
 |----------|-------|--------------|
 | Start here | Intake | `/solace-intake` |
+| Start here | Intake Review | `/solace-intake-review` |
 | Start here | Discovery | `/solace-discovery` |
 | Start here | Plan | `/solace-plan` |
 | Start here | Projects | `/solace-projects` |
@@ -101,6 +102,7 @@ When the user's request matches an available skill, invoke it via the Skill tool
 
 Primary (suggest these first):
 - Intake template generation, import filled intake, kickstart from template -> invoke /solace-intake
+- Review intake quality, critique the intake, check intake before design -> invoke /solace-intake-review
 - Architecture discovery, new project scoping -> invoke /solace-discovery
 - Plan a full engagement, orchestrate skills, "run everything" -> invoke /solace-plan
 - Project list, project status, switch project, compare projects -> invoke /solace-projects
@@ -191,6 +193,7 @@ solace-architect/
       digest.md           # Maintainer-edited digest, loaded by every skill, cited [managed-ref:]
       README.md           # How to add managed references
   solace-intake/          # /solace-intake
+  solace-intake-review/   # /solace-intake-review
   solace-discovery/       # /solace-discovery
   solace-topic-design/    # /solace-topic-design
   solace-broker-select/   # /solace-broker-select

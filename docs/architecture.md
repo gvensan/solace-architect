@@ -220,7 +220,7 @@ The remaining skills run automatically via `/solace-plan` or can be invoked indi
 
 | Category | Skills | Description |
 |----------|--------|-------------|
-| Start here | `/solace-intake`, `/solace-discovery`, `/solace-plan`, `/solace-projects` | Entry points: intake, project creation, orchestration, dashboard |
+| Start here | `/solace-intake`, `/solace-intake-review`, `/solace-discovery`, `/solace-plan`, `/solace-projects` | Entry points: intake, intake quality review, project creation, orchestration, dashboard |
 | Design | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration`, `/solace-event-portal`, `/solace-ep-provision` | Solace platform knowledge, artifact generation (YAML, diagrams, configs). `/solace-ep-provision` additionally calls the EP Designer MCP to create live tenant objects — opt-in via `preferences.provision_event_portal: true` at intake. |
 | Review | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` | Architect, developer, ops, security perspectives with interactive finding resolution |
 | Finalize | `/solace-validate`, `/solace-blueprint`, `/solace-executive` | Consistency checks, antipattern detection, final blueprint assembly, executive summary |
@@ -254,6 +254,7 @@ projects/<project-slug>/
   progress.yaml         # skill execution log with resume support
   feedback.yaml         # per-project feedback on skill output quality
   artifacts/            # all generated outputs, organized by skill
+    00-intake-review/     # only when /solace-intake-review ran
     01-discovery/
     02-topic-design/
     03-broker-select/

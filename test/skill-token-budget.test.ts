@@ -21,10 +21,13 @@ const PER_SKILL_TOKEN_CEILING = 40_000;
 // the /solace-change work (docs/solace-change-skill.md): measured baseline
 // ~302k, expected delta ~12-18k (new T3 change skill, ~60-token change-capture
 // rule multiplied across T2+ preambles, produces/consumes frontmatter, and
-// stale-input guards in validate/blueprint/plan). Deliberate per-skill
-// features, not runaway preamble growth — the guard still catches unbounded
-// growth and per-skill files stay far under 40k.
-const TOTAL_TOKEN_WARNING = 330_000;
+// stale-input guards in validate/blueprint/plan). Raised from 330k to 345k
+// when solace-intake-review landed: measured +12.3k for the new T2 skill
+// (299-line body; the bulk is the shared T2 preamble), total 335.1k across
+// 27 templates - roughly 10k of headroom under the ceiling.
+// Deliberate per-skill features, not runaway preamble growth — the guard
+// still catches unbounded growth and per-skill files stay far under 40k.
+const TOTAL_TOKEN_WARNING = 345_000;
 
 function estimateTokens(bytes: number): number {
   return Math.round(bytes / 4);

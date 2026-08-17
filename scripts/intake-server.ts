@@ -14,7 +14,7 @@
 
 import { readFile, writeFile, stat, mkdir, readdir } from "fs/promises";
 import { existsSync } from "fs";
-import { join, resolve, basename } from "path";
+import { join, resolve, basename, sep } from "path";
 import { spawnSync } from "child_process";
 
 const PORT = parseInt(process.env.INTAKE_PORT || "3001", 10);
@@ -50,7 +50,10 @@ function parseYamlFile(absPath: string): unknown {
 interface IntakableProject {
   slug: string;
   display_name: string;
-  intake_file: string; // intake/-relative path
+  intake_file: string; // ROOT-relative path (intake/ submission, or the
+  // canonical projects/<slug>/intake.yaml when it exists - that copy is the
+  // source of truth and may carry /solace-intake-review amendments)
+  intake_reviewed: boolean; // 00-intake-review/findings.yaml exists
 }
 
 async function listIntakableProjects(): Promise<IntakableProject[]> {
@@ -68,9 +71,15 @@ async function listIntakableProjects(): Promise<IntakableProject[]> {
       continue;
     }
     if (!ctx || ctx.source !== "intake") continue;
-    // Resolve the intake file: prefer context.yaml's intake_file, else fall back to intake/<slug>.yaml
+    // Resolve the intake file. The project's own intake.yaml is the canonical
+    // copy (it may carry /solace-intake-review amendments the intake/
+    // submission never sees) - prefer it. Fall back to context.yaml's
+    // intake_file, then intake/<slug>.yaml.
     let intakeRel: string | null = null;
-    if (typeof ctx.intake_file === "string" && ctx.intake_file.startsWith("intake/")) {
+    const projectCopy = `projects/${slug}/intake.yaml`;
+    if (existsSync(join(ROOT, projectCopy))) {
+      intakeRel = projectCopy;
+    } else if (typeof ctx.intake_file === "string" && ctx.intake_file.startsWith("intake/")) {
       intakeRel = ctx.intake_file;
     } else {
       const fallback = `intake/${slug}.yaml`;
@@ -81,6 +90,9 @@ async function listIntakableProjects(): Promise<IntakableProject[]> {
       slug,
       display_name: ctx.display_name || slug,
       intake_file: intakeRel,
+      intake_reviewed: existsSync(
+        join(PROJECTS_DIR, slug, "artifacts", "00-intake-review", "findings.yaml")
+      ),
     });
   }
   return out.sort((a, b) => a.display_name.localeCompare(b.display_name));
@@ -220,11 +232,23 @@ async function main() {
         const match = projects.find((p) => p.slug === slug);
         if (!match) return json({ error: "not found" }, 404);
         const absPath = resolve(ROOT, match.intake_file);
-        if (!absPath.startsWith(INTAKE_DIR)) {
-          return json({ error: "path escapes intake directory" }, 400);
+        // Allowed locations only: the intake/ submissions dir, or the exact
+        // canonical projects/<slug>/intake.yaml for this validated slug.
+        const projectCopy = resolve(join(PROJECTS_DIR, match.slug, "intake.yaml"));
+        // Path BOUNDARY, not string prefix: a bare startsWith(INTAKE_DIR) also
+        // accepts a sibling like <root>/intake-evil, which a context.yaml
+        // carrying `intake_file: intake/../intake-evil/x.yaml` resolves to.
+        const underIntakeDir = absPath === INTAKE_DIR || absPath.startsWith(INTAKE_DIR + sep);
+        if (!underIntakeDir && absPath !== projectCopy) {
+          return json({ error: "path escapes allowed intake locations" }, 400);
         }
         try {
-          return json({ slug: match.slug, intake_file: match.intake_file, data: parseYamlFile(absPath) });
+          return json({
+            slug: match.slug,
+            intake_file: match.intake_file,
+            intake_reviewed: match.intake_reviewed,
+            data: parseYamlFile(absPath),
+          });
         } catch (e: any) {
           return json({ error: e?.message || String(e) }, 500);
         }

@@ -29,6 +29,7 @@
 version: 1
 
 artifacts:
+  intake-review:         { dir: 00-intake-review,   file: findings.yaml }
   discovery-brief:       { dir: 01-discovery,       file: discovery-brief.md }
   topic-taxonomy:        { dir: 02-topic-design,    file: topic-taxonomy.md }
   broker-recommendation: { dir: 03-broker-select,   file: broker-recommendation.md }
@@ -109,6 +110,28 @@ skills:
     produces: [ep-design]
 
   # ── Review ────────────────────────────────────────────────
+  solace-intake-review:
+    # Reads intake.yaml (project-root file, not a declared artifact - hence
+    # consumes: []). Advisory: reconciles intake defects with the user
+    # pre-design; post-design it routes amendments to /solace-change.
+    #
+    # `kind: review` is CLASSIFICATION ONLY here, and the empty consumes list
+    # is what keeps it that way. change-impact.ts seeds its affected set from
+    # each skill's `consumes`, so with none this skill can never enter a blast
+    # radius. Give it a consumes edge and `kind: review` puts it in re_review,
+    # which means /solace-change would schedule the skill whose own post-design
+    # rule is to hand changes BACK to /solace-change - a loop. If this ever
+    # needs a real input edge, change `kind` at the same time.
+    #
+    # Note also that this skill is `phase: utility` in skill-routing.yaml while
+    # the docs file it under "Start Here". That divergence is deliberate: the
+    # routing phase exists to keep it OUT of the auto-routed intake preview
+    # (build-intake-html.py buckets only design/review/finalize), while the
+    # docs category describes where a human looks for it. There is no
+    # `start-here` phase in the routing vocabulary.
+    kind: review
+    consumes: []
+    produces: [intake-review]
   solace-architect-review:
     kind: review
     consumes: [discovery-brief, topic-taxonomy, broker-recommendation, sam-design,

@@ -1967,6 +1967,7 @@ Follow its instructions from top to bottom, **skipping these sections** (already
 - Step 0: Detect platform and base branch
 
 Execute every other section at full depth. When the loaded skill's instructions are complete, continue with the next step below. — Run the full engagement based on the intake
+- Alternate: `/solace-intake-review` — Architect-grade critique of the imported intake first (recommended for customer-supplied intakes; reconciles contradictions and gaps before design consumes them)
 - Alternate: Read the `/solace-discovery` skill file at `~/.claude/skills/solace-architect/solace-discovery/SKILL.md` using the Read tool.
 
 **If unreadable:** Skip with "Could not load /solace-discovery — skipping." and continue.

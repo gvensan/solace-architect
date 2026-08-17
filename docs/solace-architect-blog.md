@@ -42,14 +42,15 @@ Skip any one layer and an integration team finds out about it during week four o
 
 ## The skill catalog
 
-The toolkit packages this surface area into 25 skills, each invokable as a slash command:
+The toolkit packages this surface area into 26 skills, each invokable as a slash command:
 
 | Category | Skills |
 |---|---|
-| **Start here** | `/solace-intake`, `/solace-discovery`, `/solace-plan`, `/solace-projects` |
+| **Start here** | `/solace-intake`, `/solace-intake-review`, `/solace-discovery`, `/solace-plan`, `/solace-projects` |
 | **Design** | `/solace-topic-design`, `/solace-broker-select`, `/solace-sam-design`, `/solace-protocol-select`, `/solace-mesh-design`, `/solace-ha-dr`, `/solace-migration`, `/solace-integration`, `/solace-event-portal`, `/solace-ep-provision` |
 | **Review** | `/solace-architect-review`, `/solace-ops-review`, `/solace-security-review`, `/solace-dev-review` |
 | **Finalize** | `/solace-validate`, `/solace-blueprint`, `/solace-architecture-blueprint`, `/solace-executive`, `/solace-diagrams`, `/solace-help` |
+| **Change** | `/solace-change` |
 
 Every skill can be re-run independently. Skip the orchestrator and call them one at a time when only one slice needs to change.
 
@@ -81,12 +82,13 @@ projects/retailco-order-events/
 ├── decisions.yaml        # every D<N> with rationale
 ├── progress.yaml         # per-skill status + timing
 └── artifacts/
+    ├── 00-intake-review/ ├── 07-ha-dr/
     ├── 01-discovery/     ├── 08-integration/
     ├── 02-topic-design/  ├── 10-reviews/
     ├── 03-broker-select/ ├── 11-validation/
     ├── 05-protocol/      ├── 12-blueprint/   ← engineering handoff
     ├── 06-mesh-design/   ├── 13-event-portal/
-    ├── 07-ha-dr/         └── 14-executive/
+    │                     └── 14-executive/
 ```
 
 For a recent retailco order-events engagement, the **system-context diagram** comes out like this — services, broker, per-edge protocol, all in one view:

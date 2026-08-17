@@ -440,6 +440,8 @@ Solace Architect — Getting Started
   Optional shortcut:
     /solace-intake        Generate a template for offline collection, or import a
                           completed intake file to bootstrap discovery automatically
+    /solace-intake-review Architect-grade critique of the imported intake before
+                          design consumes it (interactive reconcile, or --report)
 ```
 
 ---
@@ -507,6 +509,8 @@ Print:
     /solace-event-portal       Event Portal governance: domains, events, schemas, catalog
 
   Review:
+    /solace-intake-review      Intake quality before design consumes it:
+                               contradictions, gaps, unnamed choices (advisory)
     /solace-architect-review   Architecture trade-offs and component choices
     /solace-ops-review         Operations readiness: monitoring, capacity, runbooks
     /solace-security-review    Security posture: ACL, TLS, compliance

@@ -1,0 +1,327 @@
+---
+name: solace-intake-review
+preamble-tier: 2
+version: 0.1.0
+produces:
+  - intake-review
+consumes: []
+description: |
+  Architect-grade review of a completed intake before design consumes it.
+  Finds internal contradictions, event-model gaps, unnamed load-bearing
+  choices, payload smells, missed Micro-Integration and protocol
+  opportunities, and fields whose absence will starve downstream skills.
+  Interactive mode reconciles each finding with the user and amends the
+  intake; --report mode writes findings only and never edits anything.
+  Use after an intake exists and before /solace-plan or any design skill.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - WebFetch
+  - WebSearch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-intake-review — Intake Quality Review
+
+You are running the intake review skill. Your job: critique the intake the way a
+senior architect reads a discovery form - not "is it filled in" (that is
+/solace-intake's import validation) but "is it consistent, complete for what it
+promises, and good Solace". Every finding carries evidence quoted from the
+intake and a concrete recommendation. The intake is the user's testimony: you
+never invent requirements, and in report-only mode you never edit anything.
+
+Two hard rules:
+
+- **The findings file is written before any reconciliation begins.** A crash
+  mid-reconcile must leave a truthful record of what was found.
+- **Amendments are the user's answers, not yours.** Every change to
+  `intake.yaml` traces to an explicit user decision in Step 5. No decision, no
+  edit.
+
+---
+
+## Step 0: Resolve input and mode
+
+Arguments: `/solace-intake-review [path/to/intake.yaml] [--report]`
+
+```bash
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+echo "ACTIVE: ${ACTIVE:-none}"
+```
+
+Resolve the intake to review, first match wins:
+
+1. An explicit file-path argument. Output directory is `<dir-of-intake>/review/`.
+   This is how embedding pipelines (for example Solace Grinder) invoke the
+   skill against their own project layout.
+2. The active project's `projects/$ACTIVE/intake.yaml`. Output directory is
+   `projects/$ACTIVE/artifacts/00-intake-review/`.
+
+If neither resolves, stop: "No intake found. Run /solace-intake to create or
+import one." Do not review a template - a blank or placeholder-only intake gets
+NEEDS_RECONCILIATION with a single info finding saying so, not forty findings.
+
+Determine the run mode. **Report-only** when ANY of:
+
+- `--report` was passed
+- `execution_mode: auto` is set in the project's `decisions.yaml`
+  (reconciliation answers are user testimony and cannot be auto-decided;
+  fabricating them would corrupt the intake)
+- there is no active project (explicit-path invocation with no engagement
+  state to write decisions into)
+
+Otherwise the mode is **interactive**.
+
+Determine the engagement state. **Post-design** when the active project's
+`progress.yaml` shows any design-kind skill (topic-design, broker-select,
+sam-design, protocol-select, mesh-design, ha-dr, integration, migration,
+event-portal) `complete` or `in-progress`; also post-design when invoked with
+an explicit path and the caller's layout shows design output next to the
+intake (a sibling `design/` directory with files beyond a README). Post-design
+changes the amendment rules in Step 6 - findings still report normally.
+
+Print a one-line banner before proceeding:
+`mode: <interactive|report-only> · engagement: <pre-design|post-design> · intake: <path>`
+
+---
+
+## Step 1: Read the inputs
+
+Read in full - the review is only as grounded as what you actually read:
+
+- the intake file, including any referenced sample payload files
+- `{{GROUNDING_DIR}}/integration-hub-catalog.md`
+- `{{GROUNDING_DIR}}/antipatterns.md` (the intake-detectable subset)
+- `{{GROUNDING_DIR}}/solace-platform-reference.md` (sections the intake touches)
+- `scripts/skill-routing.yaml` (which skills this intake will and will not
+  trigger)
+
+---
+
+## Step 2: Deterministic floor (verify first)
+
+Compute these mechanically before any judgment. Confirm or dismiss each -
+they are candidates, not conclusions:
+
+- **Field map:** every empty intake field, and which routed skill reads it.
+- **Catalog match, three ways per named system:** system name against catalog
+  entry names, the system's `protocol` value against entry names and notes,
+  and the system/driver description against entry categories. Name-only
+  matching is the known blind spot; the protocol column usually carries the
+  signal (an SFTP system matches file-transfer Micro-Integrations regardless
+  of what the service is called).
+- **Routing evaluation:** apply `skill-routing.yaml` conditions to the intake
+  values. Record which skills trigger, which do not, and which non-triggering
+  ones the stated goals appear to want.
+- **Arithmetic:** volumes vs rates vs payload sizes. State the implied math
+  ("1000/day at 200/sec peak means one five-second burst per day").
+
+---
+
+## Step 3: Judgment review
+
+Six categories. For each finding: quote the evidence, state the consequence
+for the design phase, and give a concrete recommendation. Severity ladder:
+
+- **blocker** - design would be wrong (contradictions, goal/event mismatch)
+- **warning** - design will have to guess (unnamed keys, ambiguous load)
+- **suggestion** - better Solace usage (verb granularity, payload hygiene)
+- **info** - starved-skill notes and confirmations
+
+1. **Internal contradictions.** Statements that cannot all be true: stated
+   volume vs event rates, latency tier vs the driver's implied urgency, an
+   event's delivery differing from the global delivery mode, topology vs
+   blank sites, processing guarantee vs delivery mode.
+2. **Event-model gaps.** The driver promises what the event list cannot
+   deliver: lifecycle verbs missing (a sync with no delete event diverges
+   silently), created/modified collapsed into one event where consumers would
+   subscribe by intent, request events with no reply, event semantics carried
+   inside the payload instead of the topic.
+3. **Unnamed load-bearing choices.** Options selected without the detail that
+   makes them designable: per-key ordering with no key named, guaranteed
+   delivery with no redelivery/duplicate tolerance stated, multi-region with
+   no regions listed.
+4. **Payload and sample quality.** Producer/consumer coupling (the producer
+   stating the consumer's paths or routing), samples too weak to infer a real
+   schema from (truncated hashes, placeholder values), missing identity or
+   correlation fields, payloads that should be claim-checks and are not (or
+   are, and deserve a confirmation).
+5. **Micro-Integration and protocol opportunities.** Catalog hits from Step 2
+   the intake does not acknowledge; systems marked custom that have Hub
+   entries; per-system protocol observations where the stated protocols do
+   not include how the system will actually reach the event broker.
+6. **Starved skills.** From the Step 2 field map and routing evaluation:
+   "`observability` is blank, so /solace-ops-review will design monitoring
+   from nothing" - each names the field, the skill, and what improves if one
+   line is added. Also the inverse: preferences that schedule a skill the
+   environment cannot support yet.
+
+Sound areas get confirmations (info), grouped, so the user sees the boundary
+of what was checked - a review that only lists faults reads as unfinished.
+
+**Prior answers are answers, not material to critique.** Before raising a
+finding, check the places an operator's earlier reconciliation may live -
+re-raising an answered question as a blocker or warning is double-charging
+the user for the same defect:
+
+- **A free-text clarifications field in the intake itself** (some intakes
+  carry one for answers no structured field can hold, tagged by field path).
+- **`decisions.yaml` entries with `source: solace-intake-review`** - applied
+  and kept dispositions from a previous run of this skill.
+- **`open-items.yaml` entries this skill created** - deferrals the operator
+  chose knowingly; re-report them as info ("still deferred"), never as fresh
+  findings.
+
+A concern fully answered in any of these is a **confirmation**, not an open
+finding. Recommending that a free-text answer be promoted into a structured
+field is a fair suggestion.
+
+---
+
+## Step 4: Write the findings record
+
+Write BOTH files now, before any reconciliation, in the output directory from
+Step 0 (create it; clear stale contents from a previous run first - the
+record must describe this run only).
+
+**`findings.yaml`** - the machine contract. Embedding UIs render from this;
+keep the shape exact:
+
+```yaml
+schemaVersion: 1
+generated: "<UTC timestamp>"
+intake: "<path reviewed>"
+mode: "<interactive|report-only>"
+engagement: "<pre-design|post-design>"
+verdict: NEEDS_RECONCILIATION   # READY | READY_WITH_WARNINGS | NEEDS_RECONCILIATION
+counts: { blocker: 0, warning: 0, suggestion: 0, info: 0 }
+findings:
+  - id: IR-001                  # IR-NNN, stable within this run
+    category: contradiction     # contradiction | event-model | unnamed-choice |
+                                # payload-quality | integration-opportunity | starved-skill
+    severity: blocker           # blocker | warning | suggestion | info
+    field: "landscape.volumes"  # dot-path(s) into the intake; comma-separate several
+    evidence: "volumes: 1000 events/day ... rate: 200/sec peak"
+    finding: "<one sentence: what is wrong and why it matters downstream>"
+    recommendation: "<one sentence: what to change or state>"
+    proposed_change:            # OMIT the key entirely when no mechanical edit exists
+      path: "landscape.volumes"
+      value: "bulk drops of ~200/sec for a few seconds; ~1000 events/day total"
+    status: open                # open | applied | answered | kept | deferred
+    resolution: ""              # user's words, filled during reconciliation
+```
+
+Verdict rules, applied mechanically from statuses: any finding with severity
+`blocker` and status `open` → `NEEDS_RECONCILIATION`; otherwise any `warning`
+open → `READY_WITH_WARNINGS`; otherwise `READY`. Confirmations are `info` with
+status `open` and do not affect the verdict.
+
+**`intake-review.md`** - the human report: verdict and counts up top, findings
+by severity with evidence and recommendations, the confirmations block, and
+the Step 2 routing/starvation table.
+
+In **report-only** mode: print the verdict, the counts, and the two file
+paths, then go to Step 8. Nothing else is written and no file outside the
+output directory is touched.
+
+---
+
+## Step 5: Reconcile (interactive mode only)
+
+Walk findings in severity order, one AskUserQuestion each, full D<N> format.
+Skip `info` confirmations - display them, do not ask. For each finding:
+
+- **A) Apply the recommendation** - uses `proposed_change` when present;
+  otherwise you draft the minimal edit that implements the recommendation and
+  show it before writing.
+- **B) I'll state it differently** - free text; the user's words become the
+  amendment. This is the expected answer for contradictions: only the user
+  knows which number is true.
+- **C) Keep as-is** - legitimate; record the rationale ("deletes are out of
+  MVP scope") in `resolution`. A recorded scope decision is itself an intake
+  improvement.
+- **D) Defer** - no change, resurfaces later via open items.
+
+Findings without a mechanical change (starved-skill notes) offer B/C/D only.
+
+---
+
+## Step 6: Amend
+
+**Pre-design:** apply each accepted change to the intake file with Edit -
+minimal, surgical, preserving comments and field order. Never rewrite the
+whole file. Update the finding's `status` (`applied` or `answered`) and
+`resolution` in `findings.yaml` as you go, and record each amendment in
+`decisions.yaml`:
+
+**Enum discipline.** Before writing, check whether the target field is
+enum-backed: the intake template's fixed vocabularies and every `op: in`
+condition in `scripts/skill-routing.yaml` (`requirements.topology`,
+`requirements.delivery_mode`, `project.type`, and peers). Amendments to
+those fields must be one of the legal values - a free-text answer that does
+not map gets one follow-up ("which of <legal values> is it?") with the
+nuance recorded in the finding's `resolution` and, where one exists, the
+adjacent free-text field. Never prose in an enum slot: it silently reverts
+when the intake form reloads the file, and it breaks the routing conditions
+that decide which skills run.
+
+```yaml
+- decision: "<field>: <old> -> <new>"
+  rationale: "<finding id and one-line reason>"
+  source: solace-intake-review
+  severity: "<blocker|warning|suggestion>"
+  action: applied
+```
+
+**Post-design:** do NOT edit the intake. The design already consumed it;
+silent amendment is the exact failure /solace-change exists to prevent. For
+each accepted change, append a `type: change-request` entry to
+`open-items.yaml` per the Change Capture convention (next CR-NNN id, verbatim,
+restated, `suspected_owner: solace-intake`), set the finding's status to
+`deferred` with `resolution: "routed to /solace-change as CR-NNN"`, and tell
+the user: `/solace-change` will classify it and compute the blast radius.
+
+Kept and deferred findings of blocker or warning severity also get an
+open-items entry (severity mapped blocker → high, warning → advisory; never
+blocking - this skill is advisory by design and must not gate the plan).
+
+---
+
+## Step 7: Re-check (interactive, bounded)
+
+If any amendment was applied, re-read the amended intake and verify each
+applied finding is actually resolved and no new contradiction was introduced
+(an amended volume can newly contradict an untouched latency tier). New or
+surviving findings get fresh IR-NNN ids and one more reconcile round.
+**Maximum two re-check rounds** - then write what remains as open and move
+on. This loop must converge, not become a linter the user fights.
+
+Recompute the verdict and counts, rewrite `findings.yaml` and
+`intake-review.md` with final statuses.
+
+---
+
+## Step 8: Complete
+
+Update `progress.yaml` (skill entry per the preamble's checkpoint convention,
+with the timing block) when an active project exists. Report using the
+Completion Status Protocol:
+
+- `DONE` - verdict READY or READY_WITH_WARNINGS
+- `DONE_WITH_CONCERNS` - verdict NEEDS_RECONCILIATION (report-only runs with
+  open blockers land here; say what is open and that
+  `/solace-intake-review` without `--report` reconciles interactively)
+
+Close with the verdict line, the counts, what changed (or "nothing - report
+only"), and any CR-NNN entries created.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-plan` - the intake is as clean as it is going to get;
+  plan the engagement.
+- If the review ran report-only and left open blockers, primary becomes
+  running `/solace-intake-review` interactively instead.
