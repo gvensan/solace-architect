@@ -1195,4 +1195,5 @@ The plan skill will pick up the discovery brief and orchestrate all remaining sk
 
 **Next step routing:** present using the Next Step Chaining protocol.
 - Primary: {{INVOKE_SKILL:solace-plan}} — Run the full engagement based on the intake
+- Alternate: `/solace-intake-review` — Architect-grade critique of the imported intake first (recommended for customer-supplied intakes; reconciles contradictions and gaps before design consumes them)
 - Alternate: {{INVOKE_SKILL:solace-discovery}} — Run full interactive discovery instead (if intake was too sparse)

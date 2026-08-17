@@ -32,6 +32,18 @@ skills:
     trigger: never
     outcome: Change-request processing — mid-engagement only, never intake-triggered
 
+  # `phase: utility` is what hides this from the intake preview
+  # (build-intake-html.py buckets only design/review/finalize), NOT a claim
+  # about where it belongs in the workflow - the docs correctly file it under
+  # "Start Here", since it is an opt-in entry point run before design. The two
+  # taxonomies diverge here for the first time; there is no `start-here` phase
+  # to use instead. See the matching note in skill-dependencies.yaml.
+  - name: solace-intake-review
+    command: /solace-intake-review
+    phase: utility
+    trigger: never
+    outcome: Intake quality review - opt-in, run before design to reconcile intake defects
+
   - name: solace-topic-design
     command: /solace-topic-design
     phase: design

@@ -54,6 +54,7 @@ Most users only need these commands:
 | `/solace-intake` | Skip the interview — fill out a template offline, then import. |
 | `/solace-discovery` | Start a new project. Describe systems and goals. |
 | `/solace-plan` | Run the full engagement. Picks skills, runs them in order, threads context between them. |
+| `/solace-intake-review` | Optional but recommended after an intake import: architect-grade critique of the intake (contradictions, gaps, starved fields) reconciled with you before design consumes it. `--report` for findings-only. |
 | `/solace-projects` | Dashboard. Status, timing, summary, switch projects, launch the web UI. |
 
 Alternatively, use `/solace-intake` to generate a DOCX template for offline requirements gathering. Import the completed template to skip interactive discovery.
@@ -141,6 +142,7 @@ projects/retail-banking-chat-agent/
   progress.yaml         # skill execution log
   feedback.yaml         # feedback on skill output quality
   artifacts/
+    00-intake-review/   # only when /solace-intake-review ran
     01-discovery/       # where this skill's output goes
     02-topic-design/    # future skills populate these
     03-broker-select/

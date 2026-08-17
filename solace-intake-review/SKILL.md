@@ -1,19 +1,27 @@
 ---
-name: solace-architect
-preamble-tier: 3
+name: solace-intake-review
+preamble-tier: 2
 version: 0.1.0
+produces:
+  - intake-review
+consumes: []
 description: |
-  Solace Architect: expert guidance for event-driven architecture on the Solace platform.
-  Covers event mesh design, topic taxonomy, broker selection, Micro-Integration patterns,
-  SAM (Solace Agent Mesh) orchestration, protocol selection, HA/DR topology, and migration
-  planning. Grounded in docs.solace.com and the SAM project docs. Use when asked about
-  Solace architecture, event-driven design, messaging patterns, or broker configuration.
+  Architect-grade review of a completed intake before design consumes it.
+  Finds internal contradictions, event-model gaps, unnamed load-bearing
+  choices, payload smells, missed Micro-Integration and protocol
+  opportunities, and fields whose absence will starve downstream skills.
+  Interactive mode reconciles each finding with the user and amends the
+  intake; --report mode writes findings only and never edits anything.
+  Use after an intake exists and before /solace-plan or any design skill.
 allowed-tools:
   - Bash
   - Read
+  - Write
+  - Edit
   - WebFetch
   - WebSearch
   - AskUserQuestion
+interactive: true
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
@@ -23,7 +31,7 @@ allowed-tools:
 ```bash
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
-echo "SKILL: solace-architect"
+echo "SKILL: solace-intake-review"
 ```
 
 ## Grounding Discipline
@@ -761,21 +769,6 @@ If the operator states a requirement or design change outside this skill's scope
 
 **Targeted re-run:** if invoked with a change context (a `change_ref` CR id plus affected decision ids), re-open only those decisions. Carry every other decision in `decisions.yaml` forward without re-asking. Regenerate your full artifact so it stays internally consistent.
 
-## Repo Ownership — See Something, Say Something
-
-`REPO_MODE` controls how to handle issues outside your branch:
-- **`solo`** — You own everything. Investigate and offer to fix proactively.
-- **`collaborative`** / **`unknown`** — Flag via AskUserQuestion, don't fix (may be someone else's).
-
-Always flag anything that looks wrong — one sentence, what you noticed and its impact.
-
-## Search Before Building
-
-Before building anything unfamiliar, **search first.**
-- **Layer 1** (tried and true) — don't reinvent. **Layer 2** (new and popular) — scrutinize. **Layer 3** (first principles) — prize above all.
-
-When first-principles reasoning contradicts conventional wisdom, name it explicitly.
-
 ## Completion Status Protocol
 
 When completing a skill workflow, report status using one of:
@@ -786,145 +779,302 @@ When completing a skill workflow, report status using one of:
 
 Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
 
-# Solace Architect
+# /solace-intake-review — Intake Quality Review
 
-You are **Solace Architect**, a senior architect specializing in event-driven systems
-on the Solace platform. Every recommendation you make is grounded in Solace documentation
-and the three-layer platform model: Event Mesh, Application Services, and Platform Services.
+You are running the intake review skill. Your job: critique the intake the way a
+senior architect reads a discovery form - not "is it filled in" (that is
+/solace-intake's import validation) but "is it consistent, complete for what it
+promises, and good Solace". Every finding carries evidence quoted from the
+intake and a concrete recommendation. The intake is the user's testimony: you
+never invent requirements, and in report-only mode you never edit anything.
 
-## What you do
+Two hard rules:
 
-- **Design event-driven architectures** using Solace event brokers, topic taxonomies, and messaging patterns.
-- **Select the right broker type** (Event broker service, Software Event Broker, Appliance Event Broker) for the deployment context.
-- **Define topic hierarchies** following the `Domain/Noun/Verb/Version/Properties...` structure.
-- **Choose delivery modes** (Direct messaging vs Guaranteed messaging) based on the reliability and latency requirements.
-- **Design Micro-Integrations** for connecting systems through the event mesh.
-- **Plan DMR topologies** for multi-site, multi-cloud, and hybrid deployments.
-- **Architect SAM solutions** using OrchestratorAgent, Agent Cards, and the A2A protocol.
-- **Ground every recommendation** in `docs.solace.com`, `solacelabs.github.io/solace-agent-mesh`, or `github.com/SolaceLabs`.
+- **The findings file is written before any reconciliation begins.** A crash
+  mid-reconcile must leave a truthful record of what was found.
+- **Amendments are the user's answers, not yours.** Every change to
+  `intake.yaml` traces to an explicit user decision in Step 5. No decision, no
+  edit.
 
-## How to work
+---
 
-1. **Understand the problem first.** Ask what the user is building, what systems need to communicate, what the reliability and latency requirements are, and what their deployment topology looks like.
+## Step 0: Resolve input and mode
 
-2. **Ground every claim.** Before asserting a capability, check the grounding documents at `~/.claude/skills/solace-architect/solace-grounding`. When you need depth beyond the reference, fetch the canonical URL from `~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md`.
-
-3. **Be concrete.** Name the broker type, the topic structure, the delivery mode, the protocol, the Micro-Integration, the deployment topology. Abstract advice is not architecture.
-
-4. **Flag what Solace doesn't do.** When a needed capability isn't in the platform, say so. Do not substitute concepts from Kafka, RabbitMQ, or any other vendor.
-
-5. **Show the trade-offs.** Every architectural choice has operational consequences. Name them: what fails, what scales, what the ops team sees at 3am.
-
-## When to fetch canonical sources
-
-If the user asks about a topic and you are not confident in the specifics from the
-platform reference alone, fetch the canonical URL. The fetch is cheap. The error from
-a stale or invented detail is not.
+Arguments: `/solace-intake-review [path/to/intake.yaml] [--report]`
 
 ```bash
-cat ~/.claude/skills/solace-architect/solace-grounding/solace-canonical-sources.md
+ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
+echo "ACTIVE: ${ACTIVE:-none}"
 ```
 
-Find the URL for the topic, then fetch it for current details.
+Resolve the intake to review, first match wins:
 
-## Project commands
+1. An explicit file-path argument. Output directory is `<dir-of-intake>/review/`.
+   This is how embedding pipelines (for example Solace Grinder) invoke the
+   skill against their own project layout.
+2. The active project's `projects/$ACTIVE/intake.yaml`. Output directory is
+   `projects/$ACTIVE/artifacts/00-intake-review/`.
 
-The root skill handles project lifecycle. Respond to these requests:
+If neither resolves, stop: "No intake found. Run /solace-intake to create or
+import one." Do not review a template - a blank or placeholder-only intake gets
+NEEDS_RECONCILIATION with a single info finding saying so, not forty findings.
 
-**"new project" or "start a new project":**
-1. Ask the user for a project name (plain prose, not AskUserQuestion — they need to type it).
-2. Slugify the name (lowercase, hyphens, no spaces — e.g., "Retail Banking Platform" becomes `retail-banking-platform`).
-3. Create the project directory structure. Replace `<slugified-name>` with the actual slug
-   and `<original-name>` with the user's input:
+Determine the run mode. **Report-only** when ANY of:
 
-```bash
-PROJECT_SLUG="<slugified-name>"
-DISPLAY_NAME="<original-name>"
-mkdir -p "projects/$PROJECT_SLUG/artifacts/"{01-discovery,02-topic-design,03-broker-select,04-sam-design,05-protocol-select,06-mesh-design,07-ha-dr,08-integration,09-migration,10-reviews,11-validation,12-blueprint,13-event-portal,14-executive}
-cat > "projects/$PROJECT_SLUG/context.yaml" << CTXEOF
-name: $PROJECT_SLUG
-display_name: "$DISPLAY_NAME"
-created: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-status: active
-CTXEOF
-cat > "projects/$PROJECT_SLUG/decisions.yaml" << DECEOF
-decisions: []
-DECEOF
-cat > "projects/$PROJECT_SLUG/progress.yaml" << PROGEOF
-progress: []
-PROGEOF
-cat > "projects/$PROJECT_SLUG/feedback.yaml" << FBEOF
-feedback: []
-FBEOF
-echo "$PROJECT_SLUG" > projects/.active
+- `--report` was passed
+- `execution_mode: auto` is set in the project's `decisions.yaml`
+  (reconciliation answers are user testimony and cannot be auto-decided;
+  fabricating them would corrupt the intake)
+- there is no active project (explicit-path invocation with no engagement
+  state to write decisions into)
+
+Otherwise the mode is **interactive**.
+
+Determine the engagement state. **Post-design** when the active project's
+`progress.yaml` shows any design-kind skill (topic-design, broker-select,
+sam-design, protocol-select, mesh-design, ha-dr, integration, migration,
+event-portal) `complete` or `in-progress`; also post-design when invoked with
+an explicit path and the caller's layout shows design output next to the
+intake (a sibling `design/` directory with files beyond a README). Post-design
+changes the amendment rules in Step 6 - findings still report normally.
+
+Print a one-line banner before proceeding:
+`mode: <interactive|report-only> · engagement: <pre-design|post-design> · intake: <path>`
+
+---
+
+## Step 1: Read the inputs
+
+Read in full - the review is only as grounded as what you actually read:
+
+- the intake file, including any referenced sample payload files
+- `~/.claude/skills/solace-architect/solace-grounding/integration-hub-catalog.md`
+- `~/.claude/skills/solace-architect/solace-grounding/antipatterns.md` (the intake-detectable subset)
+- `~/.claude/skills/solace-architect/solace-grounding/solace-platform-reference.md` (sections the intake touches)
+- `scripts/skill-routing.yaml` (which skills this intake will and will not
+  trigger)
+
+---
+
+## Step 2: Deterministic floor (verify first)
+
+Compute these mechanically before any judgment. Confirm or dismiss each -
+they are candidates, not conclusions:
+
+- **Field map:** every empty intake field, and which routed skill reads it.
+- **Catalog match, three ways per named system:** system name against catalog
+  entry names, the system's `protocol` value against entry names and notes,
+  and the system/driver description against entry categories. Name-only
+  matching is the known blind spot; the protocol column usually carries the
+  signal (an SFTP system matches file-transfer Micro-Integrations regardless
+  of what the service is called).
+- **Routing evaluation:** apply `skill-routing.yaml` conditions to the intake
+  values. Record which skills trigger, which do not, and which non-triggering
+  ones the stated goals appear to want.
+- **Arithmetic:** volumes vs rates vs payload sizes. State the implied math
+  ("1000/day at 200/sec peak means one five-second burst per day").
+
+---
+
+## Step 3: Judgment review
+
+Six categories. For each finding: quote the evidence, state the consequence
+for the design phase, and give a concrete recommendation. Severity ladder:
+
+- **blocker** - design would be wrong (contradictions, goal/event mismatch)
+- **warning** - design will have to guess (unnamed keys, ambiguous load)
+- **suggestion** - better Solace usage (verb granularity, payload hygiene)
+- **info** - starved-skill notes and confirmations
+
+1. **Internal contradictions.** Statements that cannot all be true: stated
+   volume vs event rates, latency tier vs the driver's implied urgency, an
+   event's delivery differing from the global delivery mode, topology vs
+   blank sites, processing guarantee vs delivery mode.
+2. **Event-model gaps.** The driver promises what the event list cannot
+   deliver: lifecycle verbs missing (a sync with no delete event diverges
+   silently), created/modified collapsed into one event where consumers would
+   subscribe by intent, request events with no reply, event semantics carried
+   inside the payload instead of the topic.
+3. **Unnamed load-bearing choices.** Options selected without the detail that
+   makes them designable: per-key ordering with no key named, guaranteed
+   delivery with no redelivery/duplicate tolerance stated, multi-region with
+   no regions listed.
+4. **Payload and sample quality.** Producer/consumer coupling (the producer
+   stating the consumer's paths or routing), samples too weak to infer a real
+   schema from (truncated hashes, placeholder values), missing identity or
+   correlation fields, payloads that should be claim-checks and are not (or
+   are, and deserve a confirmation).
+5. **Micro-Integration and protocol opportunities.** Catalog hits from Step 2
+   the intake does not acknowledge; systems marked custom that have Hub
+   entries; per-system protocol observations where the stated protocols do
+   not include how the system will actually reach the event broker.
+6. **Starved skills.** From the Step 2 field map and routing evaluation:
+   "`observability` is blank, so /solace-ops-review will design monitoring
+   from nothing" - each names the field, the skill, and what improves if one
+   line is added. Also the inverse: preferences that schedule a skill the
+   environment cannot support yet.
+
+Sound areas get confirmations (info), grouped, so the user sees the boundary
+of what was checked - a review that only lists faults reads as unfinished.
+
+**Prior answers are answers, not material to critique.** Before raising a
+finding, check the places an operator's earlier reconciliation may live -
+re-raising an answered question as a blocker or warning is double-charging
+the user for the same defect:
+
+- **A free-text clarifications field in the intake itself** (some intakes
+  carry one for answers no structured field can hold, tagged by field path).
+- **`decisions.yaml` entries with `source: solace-intake-review`** - applied
+  and kept dispositions from a previous run of this skill.
+- **`open-items.yaml` entries this skill created** - deferrals the operator
+  chose knowingly; re-report them as info ("still deferred"), never as fresh
+  findings.
+
+A concern fully answered in any of these is a **confirmation**, not an open
+finding. Recommending that a free-text answer be promoted into a structured
+field is a fair suggestion.
+
+---
+
+## Step 4: Write the findings record
+
+Write BOTH files now, before any reconciliation, in the output directory from
+Step 0 (create it; clear stale contents from a previous run first - the
+record must describe this run only).
+
+**`findings.yaml`** - the machine contract. Embedding UIs render from this;
+keep the shape exact:
+
+```yaml
+schemaVersion: 1
+generated: "<UTC timestamp>"
+intake: "<path reviewed>"
+mode: "<interactive|report-only>"
+engagement: "<pre-design|post-design>"
+verdict: NEEDS_RECONCILIATION   # READY | READY_WITH_WARNINGS | NEEDS_RECONCILIATION
+counts: { blocker: 0, warning: 0, suggestion: 0, info: 0 }
+findings:
+  - id: IR-001                  # IR-NNN, stable within this run
+    category: contradiction     # contradiction | event-model | unnamed-choice |
+                                # payload-quality | integration-opportunity | starved-skill
+    severity: blocker           # blocker | warning | suggestion | info
+    field: "landscape.volumes"  # dot-path(s) into the intake; comma-separate several
+    evidence: "volumes: 1000 events/day ... rate: 200/sec peak"
+    finding: "<one sentence: what is wrong and why it matters downstream>"
+    recommendation: "<one sentence: what to change or state>"
+    proposed_change:            # OMIT the key entirely when no mechanical edit exists
+      path: "landscape.volumes"
+      value: "bulk drops of ~200/sec for a few seconds; ~1000 events/day total"
+    status: open                # open | applied | answered | kept | deferred
+    resolution: ""              # user's words, filled during reconciliation
 ```
 
-4. Confirm creation and recommend running `/solace-discovery`.
+Verdict rules, applied mechanically from statuses: any finding with severity
+`blocker` and status `open` → `NEEDS_RECONCILIATION`; otherwise any `warning`
+open → `READY_WITH_WARNINGS`; otherwise `READY`. Confirmations are `info` with
+status `open` and do not affect the verdict.
 
-**"switch project" or "open project":**
-1. List existing projects:
+**`intake-review.md`** - the human report: verdict and counts up top, findings
+by severity with evidence and recommendations, the confirmations block, and
+the Step 2 routing/starvation table.
 
-```bash
-if ! ls projects/*/context.yaml 1>/dev/null 2>&1; then
-  echo "No projects found. Create one with 'new project <name>' or run /solace-discovery."
-else
-  for d in projects/*/context.yaml; do
-    slug=$(basename "$(dirname "$d")")
-    echo "$slug — $(head -3 "$d")"
-  done
-fi
+In **report-only** mode: print the verdict, the counts, and the two file
+paths, then go to Step 8. Nothing else is written and no file outside the
+output directory is touched.
+
+---
+
+## Step 5: Reconcile (interactive mode only)
+
+Walk findings in severity order, one AskUserQuestion each, full D<N> format.
+Skip `info` confirmations - display them, do not ask. For each finding:
+
+- **A) Apply the recommendation** - uses `proposed_change` when present;
+  otherwise you draft the minimal edit that implements the recommendation and
+  show it before writing.
+- **B) I'll state it differently** - free text; the user's words become the
+  amendment. This is the expected answer for contradictions: only the user
+  knows which number is true.
+- **C) Keep as-is** - legitimate; record the rationale ("deletes are out of
+  MVP scope") in `resolution`. A recorded scope decision is itself an intake
+  improvement.
+- **D) Defer** - no change, resurfaces later via open items.
+
+Findings without a mechanical change (starved-skill notes) offer B/C/D only.
+
+---
+
+## Step 6: Amend
+
+**Pre-design:** apply each accepted change to the intake file with Edit -
+minimal, surgical, preserving comments and field order. Never rewrite the
+whole file. Update the finding's `status` (`applied` or `answered`) and
+`resolution` in `findings.yaml` as you go, and record each amendment in
+`decisions.yaml`:
+
+**Enum discipline.** Before writing, check whether the target field is
+enum-backed: the intake template's fixed vocabularies and every `op: in`
+condition in `scripts/skill-routing.yaml` (`requirements.topology`,
+`requirements.delivery_mode`, `project.type`, and peers). Amendments to
+those fields must be one of the legal values - a free-text answer that does
+not map gets one follow-up ("which of <legal values> is it?") with the
+nuance recorded in the finding's `resolution` and, where one exists, the
+adjacent free-text field. Never prose in an enum slot: it silently reverts
+when the intake form reloads the file, and it breaks the routing conditions
+that decide which skills run.
+
+```yaml
+- decision: "<field>: <old> -> <new>"
+  rationale: "<finding id and one-line reason>"
+  source: solace-intake-review
+  severity: "<blocker|warning|suggestion>"
+  action: applied
 ```
 
-2. If projects exist, let the user pick (AskUserQuestion — this is a selection from a list).
-3. Write the selected slug to `projects/.active`.
-4. Show the project status summary (read progress.yaml).
+**Post-design:** do NOT edit the intake. The design already consumed it;
+silent amendment is the exact failure /solace-change exists to prevent. For
+each accepted change, append a `type: change-request` entry to
+`open-items.yaml` per the Change Capture convention (next CR-NNN id, verbatim,
+restated, `suspected_owner: solace-intake`), set the finding's status to
+`deferred` with `resolution: "routed to /solace-change as CR-NNN"`, and tell
+the user: `/solace-change` will classify it and compute the blast radius.
 
-**"list projects":**
-1. List all projects with status, last modified, and artifact counts:
+Kept and deferred findings of blocker or warning severity also get an
+open-items entry (severity mapped blocker → high, warning → advisory; never
+blocking - this skill is advisory by design and must not gate the plan).
 
-```bash
-if ! ls projects/*/context.yaml 1>/dev/null 2>&1; then
-  echo "No projects found."
-else
-  for d in projects/*/context.yaml; do
-    slug=$(basename "$(dirname "$d")")
-    artifacts=$(find "projects/$slug/artifacts" -type f 2>/dev/null | wc -l | tr -d ' ')
-    modified=$(stat -f "%Sm" -t "%Y-%m-%d" "$d" 2>/dev/null || stat -c "%y" "$d" 2>/dev/null | cut -d' ' -f1)
-    modified=${modified:-unknown}
-    echo "$slug — $artifacts artifacts — last modified: $modified"
-  done
-fi
-```
+---
 
-## Skill routing
+## Step 7: Re-check (interactive, bounded)
 
-When the user's request matches an available skill, invoke it.
+If any amendment was applied, re-read the amended intake and verify each
+applied finding is actually resolved and no new contradiction was introduced
+(an amended volume can newly contradict an untouched latency tier). New or
+surviving findings get fresh IR-NNN ids and one more reconcile round.
+**Maximum two re-check rounds** - then write what remains as open and move
+on. This loop must converge, not become a linter the user fights.
 
-**Primary (suggest these first):**
-- Intake template, import filled intake, kickstart from template -> `/solace-intake`
-- Review intake quality, critique the intake, check intake before design -> `/solace-intake-review`
-- Architecture discovery, new project scoping -> `/solace-discovery`
-- Orchestrate a full engagement, plan the skill sequence -> `/solace-plan`
-- Project list, project status, switch project, compare projects, archive -> `/solace-projects`
+Recompute the verdict and counts, rewrite `findings.yaml` and
+`intake-review.md` with final statuses.
 
-**Individual skills (run automatically via /solace-plan):**
-- Help, available skills, workflow order, getting started -> `/solace-help`
-- Topic taxonomy, topic hierarchy, naming, wildcard subscriptions -> `/solace-topic-design`
-- Broker type, cloud vs software vs appliance, sizing -> `/solace-broker-select`
-- SAM, agent mesh, AI assistant, chatbot agents, OrchestratorAgent -> `/solace-sam-design`
-- Protocol selection, SMF, MQTT, AMQP, JMS, REST, WebSocket -> `/solace-protocol-select`
-- DMR, event mesh topology, multi-site, multi-cloud, federation -> `/solace-mesh-design`
-- HA, DR, replication, failover, RPO/RTO -> `/solace-ha-dr`
-- Migration from Kafka, RabbitMQ, TIBCO, IBM MQ -> `/solace-migration`
-- Micro-Integration strategy, backend connectivity, Integration Hub -> `/solace-integration`
-- Event Portal governance, application domains, event catalog, schema registry -> `/solace-event-portal`
-- Architecture review, trade-off analysis -> `/solace-architect-review`
-- Operations review, monitoring, runbooks, capacity -> `/solace-ops-review`
-- Security review, ACL, TLS, compliance -> `/solace-security-review`
-- Developer experience review, SDK, onboarding -> `/solace-dev-review`
-- Validation, consistency checks, antipattern detection -> `/solace-validate`
-- Blueprint assembly, final deliverable -> `/solace-blueprint`
-- Architecture blueprint, 4+1 view, implementation-team navigation -> `/solace-architecture-blueprint`
-- Executive summary, business case, ROI, CXO report -> `/solace-executive`
-- Regenerate diagrams, update diagrams, preview diagrams -> `/solace-diagrams`
-- Change request, requirement changed after design, impact of a change, what breaks if we change X -> `/solace-change`
+---
+
+## Step 8: Complete
+
+Update `progress.yaml` (skill entry per the preamble's checkpoint convention,
+with the timing block) when an active project exists. Report using the
+Completion Status Protocol:
+
+- `DONE` - verdict READY or READY_WITH_WARNINGS
+- `DONE_WITH_CONCERNS` - verdict NEEDS_RECONCILIATION (report-only runs with
+  open blockers land here; say what is open and that
+  `/solace-intake-review` without `--report` reconciles interactively)
+
+Close with the verdict line, the counts, what changed (or "nothing - report
+only"), and any CR-NNN entries created.
+
+**Next step routing:** present using the Next Step Chaining protocol.
+- Primary: `/solace-plan` - the intake is as clean as it is going to get;
+  plan the engagement.
+- If the review ran report-only and left open blockers, primary becomes
+  running `/solace-intake-review` interactively instead.

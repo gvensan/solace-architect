@@ -1,6 +1,6 @@
 # Slash Commands Reference
 
-Solace Architect provides 23 slash commands organized into five categories: Start Here, Design, Review, Finalize, and Utility. Every command can run standalone — `/solace-plan` sequences them automatically, but you can invoke any command directly when you know what you need.
+Solace Architect provides 25 slash commands organized into six categories: Start Here, Design, Review, Finalize, Change, and Utility. Every command can run standalone — `/solace-plan` sequences them automatically, but you can invoke any command directly when you know what you need.
 
 ---
 
@@ -9,6 +9,7 @@ Solace Architect provides 23 slash commands organized into five categories: Star
 | Command | Category | One-line Description |
 |---------|----------|---------------------|
 | `/solace-intake` | Start Here | Generate an intake template for offline collection, or import a completed one to kickstart |
+| `/solace-intake-review` | Start Here | Architect-grade critique of a completed intake before design consumes it (interactive reconcile or `--report`) |
 | `/solace-discovery` | Start Here | Elicit system landscape, requirements, and goals for a new project |
 | `/solace-plan` | Start Here | Orchestrate all skills in sequence for a complete engagement |
 | `/solace-projects` | Start Here | Dashboard: list projects, view status, switch, archive, compare |
@@ -149,6 +150,7 @@ Every skill checks project state before running. This table shows what must be c
 | Skill | Hard prerequisites | Soft prerequisites (recommended) |
 |-------|--------------------|----------------------------------|
 | `/solace-intake` | None | None |
+| `/solace-intake-review` | A completed intake (`intake.yaml` or explicit path) | Run before `/solace-plan` so findings reconcile pre-design |
 | `/solace-discovery` | None | None |
 | `/solace-plan` | Discovery complete | None |
 | `/solace-projects` | None | None |
@@ -252,6 +254,49 @@ Does not cover: architecture design. Intake gathers and validates facts, then de
 ### Example
 
 An SA sends the Word template to a banking customer. The customer fills in their systems (core banking, Salesforce, knowledge base), selects "SAM integration" as project type, checks "Mixed" delivery mode, and notes PCI-DSS requirements. The SA runs `/solace-intake intake/filled-intake.docx`. Intake validates 80% completeness, asks three banking-specific follow-ups about authorization model and data classification, resolves that "mixed delivery" means transfers are Guaranteed and balance checks are Direct, and produces the discovery brief. The engagement starts running automatically.
+
+---
+
+## `/solace-intake-review`
+
+**Category:** Start Here
+**Preamble tier:** T2
+**Prerequisites:** A completed intake - the active project's `intake.yaml`, or an explicit file path (how embedding pipelines invoke it).
+
+### When to use
+
+- An intake was imported (or filled via the HTML form) and you want a senior-architect read of it before design consumes it.
+- You suspect the intake contradicts itself (volumes vs rates, latency tier vs driver) or is too thin to feed downstream skills.
+- A CI or embedding pipeline needs a machine-readable quality verdict on an intake (`--report`).
+
+### Intent
+
+Critiques the intake the way an architect reads a discovery form - not "is it filled in" (that is `/solace-intake`'s import validation) but "is it consistent, complete for what it promises, and good Solace". Six finding categories: internal contradictions, event-model gaps, unnamed load-bearing choices, payload/sample quality, missed Micro-Integration and protocol opportunities, and starved skills (blank fields a routed skill will need). Every finding quotes evidence from the intake and carries a concrete recommendation.
+
+### Invocations
+
+| Invocation | Behavior |
+|---|---|
+| `/solace-intake-review` | Review the active project's intake; reconcile findings interactively, amending the intake per your answers |
+| `/solace-intake-review --report` | Findings only - writes `findings.yaml` + `intake-review.md`, edits nothing |
+| `/solace-intake-review path/to/intake.yaml [--report]` | Review an explicit file (output lands in `<dir>/review/`) |
+
+Report-only is forced when `execution_mode: auto` is set (reconciliation answers are user testimony and cannot be auto-decided) or when there is no active project.
+
+### Amendment rules
+
+- **Pre-design:** accepted changes are applied surgically to `intake.yaml` and recorded in `decisions.yaml`; a bounded re-check (max two rounds) verifies amendments did not introduce new contradictions.
+- **Post-design:** the intake is never edited - accepted changes become `CR-NNN` change requests routed to `/solace-change`, which computes the blast radius. This is the same interception rule the change-capture preamble enforces everywhere.
+- Advisory by design: findings map to open items at `high`/`advisory` severity, never `blocking` - this skill never gates `/solace-plan`.
+
+### Outputs
+
+- **Artifacts:** `artifacts/00-intake-review/findings.yaml` (machine contract: verdict READY / READY_WITH_WARNINGS / NEEDS_RECONCILIATION, per-finding evidence, `proposed_change`, status) and `intake-review.md` (human report)
+- **Project state:** amendments in `intake.yaml` + `decisions.yaml` (pre-design) or `CR-NNN` entries in `open-items.yaml` (post-design)
+
+### Example
+
+An imported intake states "1000 events/day" and "200/sec peak" without reconciling them, picks per-key ordering without naming the key, and marks an SFTP-fed system as custom despite a cataloged file-transfer Micro-Integration path. The review writes three findings (blocker, warning, suggestion) with a NEEDS_RECONCILIATION verdict, walks each with you, amends the intake with your answers, re-checks, and hands off to `/solace-plan` with a READY verdict.
 
 ---
 
