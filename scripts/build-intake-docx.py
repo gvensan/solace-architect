@@ -133,6 +133,13 @@ FIELD_MAP = {
     'gov_citizen':        'domain.government.citizen_services',
     'gov_compliance':     'domain.government.compliance_frameworks',
 
+    # S4: Domain - Other. A catch-all vertical still has designable
+    # specifics; `domain.notes` below stays as the free-form addendum.
+    'other_regulatory': 'domain.other.regulatory_constraints',
+    'other_sensitivity':'domain.other.data_sensitivity',
+    'other_platform':   'domain.other.platform_constraints',
+    'other_rules':      'domain.other.domain_rules',
+
     's4_other':      'domain.notes',
     's4_references': 'domain.references',
 
@@ -960,6 +967,17 @@ def build_s4_domain(doc: Document, data: Optional[dict]) -> None:
                     "Public-facing event flows, accessibility requirements",   data)
     _add_field_text(doc, 'gov_compliance',     "Compliance Frameworks",
                     "e.g. FedRAMP, FISMA, NIST 800-53, CJIS",                 data)
+
+    # --- Other ---
+    _add_heading(doc, "Other", level=2)
+    _add_field_text(doc, 'other_regulatory',  "Regulatory Constraints",
+                    "Which regimes apply, and to which data? \"None\" is a real answer",  data)
+    _add_field_text(doc, 'other_sensitivity', "Data Sensitivity",
+                    "What is inside the payloads, and who may see it",          data)
+    _add_field_text(doc, 'other_platform',    "Platform Constraints",
+                    "Operating systems, hosting, or tooling the design must live with", data)
+    _add_field_text(doc, 'other_rules',       "Domain Rules A Designer Would Not Guess",
+                    "Conventions or invariants the event and topic design must respect", data)
 
     # --- Shared ---
     _add_field_text(doc, 's4_other',      "Other Domain Notes",

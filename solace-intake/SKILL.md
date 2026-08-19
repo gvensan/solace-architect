@@ -1665,6 +1665,16 @@ Classify fields into three tiers:
 **Optional** (nice to have, won't block):
 - Everything else
 
+**Always read, never optional:** `requirements.clarifications`, when present.
+Embedding pipelines (Solace Grinder) write the operator's own answers there,
+tagged by field path - the replies they gave to review findings and coaching
+questions. It is the most considered material in the file: treat every line as
+authoritative intake content, fold it into the discovery brief in Step I6, and
+never re-ask a question it already answers. An unrecognised key elsewhere in
+the file is harmless and should be carried forward the same way rather than
+discarded - a pipeline that collected more than this skill names has not made
+a mistake.
+
 Present a completeness report:
 
 > **Intake Validation Report**
@@ -1737,7 +1747,16 @@ in a consolidated follow-up prompt:
 >
 > Type your answers below — as much or as little as you have.
 
-Apply the same pattern for **Capital Markets**, **Manufacturing / IoT**, and **Healthcare**.
+Apply the same pattern for **every** vertical the intake template carries -
+Capital Markets, Manufacturing / IoT, Healthcare, Retail, Telecom, Logistics,
+Energy / Utilities, Government, and Other - reading that vertical's own
+`domain.<vertical>.*` fields. Do not limit the follow-up to a subset: a
+questionnaire that asks Retail nothing produces a design that knows nothing
+about peak season, and the intake templates carry blocks for all of them.
+
+Two shared fields sit alongside whichever block applies: `domain.notes` (free
+form domain specifics) and `domain.references` (where the authoritative
+documentation lives). Read both whatever the vertical.
 
 If domain fields are already populated from the intake, skip this step entirely.
 
@@ -1767,6 +1786,20 @@ Review the complete intake data for:
 
 Using all collected data (intake + follow-ups), produce the discovery brief in the
 same format as `/solace-discovery` Step 4:
+
+The brief ENDS with a `## Solution shape` section, produced under the
+obligations in `~/.claude/skills/solace-architect/solace-grounding/solution-shaping.md` - read that file first;
+it is the contract for this section. In short: read every sample payload and
+state what is absent, trace each event's end-to-end physical path (an
+untraceable path is the top unknown, stated - never assumed away), do or use
+the arithmetic before judging any volume, match components by capability
+against the catalog (never fabricate a Micro-Integration name), name the
+project's nature, emit AT LEAST TWO candidate solutions with cited components,
+the discriminators (each tied to an intake field dot-path), and one
+recommendation with its hinge assumption. Include the fenced
+`solution_shape:` yaml block from that doc's output shape, exactly - pipelines
+and evals parse it. One candidate is a failed shaping, not a confident answer.
+
 
 ```markdown
 # Discovery Brief: <Project Name>

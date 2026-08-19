@@ -41,6 +41,14 @@ for skill_dir in "$SA_DIR"/solace-*/; do
   if [ -L "$target" ] || [ -d "$target" ]; then rm -rf "$target"; fi
   mkdir -p "$target"
   ln -snf "$skill_dir/SKILL.md" "$target/SKILL.md"
+  # Runtime assets beside the skill doc (question banks, templates): linked so
+  # a skill can read them from its own base directory. SKILL.md.tmpl stays
+  # repo-only - it is the authored source, not a runtime file.
+  for asset in "$skill_dir"/*; do
+    base="$(basename "$asset")"
+    [ "$base" = "SKILL.md" ] || [ "$base" = "SKILL.md.tmpl" ] && continue
+    ln -snf "$asset" "$target/$base"
+  done
   echo "  linked: /$skill_name"
 done
 

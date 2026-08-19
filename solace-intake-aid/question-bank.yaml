@@ -1,0 +1,169 @@
+# The curated question bank for /solace-intake-aid - what a senior architect
+# always asks, per section and vertical. `ask` is a question SHAPE the model
+# instantiates with the intake's specifics; `why` is the design consequence;
+# `fields` is where answers usually land. Consumed by the skill (read from
+# the skill's base directory) and by Solace Grinder's instant static tier.
+goals:
+  generic:
+    - id: GB-G1
+      ask: "What business metric improves if this works - and by how much?"
+      why: "A quantified driver decides latency tier, delivery mode, and how much HA is worth paying for."
+      fields: [goals.driver]
+    - id: GB-G2
+      ask: "What does 'done' look like for the first release - which flows must work end to end?"
+      why: "Separates the MVP event set from the full taxonomy; phases the broker sizing."
+      fields: [goals.timeline, goals.driver]
+    - id: GB-G3
+      ask: "Is the timeline gated by an external date (regulation, contract, peak season)?"
+      why: "A hard date reorders the plan: coexistence bridges before elegance."
+      fields: [goals.timeline, goals.organizational_constraints]
+    - id: GB-G4
+      ask: "Does the budget prefer managed (opex, Solace Cloud) or self-run (capex, Software Event Broker)?"
+      why: "This is half of broker selection; stating it now saves a design round-trip."
+      fields: [goals.budget]
+    - id: GB-G5
+      ask: "Who has to sign off before events flow in production - security, compliance, an architecture board?"
+      why: "Approval chains become plan milestones; unstated ones become slips."
+      fields: [goals.organizational_constraints]
+    - id: GB-G6
+      ask: "Has the team run a message broker before - which one, and who operated it?"
+      why: "Team experience steers managed-vs-self-run and how much runbook the ops review must produce."
+      fields: [goals.team_size, goals.organizational_constraints]
+
+landscape:
+  generic:
+    - id: GB-L1
+      ask: "For each business object in the events, what is its full lifecycle - is anything created that is never updated or deleted?"
+      why: "A sync or projection with a missing lifecycle verb diverges silently; the gap is cheapest to state here."
+      fields: [landscape.events]
+    - id: GB-L2
+      ask: "Are the volumes steady or bursty - what does the worst minute look like, not the average day?"
+      why: "Peak rate, not daily volume, sizes the broker and decides Direct vs Guaranteed messaging."
+      fields: [landscape.volumes, landscape.events]
+    - id: GB-L3
+      ask: "How does each named system actually reach the event broker - native client, REST, or something a Micro-Integration must bridge?"
+      why: "Every system needs a concrete path to the mesh; 'REST' on a mainframe hides an integration project."
+      fields: [landscape.systems]
+    - id: GB-L4
+      ask: "Can you paste a real (redacted) payload for the highest-volume event?"
+      why: "One real sample turns schema design from guesswork into inference."
+      fields: [landscape.events]
+    - id: GB-L5
+      ask: "Does the existing messaging platform stay, shrink, or disappear - and on whose timeline?"
+      why: "Decides whether this is coexistence (bridges, dual-publish) or replacement (migration plan)."
+      fields: [landscape.existing_messaging]
+    - id: GB-L6
+      ask: "Who is allowed to change a message's structure today, and how would consumers find out?"
+      why: "Schema governance is a day-one decision; retrofitting a registry after ten consumers exist is painful."
+      fields: [landscape.schemas]
+    - id: GB-L7
+      ask: "Beyond the named consumers, who else would tap these events if they existed - analytics, audit, ML?"
+      why: "Secondary consumers justify Guaranteed messaging and topic granularity that the primary flow alone would not."
+      fields: [landscape.systems, landscape.events]
+
+requirements:
+  generic:
+    - id: GB-R1
+      ask: "If ordering matters, ordered by WHAT - which key, and is it in the payload?"
+      why: "Per-key ordering without a named key cannot be designed; the key decides partitioned-queue setup."
+      fields: [requirements.ordering]
+    - id: GB-R2
+      ask: "If a message is delivered twice, what breaks - are the consumers idempotent today?"
+      why: "Guaranteed messaging is at-least-once; duplicate tolerance decides where dedup logic must live."
+      fields: [requirements.processing_guarantee]
+    - id: GB-R3
+      ask: "Where does the latency budget actually come from - a human waiting, an SLA, or a machine loop?"
+      why: "Grounds the tier choice; 'fast' from a human and 'fast' from a trading loop are different designs."
+      fields: [requirements.latency_tier]
+    - id: GB-R4
+      ask: "If the primary site is lost, how much data loss and how much downtime is tolerable - in numbers?"
+      why: "RPO/RTO numbers select the replication mode and DR topology; adjectives do not."
+      fields: [requirements.sites_and_regions, requirements.topology]
+    - id: GB-R5
+      ask: "Which specific events carry data that must stay in a region - and does DR respect the same boundary?"
+      why: "Residency per event decides what may cross a DMR external link; a blanket statement over-constrains."
+      fields: [requirements.data_residency]
+    - id: GB-R6
+      ask: "What does the stated growth do to the PEAK rate, not the total volume?"
+      why: "Growth statements in totals hide the burst that actually sizes year-three capacity."
+      fields: [requirements.growth_expectations]
+    - id: GB-R7
+      ask: "Does anything cross an IT/OT or network-zone boundary - and who owns the firewall between them?"
+      why: "A zone crossing adds a broker placement or bridge per zone; the owner decides how long that takes."
+      fields: [requirements.it_ot_boundary]
+
+domain:
+  banking:
+    - id: GB-D-BNK1
+      ask: "Which events carry PAN or cardholder data - and can they carry a token or claim-check instead?"
+      why: "PCI-DSS scope follows the data; keeping PAN out of payloads keeps the mesh out of scope."
+      fields: [domain.banking.regulatory_constraints, domain.banking.data_classification]
+    - id: GB-D-BNK2
+      ask: "Are there settlement or cutoff windows the event flows must respect?"
+      why: "Cutoffs create daily bursts and ordering cliffs that steady-state numbers hide."
+      fields: [domain.banking.regulatory_constraints]
+    - id: GB-D-BNK3
+      ask: "How is authorization decided today, and must the event layer enforce it per topic?"
+      why: "Maps directly to ACL profile design and whether identity propagates in the message."
+      fields: [domain.banking.authorization_model]
+  capital_markets:
+    - id: GB-D-CAP1
+      ask: "Is any of this market data with entitlement or redistribution restrictions?"
+      why: "Entitlements shape per-consumer ACLs and may forbid fan-out that looks technically free."
+      fields: [domain.capital_markets]
+    - id: GB-D-CAP2
+      ask: "Which flows are latency-critical in microseconds vs milliseconds?"
+      why: "Microsecond flows point at Appliance Event Brokers and change the whole topology conversation."
+      fields: [domain.capital_markets]
+  healthcare:
+    - id: GB-D-HLT1
+      ask: "Which events contain PHI, and is there a consent model that limits who may consume them?"
+      why: "HIPAA scope and consent decide encryption, ACLs, and whether audit events are mandatory."
+      fields: [domain.healthcare]
+    - id: GB-D-HLT2
+      ask: "Are the clinical systems speaking HL7v2, FHIR, or proprietary - and who translates?"
+      why: "Decides the Micro-Integration set and whether a transformation layer is in scope."
+      fields: [domain.healthcare]
+  manufacturing:
+    - id: GB-D-MFG1
+      ask: "What speaks on the plant floor - OPC-UA, MQTT, proprietary PLC protocols?"
+      why: "Decides the edge broker/gateway story and which Micro-Integrations bridge OT to IT."
+      fields: [domain.manufacturing]
+    - id: GB-D-MFG2
+      ask: "Are there production windows when nothing may be changed or restarted?"
+      why: "Maintenance windows constrain upgrade paths and DR testing from day one."
+      fields: [domain.manufacturing]
+  retail:
+    - id: GB-D-RTL1
+      ask: "What does peak season do to the numbers - what multiple of normal is the worst hour?"
+      why: "Retail sizing is peak-event sizing; the mesh that survives November is the requirement."
+      fields: [domain.retail]
+    - id: GB-D-RTL2
+      ask: "When inventory and orders disagree, which system wins?"
+      why: "Names the source of truth per entity; event design cannot referee an unstated conflict."
+      fields: [domain.retail]
+  telecom:
+    - id: GB-D-TEL1
+      ask: "Do network elements emit events directly, or does an OSS mediation layer sit in between?"
+      why: "Direct element feeds mean huge fan-in volumes and edge aggregation; mediation means fewer, richer events."
+      fields: [domain.telecom]
+  logistics:
+    - id: GB-D-LOG1
+      ask: "How fine-grained is track-and-trace - per shipment, per package, per scan?"
+      why: "Granularity multiplies event volume by orders of magnitude and shapes the topic hierarchy."
+      fields: [domain.logistics]
+    - id: GB-D-LOG2
+      ask: "Do EDI partners participate - do their events enter the mesh, and in what format?"
+      why: "Partner integration decides B2B Micro-Integrations and where format translation lives."
+      fields: [domain.logistics]
+  energy:
+    - id: GB-D-ENR1
+      ask: "Is SCADA/OT data involved, and may the event layer touch that network at all?"
+      why: "OT isolation rules decide broker placement; some zones allow one-way flows only."
+      fields: [domain.energy]
+  government:
+    - id: GB-D-GOV1
+      ask: "What data classification levels are in play, and can differently-classified events share a broker?"
+      why: "Classification boundaries can force separate brokers or VPNs where one mesh looked sufficient."
+      fields: [domain.government]
+  other: []

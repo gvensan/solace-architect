@@ -1,0 +1,111 @@
+description: 'Directory-sync pipeline. Planted ground truth: samples carry metadata
+  only (notification, not transfer); declared payload_size describes the FILE (1000x);
+  volumes contradict event rates 41x; ordering=global is a serialization trap; Integration
+  Hub carries File Events, which name-only matching misses.'
+intake:
+  project:
+    name: folder-sync-v1
+    type: new_build
+  landscape:
+    vertical: other
+    vertical_other: Internal platform engineering requirement
+    existing_messaging: None
+    volumes: 10/sec total is true peak; 5000/day per-type is theoretical maximum
+    schemas: JSON
+    systems:
+    - name: Source Directory Watch Service
+      role: producer
+      protocol: ''
+      owner: Platform Engineering
+    - name: Target Directory Sync Service
+      role: consumer
+      protocol: ''
+      owner: Platform Engineering
+    events:
+    - name: file.created
+      trigger: New file detected in source directory
+      delivery: guaranteed
+      rate: 200/sec peak
+      payload: JSON
+      payload_size: ~1K to 256KB
+      sample_file: samples/file-created.json
+    - name: file.modified
+      trigger: Existing file modified in source directory
+      delivery: guaranteed
+      rate: 200/sec peak
+      payload: JSON
+      payload_size: ~1K to 256KB
+      sample_file: samples/file-modified.json
+    - name: file.deleted
+      trigger: File removed from source directory
+      delivery: guaranteed
+      rate: 10/sec peak
+      payload: JSON
+      payload_size: ~256B to 1KB
+      sample_file: samples/file-deleted.json
+  domain:
+    notes: ''
+    other:
+      regulatory_constraints: None
+      data_sensitivity: Internal
+      platform_constraints: ''
+      domain_rules: ''
+  requirements:
+    delivery_mode: guaranteed
+    ordering: global
+    processing_guarantee: at_least_once
+    latency_tier: minutes
+    topology: single_site
+    sites_and_regions: ''
+    it_ot_boundary: ''
+    data_residency: ''
+    growth_expectations: ''
+    operations_team: ''
+    solace_experience: ''
+    observability: ''
+    cicd: ''
+    clarifications: 'requirements.ordering: globally across the whole pipeline
+
+      goals.team_size: message broker experience is unknown
+
+      landscape.volumes: landscape.events rates of file.created "200/sec peak", file.modified
+      "200/sec peak", file.deleted "10/sec pea" (peak).
+
+      landscape.volumes: landscape.events rates of file.created "200/sec peak", file.modified
+      "200/sec peak", file.deleted "10/sec pea" (peak).'
+  goals:
+    driver: 'Manual file transfers between our source and target directories are error-prone
+      and unreliable. We need an automated, event-driven sync pipeline that detects
+      file changes in the source directory and reliably replicates them to the target
+      directory. Target SLOs: 99.9% sync success rate, <5 minute latency, zero data
+      loss.'
+    timeline: All three events (file.created, file.modified, file.deleted) in MVP
+    budget: Self-managed Software Event Broker (capex, Platform Engineering operates
+      it)
+    team_size: ''
+    organizational_constraints: ''
+  preferences:
+    execution_mode: auto
+    provision_event_portal: true
+    schemas_inferred_ack: true
+samples:
+  file-created.json: "{\n  \"eventId\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n\
+    \  \"sourcePath\": \"/data/source/reports/2026-08-08.csv\",\n  \"sourceFile\"\
+    : \"2026-08-08.csv\",\n  \"checksum\": \"sha256:9f1c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a\"\
+    ,\n  \"timestamp\": \"2026-08-08T11:32:00Z\"\n}"
+  file-deleted.json: "{\n  \"eventId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n\
+    \  \"sourcePath\": \"/data/source/reports/2026-08-07.csv\",\n  \"sourceFile\"\
+    : \"2026-08-07.csv\",\n  \"timestamp\": \"2026-08-08T09:15:00Z\"\n}"
+  file-modified.json: "{\n  \"eventId\": \"d4e5f6a7-b8c9-0123-def1-234567890123\"\
+    ,\n  \"sourcePath\": \"/data/source/reports/2026-08-08.csv\",\n  \"sourceFile\"\
+    : \"2026-08-08.csv\",\n  \"checksum\": \"sha256:9f1c2a3b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a\"\
+    ,\n  \"timestamp\": \"2026-08-08T11:32:00Z\"\n}"
+arithmetic: '- total 410/sec, 108 KB/s (event sizes from actual samples: 183-272 bytes)
+
+  - declared payload_size (1K-256KB) is far larger than every sample - likely describes
+  the FILE
+
+  - landscape.volumes says 10/sec total, event rates sum to 410/sec - unreconciled
+
+  - Integration Hub three-way match: File Events [possible via capability] for both
+  systems'
