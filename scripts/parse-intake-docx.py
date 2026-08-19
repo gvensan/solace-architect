@@ -195,6 +195,10 @@ FIELD_MAP = {
     'gov_interagency': 'domain.government.interagency_sharing',
     'gov_citizen': 'domain.government.citizen_services',
     'gov_compliance': 'domain.government.compliance_frameworks',
+    'other_regulatory': 'domain.other.regulatory_constraints',
+    'other_sensitivity': 'domain.other.data_sensitivity',
+    'other_platform': 'domain.other.platform_constraints',
+    'other_rules': 'domain.other.domain_rules',
 
     's4_other': 'domain.notes',
     's4_references': 'domain.references',

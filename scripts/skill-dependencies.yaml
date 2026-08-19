@@ -132,6 +132,14 @@ skills:
     kind: review
     consumes: []
     produces: [intake-review]
+  solace-intake-aid:
+    # Same shape as solace-intake-review, for the same reasons: reads the
+    # intake file directly (consumes: [] keeps it out of every blast radius),
+    # advisory, opt-in. The coach to the review's critic: section-scoped
+    # elicitation while the intake is being filled, not a gate on it.
+    kind: review
+    consumes: []
+    produces: [intake-aid]
   solace-architect-review:
     kind: review
     consumes: [discovery-brief, topic-taxonomy, broker-recommendation, sam-design,

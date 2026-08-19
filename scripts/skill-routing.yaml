@@ -44,6 +44,14 @@ skills:
     trigger: never
     outcome: Intake quality review - opt-in, run before design to reconcile intake defects
 
+  # Same phase/trigger reasoning as solace-intake-review above: utility keeps
+  # it out of the auto-routed intake preview; opt-in by design.
+  - name: solace-intake-aid
+    command: /solace-intake-aid
+    phase: utility
+    trigger: never
+    outcome: Section elicitation coach - opt-in, run while filling the intake to surface what a section is missing
+
   - name: solace-topic-design
     command: /solace-topic-design
     phase: design

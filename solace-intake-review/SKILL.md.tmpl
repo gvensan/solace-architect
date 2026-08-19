@@ -47,7 +47,7 @@ Two hard rules:
 
 ## Step 0: Resolve input and mode
 
-Arguments: `/solace-intake-review [path/to/intake.yaml] [--report]`
+Arguments: `/solace-intake-review [path/to/intake.yaml] [--report] [--inline]`
 
 ```bash
 ACTIVE=$(cat projects/.active 2>/dev/null || echo "")
@@ -76,6 +76,43 @@ Determine the run mode. **Report-only** when ANY of:
   state to write decisions into)
 
 Otherwise the mode is **interactive**.
+
+`--inline` is the fast path for embedding pipelines (implies report-only):
+the invocation message itself carries every input - the intake content, the
+PRECOMPUTED deterministic floor (Step 2's field map, catalog matches, routing
+evaluation, and volume arithmetic, done by the embedder's own code), prior
+dispositions, and settled aid items. In inline mode:
+
+- Read NO files and write NO files. Skip Step 1 and Step 2 entirely - the
+  floor arrives computed; your job is ONLY the Step 3 judgment.
+- Do not run `date` or any other command. Think briefly: the mechanical work
+  is done, and the embedder renders findings next to their fields, so skip
+  the confirmations prose and the intake-review.md report.
+- Cap output at the 12 most consequential findings, ranked by severity.
+- Sample payloads may be inlined in the invocation: read them in full and
+  state what is ABSENT from them as well as what is present - an event whose
+  sample carries no file content is a notification, not a transfer, and that
+  distinction reshapes the whole design.
+- When precomputed architecture arithmetic and live broker facts are
+  provided, they are AUTHORITATIVE: reason from them, never recompute, and
+  when broker facts say unreachable, state that the design assumes an
+  unverified broker.
+- Your FINAL message is exactly one fenced ```yaml block with the findings
+  document from Step 4 (omit `generated` - the embedder stamps it) and
+  nothing after the fence.
+
+An embedding pipeline may also impose, in the invocation itself:
+
+- **A severity floor** ("report only blocker and warning"). Honour it by
+  OMITTING lower-severity concerns entirely - never by refiling them at a
+  severity the floor admits. A gate the operator cannot clear is worse than a
+  finding nobody filed.
+- **A round contract** on re-reviews ("this is round N: new findings may only
+  be blockers; do not introduce new warnings; settled items are closed").
+  Honour it literally, and treat an EMPTY findings list as the expected
+  outcome for an intake that has converged. This skill is a gate, and a gate
+  that keeps producing fresh medium-severity work forever is a gate nobody can
+  pass - which is the failure this contract exists to prevent.
 
 Determine the engagement state. **Post-design** when the active project's
 `progress.yaml` shows any design-kind skill (topic-design, broker-select,
@@ -201,20 +238,32 @@ engagement: "<pre-design|post-design>"
 verdict: NEEDS_RECONCILIATION   # READY | READY_WITH_WARNINGS | NEEDS_RECONCILIATION
 counts: { blocker: 0, warning: 0, suggestion: 0, info: 0 }
 findings:
-  - id: IR-001                  # IR-NNN, stable within this run
+  - id: IR-contradiction-volumes   # STABLE ACROSS RUNS - see the id rule below
     category: contradiction     # contradiction | event-model | unnamed-choice |
                                 # payload-quality | integration-opportunity | starved-skill
     severity: blocker           # blocker | warning | suggestion | info
-    field: "landscape.volumes"  # dot-path(s) into the intake; comma-separate several
+    field: "landscape.volumes"  # the PRIMARY dot-path this finding anchors to
+    fields:                     # every involved path, primary first - REQUIRED
+      - "landscape.volumes"     # when the finding spans fields or sections
+      - "requirements.latency_tier"
     evidence: "volumes: 1000 events/day ... rate: 200/sec peak"
     finding: "<one sentence: what is wrong and why it matters downstream>"
     recommendation: "<one sentence: what to change or state>"
     proposed_change:            # OMIT the key entirely when no mechanical edit exists
       path: "landscape.volumes"
       value: "bulk drops of ~200/sec for a few seconds; ~1000 events/day total"
+    proposed_changes:           # a coherent MULTI-field fix - a contradiction's
+      - path: "..."             # resolution often edits both sides; emitting the
+        value: "..."            # pair as one decision beats two half-edits.
     status: open                # open | applied | answered | kept | deferred
     resolution: ""              # user's words, filled during reconciliation
 ```
+
+**The id rule - ids are identity, not sequence numbers.** A re-run that finds
+the same defect must use the same id, so the operator's dispositions survive
+re-runs by construction: `IR-<category>-<anchor>` where `<anchor>` is the
+primary field's last path segment (or a one-word topic slug for general
+findings). Never emit `IR-001`-style sequence ids; on a collision append `-2`.
 
 Verdict rules, applied mechanically from statuses: any finding with severity
 `blocker` and status `open` → `NEEDS_RECONCILIATION`; otherwise any `warning`
@@ -303,6 +352,32 @@ on. This loop must converge, not become a linter the user fights.
 
 Recompute the verdict and counts, rewrite `findings.yaml` and
 `intake-review.md` with final statuses.
+
+---
+
+## This skill vs /solace-intake-aid
+
+Two intake skills, one body of knowledge, two different instruments:
+
+| | **/solace-intake-review** (this skill) | **/solace-intake-aid** |
+|---|---|---|
+| Posture | Critic: what the intake says is wrong, thin, or contradictory | Coach: what should the intake say MORE about? |
+| When | Once the intake is believed complete, before design | Any time while the intake is being written, per section |
+| Scope | Whole intake, six defect categories, verdict | One section per run, top 5 items |
+| Output | Findings: severity, evidence, a verdict that gates the engagement | Items: questions and suggestions, freely ignorable |
+| Amends intake | Reconciles every finding with the user, records decisions | Only an explicitly-applied proposal |
+
+**When to use which:** heading into design with a finished intake - this
+skill, always (it is the gate). Still writing the intake and unsure what a
+section needs - the aid; running this review mid-writing floods the user
+with mandatory dispositions about sections they have not reached.
+
+**How they cooperate:** aid answers land in `requirements.clarifications`,
+which Step 3 reads as authoritative - a question settled during aid is a
+confirmation here, never a fresh finding. Embedding pipelines (Solace
+Grinder) compose both: parallel `--inline` aid passes per section for
+coaching plus one `--inline` run of this skill for judgment, rendered
+together with this skill's verdict as the gate.
 
 ---
 
