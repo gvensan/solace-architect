@@ -768,6 +768,102 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <div class="help">Which clinical events need real-time distribution (alerts, orders, results) vs batch (billing, reporting)?</div>
       <textarea data-path="domain.healthcare.realtime_vs_batch"></textarea></div>
   </div>
+
+  <div class="domain-block" data-domain="retail">
+    <h3>Retail</h3>
+    <div class="field"><label>Order and inventory systems</label>
+      <div class="help">Which systems produce and consume these events? When two disagree about stock or an order, which one wins?</div>
+      <textarea data-path="domain.retail.order_inventory_systems"></textarea></div>
+    <div class="field"><label>Peak traffic</label>
+      <div class="help">Retail sizing is peak sizing. What does the worst hour of the year look like, not the average day?</div>
+      <textarea data-path="domain.retail.peak_traffic"></textarea></div>
+    <div class="field"><label>Omnichannel</label>
+      <div class="help">Which selling channels share this data (web, app, store, marketplace), and must they see the same state?</div>
+      <textarea data-path="domain.retail.omnichannel"></textarea></div>
+    <div class="field"><label>Personalisation and real-time</label>
+      <div class="help">Which flows drive real-time personalisation, and what latency do they need?</div>
+      <textarea data-path="domain.retail.personalization_realtime"></textarea></div>
+  </div>
+  <div class="domain-block" data-domain="telecom">
+    <h3>Telecom</h3>
+    <div class="field"><label>Network event types</label>
+      <div class="help">Alarms, CDRs, provisioning changes? Do elements emit directly, or does OSS mediation aggregate first?</div>
+      <textarea data-path="domain.telecom.network_event_types"></textarea></div>
+    <div class="field"><label>OSS and BSS integration</label>
+      <div class="help">Which OSS/BSS platforms are in play (Amdocs, Netcracker, home-grown)?</div>
+      <textarea data-path="domain.telecom.oss_bss_integration"></textarea></div>
+    <div class="field"><label>Subscriber scale</label>
+      <div class="help">Subscriber count, and what it does to peak event rates.</div>
+      <textarea data-path="domain.telecom.subscriber_scale"></textarea></div>
+    <div class="field"><label>5G and edge</label>
+      <div class="help">MEC or edge sites in scope? Where would brokers sit?</div>
+      <textarea data-path="domain.telecom.five_g_edge"></textarea></div>
+  </div>
+  <div class="domain-block" data-domain="logistics">
+    <h3>Logistics</h3>
+    <div class="field"><label>Tracking and visibility</label>
+      <div class="help">Per shipment, per package, or per scan? Granularity multiplies event volume by orders of magnitude.</div>
+      <textarea data-path="domain.logistics.tracking_visibility"></textarea></div>
+    <div class="field"><label>Partner integration</label>
+      <div class="help">Do carrier or partner events enter the mesh (EDI, AS2, API), and in what format?</div>
+      <textarea data-path="domain.logistics.partner_integration"></textarea></div>
+    <div class="field"><label>Warehouse systems</label>
+      <div class="help">WMS, telematics, scanners - what produces the events?</div>
+      <textarea data-path="domain.logistics.warehouse_systems"></textarea></div>
+    <div class="field"><label>Chain of custody</label>
+      <div class="help">What must be provable after the fact, and for how long?</div>
+      <textarea data-path="domain.logistics.chain_of_custody"></textarea></div>
+  </div>
+  <div class="domain-block" data-domain="energy">
+    <h3>Energy and Utilities</h3>
+    <div class="field"><label>SCADA and grid systems</label>
+      <div class="help">May the event layer touch the OT network at all? Some zones permit one-way flows only.</div>
+      <textarea data-path="domain.energy.scada_grid"></textarea></div>
+    <div class="field"><label>Smart meters and AMI</label>
+      <div class="help">Interval, endpoint count, and what the read volumes look like.</div>
+      <textarea data-path="domain.energy.smart_meters"></textarea></div>
+    <div class="field"><label>Regulatory (NERC CIP, IEC 62351)</label>
+      <div class="help">Which regimes apply, and to which assets or data?</div>
+      <textarea data-path="domain.energy.regulatory_nerc"></textarea></div>
+    <div class="field"><label>Renewable and DER</label>
+      <div class="help">Distributed generation sites reporting in? How many, how often?</div>
+      <textarea data-path="domain.energy.renewable_der"></textarea></div>
+  </div>
+  <div class="domain-block" data-domain="government">
+    <h3>Government</h3>
+    <div class="field"><label>Data classification level</label>
+      <div class="help">Classification boundaries can force separate brokers or VPNs where one mesh looked sufficient.</div>
+      <textarea data-path="domain.government.classification_level"></textarea></div>
+    <div class="field"><label>Interagency sharing</label>
+      <div class="help">Who outside this department consumes these events, and under what agreement?</div>
+      <textarea data-path="domain.government.interagency_sharing"></textarea></div>
+    <div class="field"><label>Citizen services</label>
+      <div class="help">Which citizen-facing services depend on these events?</div>
+      <textarea data-path="domain.government.citizen_services"></textarea></div>
+    <div class="field"><label>Compliance frameworks</label>
+      <div class="help">Hosting constraints, retention, and any statutory obligations.</div>
+      <textarea data-path="domain.government.compliance_frameworks"></textarea></div>
+  </div>
+  <div class="domain-block" data-domain="other">
+    <h3>Other</h3>
+    <div class="field"><label>Regulatory constraints</label>
+      <div class="help">Which regimes apply, and to which data? "None" is a real answer and a useful one.</div>
+      <textarea data-path="domain.other.regulatory_constraints"></textarea></div>
+    <div class="field"><label>Data sensitivity</label>
+      <div class="help">What is actually inside the payloads, and who may see it?</div>
+      <textarea data-path="domain.other.data_sensitivity"></textarea></div>
+    <div class="field"><label>Platform constraints</label>
+      <div class="help">Operating systems, hosting, or tooling the design must live with.</div>
+      <textarea data-path="domain.other.platform_constraints"></textarea></div>
+    <div class="field"><label>Domain rules a designer would not guess</label>
+      <div class="help">Conventions, invariants, or business rules the event and topic design has to respect.</div>
+      <textarea data-path="domain.other.domain_rules"></textarea></div>
+  </div>
+
+  <div class="field"><label>Anything else about this domain</label>
+    <div class="help">Conventions, invariants, or constraints the questions above did not reach. Free form on purpose.</div>
+    <textarea data-path="domain.notes"></textarea></div>
+
 </section>
 
 <!-- ── Section 4: Requirements ───────────────────────────────────────── -->

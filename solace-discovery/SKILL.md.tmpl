@@ -407,6 +407,20 @@ Only ask about what is still missing.
 
 ## Step 4: Synthesize the discovery brief
 
+The brief ENDS with a `## Solution shape` section, produced under the
+obligations in `{{GROUNDING_DIR}}/solution-shaping.md` - read that file first;
+it is the contract for this section. In short: read every sample payload and
+state what is absent, trace each event's end-to-end physical path (an
+untraceable path is the top unknown, stated - never assumed away), do or use
+the arithmetic before judging any volume, match components by capability
+against the catalog (never fabricate a Micro-Integration name), name the
+project's nature, emit AT LEAST TWO candidate solutions with cited components,
+the discriminators (each tied to an intake field dot-path), and one
+recommendation with its hinge assumption. Include the fenced
+`solution_shape:` yaml block from that doc's output shape, exactly - pipelines
+and evals parse it. One candidate is a failed shaping, not a confident answer.
+
+
 Once you have sufficient information (you will rarely get everything — that is fine),
 produce a **Discovery Brief** in this structure:
 

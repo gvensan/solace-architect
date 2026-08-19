@@ -1,0 +1,23 @@
+review:
+  must_flag_fields:
+  - landscape.volumes
+  may_flag_fields:
+  - requirements.ordering
+  - landscape.systems
+  - landscape.events
+  max_findings: 12
+  forbidden_severities_below_floor:
+  - suggestion
+  - info
+shape:
+  min_candidates: 2
+  must_mention_any:
+  - File Events
+  must_find_absence:
+  - no file content
+  - metadata only
+  - metadata-only
+  - notification
+  - does not carry the file
+  discriminator_fields_must_be_real: true
+  must_name_nature: true

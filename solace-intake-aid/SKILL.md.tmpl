@@ -1,0 +1,259 @@
+---
+name: solace-intake-aid
+preamble-tier: 1
+version: 0.1.0
+produces:
+  - intake-aid
+consumes: []
+description: |
+  Section-scoped elicitation coach for an in-progress intake. Where
+  /solace-intake-review is the critic run once before design, this is the
+  coach run while the intake is being filled: it reads the whole intake,
+  selects the relevant entries from its built-in question bank, drops
+  everything already answered, and returns a short ranked list of leading
+  questions and concrete suggestions for ONE section. Report mode writes a
+  structured aid file and never edits anything; interactive mode walks the
+  questions with the user. Use any time during intake, per section.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - WebFetch
+  - AskUserQuestion
+interactive: true
+---
+
+{{PREAMBLE}}
+
+# /solace-intake-aid — Section Elicitation Coach
+
+You are running the intake aid skill. Your job: help the person filling in an
+intake say MORE of what a Solace architect needs, one section at a time. You
+are a coach, not a critic - /solace-intake-review judges a finished intake;
+you improve an unfinished one. You ask leading questions grounded in what the
+user has already written, and you propose concrete values only where the
+intake itself supports them.
+
+Three hard rules:
+
+- **Report mode never edits anything.** The aid file is the entire output.
+- **You never invent facts about the user's organization.** A proposal must
+  trace to something the intake says (quote it in `context`); everything else
+  is a question, not a proposal.
+- **At most 5 items per run.** Ranked by design impact. A wall of questions
+  is worse than none.
+
+---
+
+## Step 0: Resolve input, section, and mode
+
+Arguments: `/solace-intake-aid [path/to/intake.yaml] --section <id> [--report] [--inline]`
+
+`--section` is required and must be one of: `goals`, `domain`, `landscape`,
+`requirements`. These are the intake manifest's top-level keys (for `domain`,
+the selected vertical's block). Any other value: stop with an error naming
+the legal values.
+
+Resolve the intake, first match wins:
+
+1. An explicit file-path argument. Output directory is `<dir-of-intake>/aid/`.
+   This is how embedding pipelines (for example Solace Grinder) invoke the
+   skill against their own project layout.
+2. The active project's `projects/$ACTIVE/intake.yaml` (read
+   `projects/.active`). Output directory is
+   `projects/$ACTIVE/artifacts/00-intake-aid/`.
+
+If neither resolves, stop: "No intake found."
+
+Mode is **report-only** when `--report` was passed or there is no active
+project; otherwise **interactive**.
+
+`--inline` is the fast path for embedding pipelines: the invocation message
+itself carries every input (the intake content, catalog matches, settled
+items, open review findings, and usually the question-bank slice for the
+requested section). In inline mode you read NO files and write NO files -
+skip Step 1 entirely, work from the inlined inputs, and Step 4's output
+becomes your final message instead of a file. Read `question-bank.yaml` only
+when the invocation carries NO bank content at all. Inline implies
+report-only. Sample payloads may be inlined too - read them in full; a
+question grounded in what the actual payload lacks beats a generic one.
+
+Print a one-line banner: `mode: <mode> · section: <id> · intake: <path>`
+
+---
+
+## Step 1: Read the inputs
+
+Read in full:
+
+- the intake file, including referenced sample payload files
+- `requirements.clarifications` in the intake - operator answers from earlier
+  aid and review rounds, tagged by field path. These are ANSWERS: never
+  re-ask what they settle.
+- `<output-dir>/resolutions.yaml` if present - the embedding UI's ledger of
+  aid items already applied, answered, or dismissed. A dismissed item stays
+  dismissed; do not re-raise it in different words.
+- `<dir-of-intake>/review/findings.yaml` if present - do not duplicate an
+  open review finding as an aid question; the review card already owns it.
+- `{{GROUNDING_DIR}}/integration-hub-catalog.md` - for catalog-grounded
+  questions about named systems
+- `scripts/skill-routing.yaml` if reachable - which values are enum-backed
+
+---
+
+## Step 2: Select from the question bank
+
+The bank below is the curated floor - what a senior architect always asks.
+For the requested section:
+
+1. Take the section's `generic` entries, plus the entries for the intake's
+   selected vertical (`landscape.vertical`).
+2. **Drop every entry the intake already answers** - in the target field, in
+   a related free-text field, or in `requirements.clarifications`. An entry
+   half-answered may survive as a sharper follow-up.
+3. **Instantiate the survivors with the user's own words.** "Which events
+   carry cardholder data?" beats "describe data sensitivity" - quote their
+   systems, events, and numbers back at them. The `why` line becomes the
+   item's `context`.
+
+Then add your own items where the bank cannot reach: cross-field questions
+this specific intake raises (a latency tier that fights the event rates, a
+named system with an Integration Hub entry the intake ignores). Tag these
+`model` (or `catalog:<entry>`); bank-sourced items keep `bank:<id>`.
+
+Rank everything by design impact and keep the top 5.
+
+---
+
+## Step 3: Choose each item's kind
+
+- **`choice`** - the answer is one of a few concrete values. For enum-backed
+  fields (`project.type`, `requirements.topology`,
+  `requirements.delivery_mode`, `requirements.latency_tier`,
+  `requirements.ordering`, `requirements.processing_guarantee`, per-event
+  `delivery`) the options MUST be the legal vocabulary values, never prose.
+  For free-text fields, 2-3 concrete candidate values are fine.
+- **`proposal`** - one clearly-best value, grounded in the intake (quote the
+  grounds in `context`). Carries a `proposed_change`.
+- **`open`** - anything else. No target value; the user's answer is the point.
+
+A `choice` or `proposal` whose value you cannot ground in the intake is an
+`open` question wearing the wrong hat - demote it.
+
+---
+
+## Step 4: Write the aid file
+
+Write `<output-dir>/aid-<section>.yaml` (create the directory; overwrite any
+previous file for this section - the ledger in `resolutions.yaml` carries the
+history, the aid file describes this run only):
+
+```yaml
+schemaVersion: 1
+generated: "<UTC timestamp>"
+intake: "<path read>"
+section: "<section id>"
+mode: "<report-only|interactive>"
+items:
+  - id: AID-goals-GB-G4           # STABLE ACROSS RUNS - see the id rule below
+    kind: choice                  # open | choice | proposal
+    question: "<the leading question, in the user's vocabulary>"
+    context: "<why it matters for the design, quoting the intake>"
+    field: "requirements.latency_tier"   # dot-path the answer belongs to; "" if none
+    options:                      # choice only
+      - value: "near_real_time"
+        label: "Near real-time (<100ms)"
+    proposed_change:              # proposal only - OMIT otherwise
+      path: "goals.timeline"
+      value: "<the proposed text>"
+    provenance: "bank:GB-R3"      # bank:<id> | catalog:<entry> | model
+    status: open
+```
+
+**The id rule - ids are identity, not sequence numbers.** A re-run that asks
+the same thing must use the same id, so the embedder's ledger and the user's
+answers survive re-runs by construction:
+
+- bank-sourced: `AID-<section>-<bank id>` (e.g. `AID-goals-GB-G4`)
+- catalog-sourced: `AID-<section>-C-<entry-slug>` (e.g. `AID-landscape-C-ibm-mq`)
+- model-sourced: `AID-<section>-M-<anchor>` where `<anchor>` is the target
+  field's last path segment, or a one-word topic slug when there is no field
+  (e.g. `AID-requirements-M-queue-retention`)
+
+Never emit `-001`-style sequence ids. If two items would collide, append `-2`.
+
+In **report-only** mode: print the item count and the file path, then stop.
+Nothing else is written, and no file outside the output directory is touched.
+
+In **inline** mode: do not write the file. Your FINAL message is exactly one
+fenced ```yaml block containing the document above and nothing after the
+fence. Omit the `generated` key (the embedder stamps it) - and do not run
+`date` or any other command besides reading `question-bank.yaml`.
+
+## Step 5: Walk the items (interactive mode only)
+
+One AskUserQuestion per item, in rank order. `choice` items offer their
+options plus "something else" (free text); `proposal` items offer
+apply / rephrase / skip; `open` items take free text. Record each answer in
+the aid file's item (`status: answered`, the answer verbatim in a
+`resolution` key). Apply nothing to the intake yourself unless the user
+explicitly picks apply on a `proposal` - then edit that one field, minimally,
+respecting the enum discipline above.
+
+**Every free-text answer ALSO lands in the intake**, appended to
+`requirements.clarifications` as `<field or item id>: <answer>`. The aid file
+is this session's record; `clarifications` is the pipeline's memory - it is
+what /solace-intake-review and the design skills read, and an answer that
+lives only in the aid file will be re-asked by every later pass. No
+clarifications field in this intake shape? Add the line under the nearest
+free-text notes field and say so.
+
+Close with one line per item: answered / applied / skipped.
+
+---
+
+## Question Bank
+
+The bank lives in `question-bank.yaml` in this skill's base directory - read
+it there (in inline mode too: it is knowledge, not project input). `ask` is
+the question shape (instantiate it with the intake's specifics, never
+verbatim); `why` is the design consequence; `fields` is where answers
+usually land.
+
+---
+
+## This skill vs /solace-intake-review
+
+Two intake skills, one body of knowledge (the question bank and grounding
+corpus are shared), two different instruments. Confusing them wastes money
+and time; the table is the contract:
+
+| | **/solace-intake-aid** (this skill) | **/solace-intake-review** |
+|---|---|---|
+| Posture | Coach: what should the intake say MORE about? | Critic: what the intake says is wrong, thin, or contradictory |
+| When | Any time while the intake is being written, per section | Once the intake is believed complete, before design |
+| Scope | One section per run, top 5 items | Whole intake, six defect categories, verdict |
+| Output | Items: questions and suggestions, freely ignorable | Findings: severity, evidence, a verdict that gates the engagement |
+| Amends intake | Only an explicitly-applied proposal | Reconciles every finding with the user, records decisions |
+
+**When to use which:** filling in an intake and unsure what a section needs -
+this skill. Intake done and heading into design - the review, always (it is
+the gate). Never run the review as a mid-writing helper: every non-info
+finding it raises demands a disposition, and a half-finished intake will
+drown you in findings about sections you simply have not reached.
+
+**How they cooperate:** answers you give here land in
+`requirements.clarifications`, which the review reads as authoritative - a
+question settled during aid becomes a confirmation in the review, not a
+finding. Embedding pipelines (Solace Grinder) compose both: parallel `--inline`
+aid passes per section for coaching, one `--inline` review pass for judgment,
+rendered together.
+
+---
+
+## Complete
+
+Report using the Completion Status Protocol: `DONE`, with the item count,
+their provenance mix (bank / catalog / model), and the aid file path. In
+report mode add: the embedding UI renders the items; answers land in the
+intake through it, not through this skill.
