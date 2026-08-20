@@ -928,3 +928,4 @@ When the user's request matches an available skill, invoke it.
 - Executive summary, business case, ROI, CXO report -> `/solace-executive`
 - Regenerate diagrams, update diagrams, preview diagrams -> `/solace-diagrams`
 - Change request, requirement changed after design, impact of a change, what breaks if we change X -> `/solace-change`
+
